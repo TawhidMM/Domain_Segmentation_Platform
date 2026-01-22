@@ -60,4 +60,37 @@ export interface ToolConfig {
   parameters: ParameterConfig[];
 }
 
+// API-based tool schema types
+export type ToolParameterType = 'int' | 'enum' | 'float_range' | 'int_list' | 'float_list' | 'bool' | 'float';
+
+export interface FloatRangeDefault {
+  min: number;
+  max: number;
+  step: number;
+}
+
+export interface DependsOnCondition {
+  [paramKey: string]: string[];
+}
+
+export interface ToolParameterSchema {
+  type: ToolParameterType;
+  label: string;
+  default: number | string | number[] | FloatRangeDefault;
+  min?: number;
+  max?: number;
+  options?: string[];
+  depends_on?: DependsOnCondition;
+  ui_group: 'basic' | 'advanced';
+}
+
+export interface ToolSchema {
+  tool_id: string;
+  label: string;
+  description: string;
+  params: {
+    [key: string]: ToolParameterSchema;
+  };
+}
+
 export type WorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison';

@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Box, Button, Divider, Stepper, Step, StepLabel, Paper } from '@mui/material';
 import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
-import { getToolById } from '@/data/toolConfigs';
-import { ParameterValue } from '@/types';
+import { ToolSchema } from '@/types';
+import { initializeParameterValues, prepareParametersForSubmission, validateParameterValues } from '@/utils/parameterUtils';
 import ToolSelector from './ToolSelector';
 import ParameterConfig from './ParameterConfig';
 
@@ -11,78 +11,110 @@ const ExperimentBuilder: React.FC = () => {
   const { createExperiment } = useApp();
   const [activeStep, setActiveStep] = useState(0);
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
-  const [parameters, setParameters] = useState<ParameterValue>({});
+  const [selectedToolSchema, setSelectedToolSchema] = useState<ToolSchema | null>(null);
+  const [parameters, setParameters] = useState<Record<string, any>>({});
 
-  const selectedTool = useMemo(() => {
-    if (!selectedToolId) return null;
-    return getToolById(selectedToolId);
-  }, [selectedToolId]);
-
-  const handleToolSelect = (toolId: string) => {
+  const handleToolSelect = (toolId: string, schema: ToolSchema) => {
     setSelectedToolId(toolId);
-    const tool = getToolById(toolId);
-    if (tool) {
-      // Initialize parameters with default values
-      const defaultParams: ParameterValue = {};
-      tool.parameters.forEach((param) => {
-        defaultParams[param.id] = param.defaultValue;
-      });
-      setParameters(defaultParams);
-    }
+    setSelectedToolSchema(schema);
+    // Initialize parameters with default values from schema
+    const defaultParams = initializeParameterValues(schema);
+    setParameters(defaultParams);
   };
 
   const handleCreateExperiment = () => {
-    if (selectedToolId && selectedTool) {
-      createExperiment(selectedToolId, parameters);
+    if (selectedToolId && selectedToolSchema) {
+      // Validate parameters
+      const validation = validateParameterValues(selectedToolSchema, parameters);
+      if (!validation.valid) {
+        console.error('Validation errors:', validation.errors);
+        alert(`Please fix the following errors:\n${validation.errors.join('\n')}`);
+        return;
+      }
+
+      // Prepare parameters (expand float_range, etc.)
+      const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
+      
+      createExperiment(selectedToolId, preparedParams);
     }
   };
 
   const steps = ['Select Tool', 'Configure Parameters'];
 
+  const handleChangeTool = () => {
+    setActiveStep(0);
+  };
+
   return (
-    <Box sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+    <Box
+      sx={{
+        p: 4,
+        maxWidth: 1200,
+        mx: 'auto',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 3,
+      }}
+    >
+      <Box sx={{ flex: 1, overflowY: 'auto', pb: 10 }}>
+        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          {activeStep === 0 && <ToolSelector selectedToolId={selectedToolId} onSelectTool={handleToolSelect} />}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        {activeStep === 0 && <ToolSelector selectedToolId={selectedToolId} onSelectTool={handleToolSelect} />}
+          {activeStep === 1 && selectedToolSchema && (
+            <ParameterConfig toolSchema={selectedToolSchema} values={parameters} onChange={setParameters} />
+          )}
+        </Paper>
+      </Box>
 
-        {activeStep === 1 && selectedTool && (
-          <ParameterConfig parameters={selectedTool.parameters} values={parameters} onChange={setParameters} />
-        )}
-      </Paper>
-
-      <Divider sx={{ my: 3 }} />
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Button
-          variant="outlined"
-          startIcon={<ArrowBack />}
-          onClick={() => setActiveStep((prev) => prev - 1)}
-          disabled={activeStep === 0}
-        >
-          Back
-        </Button>
-
-        {activeStep < steps.length - 1 ? (
+      <Box
+        sx={{
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 5,
+          backgroundColor: 'background.paper',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          py: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Button
-            variant="contained"
-            endIcon={<ArrowForward />}
-            onClick={() => setActiveStep((prev) => prev + 1)}
-            disabled={!selectedToolId}
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            onClick={() => setActiveStep((prev) => prev - 1)}
+            disabled={activeStep === 0}
           >
-            Continue
+            Back
           </Button>
-        ) : (
-          <Button variant="contained" startIcon={<Add />} onClick={handleCreateExperiment} disabled={!selectedToolId}>
-            Create Experiment
-          </Button>
-        )}
+
+          {activeStep < steps.length - 1 ? (
+            <Button
+              variant="contained"
+              endIcon={<ArrowForward />}
+              onClick={() => setActiveStep((prev) => prev + 1)}
+              disabled={!selectedToolId}
+            >
+              Continue
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={handleCreateExperiment}
+              disabled={!selectedToolId}
+            >
+              Create Experiment
+            </Button>
+          )}
+        </Box>
       </Box>
     </Box>
   );
