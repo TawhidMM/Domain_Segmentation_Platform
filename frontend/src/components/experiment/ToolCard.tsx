@@ -1,9 +1,9 @@
 import React from 'react';
 import { Paper, Typography, Box, Radio } from '@mui/material';
-import { ToolConfig } from '@/types';
+import { ToolSchema } from '@/types';
 
 interface ToolCardProps {
-  tool: ToolConfig;
+  tool: ToolSchema;
   selected: boolean;
   onSelect: () => void;
 }
@@ -38,13 +38,10 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, selected, onSelect }) => {
         />
         <Box sx={{ flex: 1 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-            {tool.name}
+            {tool.label}
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
             {tool.description}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.disabled', lineHeight: 1.6 }}>
-            {tool.fullDescription}
           </Typography>
         </Box>
       </Box>
