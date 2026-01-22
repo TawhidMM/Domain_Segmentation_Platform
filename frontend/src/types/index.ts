@@ -2,7 +2,12 @@ export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'complet
 
 export interface Dataset {
   id: string;
-  geneExpressionFile: File | null;
+  geneExpressionFile: null | {
+    name: string;
+    size: number;
+    uploadProgress: number;
+    status: 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
+  };
   spatialCoordinatesFile: File | null;
   tissueImageFile: File | null;
   summary: {

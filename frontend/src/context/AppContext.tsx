@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 import { Dataset, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue } from '@/types';
 import { generateMockDatasetSummary, generateMockResult } from '@/data/mockData';
 import { getToolById } from '@/data/toolConfigs';
+import { uploadGeneExpressionFile } from '@/services/uploadService';
 
 interface AppContextType {
   dataset: Dataset;
@@ -44,15 +45,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('upload');
   const [comparisonExperimentIds, setComparisonExperimentIds] = useState<string[]>([]);
 
-  const uploadGeneExpression = useCallback((file: File) => {
-    setDataset((prev) => {
-      const newDataset = { ...prev, geneExpressionFile: file };
-      if (newDataset.geneExpressionFile && newDataset.spatialCoordinatesFile && !newDataset.summary) {
-        newDataset.summary = generateMockDatasetSummary();
+  const uploadGeneExpression = useCallback(
+    async (file: File) => {
+      // Set initial upload state
+      setDataset((prev) => ({
+        ...prev,
+        geneExpressionFile: {
+          name: file.name,
+          size: file.size,
+          uploadProgress: 0,
+          status: 'uploading',
+        },
+      }));
+
+      try {
+        // Call upload service with progress callback
+        await uploadGeneExpressionFile(file, dataset.id, (progress) => {
+          setDataset((prev) => ({
+            ...prev,
+            geneExpressionFile: prev.geneExpressionFile
+              ? { ...prev.geneExpressionFile, uploadProgress: progress }
+              : null,
+          }));
+        });
+
+        // Mark as uploaded and start processing
+        setDataset((prev) => ({
+          ...prev,
+          geneExpressionFile: prev.geneExpressionFile
+            ? { ...prev.geneExpressionFile, status: 'processing' }
+            : null,
+        }));
+
+        // Populate summary after upload completes
+        setDataset((prev) => ({
+          ...prev,
+          summary: prev.summary || generateMockDatasetSummary(),
+          geneExpressionFile: prev.geneExpressionFile
+            ? { ...prev.geneExpressionFile, status: 'ready' }
+            : null,
+        }));
+      } catch (err) {
+        console.error('Upload failed:', err);
+        setDataset((prev) => ({
+          ...prev,
+          geneExpressionFile: prev.geneExpressionFile
+            ? { ...prev.geneExpressionFile, status: 'error', uploadProgress: 0 }
+            : null,
+        }));
       }
-      return newDataset;
-    });
-  }, []);
+    },
+    [dataset.id]
+  );
 
   const uploadSpatialCoordinates = useCallback((file: File) => {
     setDataset((prev) => {
@@ -69,7 +113,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const isDatasetReady = useCallback(() => {
-    return !!(dataset.geneExpressionFile && dataset.spatialCoordinatesFile);
+    return !!(dataset.geneExpressionFile /* && dataset.spatialCoordinatesFile */);
   }, [dataset]);
 
   const createExperiment = useCallback((toolId: string, parameters: ParameterValue) => {
