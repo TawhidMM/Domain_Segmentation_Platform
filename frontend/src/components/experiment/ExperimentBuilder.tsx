@@ -35,7 +35,7 @@ const ExperimentBuilder: React.FC = () => {
       // Prepare parameters (expand float_range, etc.)
       const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
       
-      createExperiment(selectedToolId, preparedParams);
+      createExperiment(selectedToolId, preparedParams, selectedToolSchema.label);
     }
   };
 

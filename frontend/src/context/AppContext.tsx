@@ -18,7 +18,7 @@ interface AppContextType {
   isDatasetReady: () => boolean;
   
   // Experiment actions
-  createExperiment: (toolId: string, parameters: Record<string, unknown>) => void;
+  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string) => void;
   setActiveExperiment: (id: string | null) => void;
   submitExperiments: (email: string) => void;
   toggleComparisonExperiment: (id: string) => void;
@@ -116,14 +116,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return !!(dataset.geneExpressionFile /* && dataset.spatialCoordinatesFile */);
   }, [dataset]);
 
-  const createExperiment = useCallback((toolId: string, parameters: ParameterValue) => {
+  const createExperiment = useCallback((toolId: string, parameters: ParameterValue, toolLabel?: string) => {
     const tool = getToolById(toolId);
-    if (!tool) return;
 
     const experiment: Experiment = {
       id: crypto.randomUUID(),
       toolId,
-      toolName: tool.name,
+      toolName: tool?.name || toolLabel || toolId,
       parameters,
       status: 'not-submitted',
       createdAt: new Date(),
