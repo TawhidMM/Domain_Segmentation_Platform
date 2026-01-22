@@ -10,6 +10,9 @@ interface SpatialPlotProps {
   height?: number;
   showLegend?: boolean;
   compact?: boolean;
+  rotation?: number;
+  mirrorX?: boolean;
+  mirrorY?: boolean;
 }
 
 const SpatialPlot: React.FC<SpatialPlotProps> = ({
@@ -18,32 +21,50 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   height = 500,
   showLegend = true,
   compact = false,
+  rotation = 0,
+  mirrorX = false,
+  mirrorY = false,
 }) => {
   const plotData: Data[] = useMemo(() => {
-    if (!result) return [];
+    if (!result || !result.spots || !result.domains) return [];
 
-    const uniqueDomains = [...new Set(result.domains)].sort((a, b) => a - b);
+    // Helper to transform coordinates
+    const transformCoords = (x: number, y: number) => {
+      let newX = x;
+      let newY = y;
 
-    return uniqueDomains.map((domain) => {
-      const indices = result.domains
-        .map((d, i) => (d === domain ? i : -1))
-        .filter((i) => i !== -1);
+      // Apply mirroring first
+      if (mirrorX) newX = -newX;
+      if (mirrorY) newY = -newY;
+
+      // Apply rotation
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      const rotatedX = newX * cos - newY * sin;
+      const rotatedY = newX * sin + newY * cos;
+
+      return { x: rotatedX, y: rotatedY };
+    };
+
+    return result.domains.map((domain) => {
+      const spotsForDomain = result.spots.filter((spot) => spot.domain === domain.id);
 
       return {
-        x: indices.map((i) => result.coordinates[i].x),
-        y: indices.map((i) => result.coordinates[i].y),
+        x: spotsForDomain.map((spot) => transformCoords(spot.x, spot.y).x),
+        y: spotsForDomain.map((spot) => transformCoords(spot.x, spot.y).y),
         mode: 'markers' as const,
         type: 'scatter' as const,
-        name: `Domain ${domain + 1}`,
+        name: `Domain ${domain.id + 1}`,
         marker: {
-          color: result.domainColors[domain],
+          color: domain.color,
           size: compact ? 4 : 6,
           opacity: 0.8,
         },
-        hovertemplate: `Domain ${domain + 1}<br>X: %{x:.1f}<br>Y: %{y:.1f}<extra></extra>`,
+        hovertemplate: `Domain ${domain.id + 1}<br>X: %{x:.1f}<br>Y: %{y:.1f}<extra></extra>`,
       };
     });
-  }, [result, compact]);
+  }, [result, compact, rotation, mirrorX, mirrorY]);
 
   const layout: Partial<Layout> = useMemo(
     () => ({
