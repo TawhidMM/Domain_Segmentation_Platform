@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Typography, ToggleButtonGroup, ToggleButton, Button, Chip, Paper, Divider } from '@mui/material';
-import { Download, GridView, CenterFocusWeak, Schedule, PlayArrow, Check } from '@mui/icons-material';
+import { Box, Typography, ToggleButtonGroup, ToggleButton, Button, Chip, Paper, Divider, IconButton, Tooltip } from '@mui/material';
+import { Download, GridView, CenterFocusWeak, Schedule, PlayArrow, Check, Refresh, RotateRight, FlipToFront, Flip } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { Experiment } from '@/types';
 import SpatialPlot from './SpatialPlot';
@@ -11,20 +11,24 @@ interface FocusViewProps {
 }
 
 const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
-  const { setWorkspaceMode, experiments, comparisonExperimentIds, toggleComparisonExperiment } = useApp();
+  const { setWorkspaceMode, experiments, comparisonExperimentIds, toggleComparisonExperiment, refreshExperimentResult } = useApp();
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
+  const [mirrorX, setMirrorX] = useState(false);
+  const [mirrorY, setMirrorY] = useState(false);
 
   const completedExperiments = experiments.filter((e) => e.status === 'completed');
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
 
   const handleDownloadCSV = () => {
-    if (!experiment.result) return;
+    if (!experiment.result || !experiment.result.spots) return;
     
-    const csvContent = experiment.result.domains
-      .map((domain, i) => `${experiment.result!.coordinates[i].x},${experiment.result!.coordinates[i].y},${domain}`)
+    const csvContent = experiment.result.spots
+      .map((spot) => `${spot.barcode},${spot.x},${spot.y},${spot.domain}`)
       .join('\n');
     
-    const blob = new Blob([`x,y,domain\n${csvContent}`], { type: 'text/csv' });
+    const blob = new Blob([`barcode,x,y,domain\n${csvContent}`], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -46,6 +50,25 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
   };
 
   const statusInfo = getStatusInfo();
+
+  const handleRefreshResult = async () => {
+    if (!experiment.jobId) return;
+    setIsRefreshing(true);
+    await refreshExperimentResult(experiment.id);
+    setIsRefreshing(false);
+  };
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const handleMirrorX = () => {
+    setMirrorX((prev) => !prev);
+  };
+
+  const handleMirrorY = () => {
+    setMirrorY((prev) => !prev);
+  };
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -95,8 +118,39 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
           )}
 
           {experiment.status === 'completed' && (
-            <Button variant="outlined" startIcon={<Download />} onClick={handleDownloadCSV} size="small">
-              Download CSV
+            <>
+              <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
+                <Tooltip title="Rotate 90°">
+                  <IconButton size="small" onClick={handleRotate}>
+                    <RotateRight fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Mirror Horizontal">
+                  <IconButton size="small" onClick={handleMirrorX} color={mirrorX ? 'primary' : 'default'}>
+                    <Flip fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Mirror Vertical">
+                  <IconButton size="small" onClick={handleMirrorY} color={mirrorY ? 'primary' : 'default'}>
+                    <FlipToFront fontSize="small" sx={{ transform: 'rotate(90deg)' }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              <Button variant="outlined" startIcon={<Download />} onClick={handleDownloadCSV} size="small">
+                Download CSV
+              </Button>
+            </>
+          )}
+
+          {experiment.jobId && experiment.status !== 'completed' && (
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={handleRefreshResult}
+              size="small"
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? 'Refreshing…' : 'Check Result'}
             </Button>
           )}
 
@@ -111,7 +165,7 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
       {/* Main Content */}
       <Box sx={{ flex: 1, p: 3, overflow: 'auto' }} className="workspace-scroll">
         {experiment.status === 'completed' && experiment.result ? (
-          <SpatialPlot result={experiment.result} height={550} />
+          <SpatialPlot result={experiment.result} height={550} rotation={rotation} mirrorX={mirrorX} mirrorY={mirrorY} />
         ) : (
           <Paper
             sx={{

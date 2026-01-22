@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { Dataset, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue } from '@/types';
-import { generateMockDatasetSummary, generateMockResult } from '@/data/mockData';
-import { getToolById } from '@/data/toolConfigs';
+import { generateMockDatasetSummary } from '@/data/mockData';
 import { uploadGeneExpressionFile } from '@/services/uploadService';
+import { fetchExperimentResult } from '@/services/experimentService';
+import axios from '@/lib/axios';
 
 interface AppContextType {
   dataset: Dataset;
@@ -21,6 +22,7 @@ interface AppContextType {
   createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string) => void;
   setActiveExperiment: (id: string | null) => void;
   submitExperiments: (email: string) => void;
+  refreshExperimentResult: (experimentId: string) => Promise<void>;
   toggleComparisonExperiment: (id: string) => void;
   clearComparisonExperiments: () => void;
   
@@ -34,6 +36,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [dataset, setDataset] = useState<Dataset>({
     id: crypto.randomUUID(),
+    uploadId: null, // Backend upload_id from file upload
     geneExpressionFile: null,
     spatialCoordinatesFile: null,
     tissueImageFile: null,
@@ -60,7 +63,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       try {
         // Call upload service with progress callback
-        await uploadGeneExpressionFile(file, dataset.id, (progress) => {
+        const uploadId = await uploadGeneExpressionFile(file, dataset.id, (progress) => {
           setDataset((prev) => ({
             ...prev,
             geneExpressionFile: prev.geneExpressionFile
@@ -69,9 +72,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }));
         });
 
-        // Mark as uploaded and start processing
+        // Mark as uploaded and start processing, store uploadId
         setDataset((prev) => ({
           ...prev,
+          uploadId, // Store backend upload_id for experiment submission
           geneExpressionFile: prev.geneExpressionFile
             ? { ...prev.geneExpressionFile, status: 'processing' }
             : null,
@@ -116,13 +120,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return !!(dataset.geneExpressionFile /* && dataset.spatialCoordinatesFile */);
   }, [dataset]);
 
-  const createExperiment = useCallback((toolId: string, parameters: ParameterValue, toolLabel?: string) => {
-    const tool = getToolById(toolId);
-
+  const createExperiment = useCallback((toolId: string, parameters: ParameterValue, toolLabel: string) => {
     const experiment: Experiment = {
       id: crypto.randomUUID(),
       toolId,
-      toolName: tool?.name || toolLabel || toolId,
+      toolName: toolLabel,
       parameters,
       status: 'not-submitted',
       createdAt: new Date(),
@@ -142,11 +144,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  const submitExperiments = useCallback((email: string) => {
-    console.log(`Submitting experiments to: ${email}`);
-    
+  const submitExperiments = useCallback(async (email: string) => {
+    if (!dataset.uploadId) {
+      console.error('No upload_id available. Please upload dataset first.');
+      return;
+    }
+
     const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
     
+    if (unsubmittedExperiments.length === 0) {
+      console.log('No experiments to submit');
+      return;
+    }
+
     // Update status to queued
     setExperiments((prev) =>
       prev.map((e) =>
@@ -154,37 +164,71 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       )
     );
 
-    // Simulate sequential execution
-    unsubmittedExperiments.forEach((exp, index) => {
-      // Start running after delay
-      setTimeout(() => {
-        setExperiments((prev) =>
-          prev.map((e) =>
-            e.id === exp.id ? { ...e, status: 'running' as ExperimentStatus } : e
-          )
-        );
-      }, index * 3000 + 1000);
+    // Submit each experiment to backend
+    for (const exp of unsubmittedExperiments) {
+      try {
+        const formData = new FormData();
+        formData.append('upload_id', dataset.uploadId);
+        formData.append('tool_name', exp.toolId);
+        formData.append('params', JSON.stringify(exp.parameters));
+        formData.append('experiment_name', exp.toolName || exp.toolId);
 
-      // Complete after running
-      setTimeout(() => {
-        const numClusters = (exp.parameters.n_clusters as number) || 7;
-        const result = generateMockResult(numClusters, dataset.summary?.spotCount || 2000);
-        
+        const response = await axios.post('/experiments/submit', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const jobId = response.data.job_id as string;
+        console.log(`Experiment ${exp.id} submitted with job_id: ${jobId}`);
+
+        // Update experiment with job_id and running status
         setExperiments((prev) =>
           prev.map((e) =>
             e.id === exp.id
+              ? { ...e, status: 'running' as ExperimentStatus, jobId, result: null }
+              : e
+          )
+        );
+      } catch (error) {
+        console.error(`Failed to submit experiment ${exp.id}:`, error);
+        // Mark as failed
+        setExperiments((prev) =>
+          prev.map((e) =>
+            e.id === exp.id ? { ...e, status: 'not-submitted' as ExperimentStatus } : e
+          )
+        );
+      }
+    }
+  }, [experiments, dataset.uploadId]);
+
+  const refreshExperimentResult = useCallback(
+    async (experimentId: string) => {
+      const target = experiments.find((e) => e.id === experimentId);
+      if (!target?.jobId) {
+        console.error('No jobId found for experiment');
+        return;
+      }
+
+      try {
+        const result = await fetchExperimentResult(target.jobId);
+        setExperiments((prev) =>
+          prev.map((e) =>
+            e.id === experimentId
               ? {
                   ...e,
                   status: 'completed' as ExperimentStatus,
                   completedAt: new Date(),
-                  result,
+                  result: { ...result, jobId: target.jobId },
                 }
               : e
           )
         );
-      }, index * 3000 + 4000);
-    });
-  }, [experiments, dataset.summary]);
+      } catch (error) {
+        // If result not ready (404), keep current status
+        console.error(`Failed to fetch result for experiment ${experimentId}:`, error);
+      }
+    },
+    [experiments]
+  );
 
   const toggleComparisonExperiment = useCallback((id: string) => {
     setComparisonExperimentIds((prev) => {
@@ -220,6 +264,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createExperiment,
         setActiveExperiment,
         submitExperiments,
+        refreshExperimentResult,
         toggleComparisonExperiment,
         clearComparisonExperiments,
         setWorkspaceMode,

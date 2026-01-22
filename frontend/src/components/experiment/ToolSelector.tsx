@@ -6,7 +6,7 @@ import ToolCard from './ToolCard';
 
 interface ToolSelectorProps {
   selectedToolId: string | null;
-  onSelectTool: (toolId: string, schema: ToolSchema) => void;
+  onSelectTool: (schema: ToolSchema) => void;
 }
 
 const ToolSelector: React.FC<ToolSelectorProps> = ({ selectedToolId, onSelectTool }) => {
@@ -63,7 +63,7 @@ const ToolSelector: React.FC<ToolSelectorProps> = ({ selectedToolId, onSelectToo
             key={tool.tool_id}
             tool={tool}
             selected={selectedToolId === tool.tool_id}
-            onSelect={() => onSelectTool(tool.tool_id, tool)}
+            onSelect={() => onSelectTool(tool)}
           />
         ))}
       </Box>

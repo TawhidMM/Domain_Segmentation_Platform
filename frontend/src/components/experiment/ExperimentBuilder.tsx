@@ -10,12 +10,10 @@ import ParameterConfig from './ParameterConfig';
 const ExperimentBuilder: React.FC = () => {
   const { createExperiment } = useApp();
   const [activeStep, setActiveStep] = useState(0);
-  const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   const [selectedToolSchema, setSelectedToolSchema] = useState<ToolSchema | null>(null);
   const [parameters, setParameters] = useState<Record<string, any>>({});
 
-  const handleToolSelect = (toolId: string, schema: ToolSchema) => {
-    setSelectedToolId(toolId);
+  const handleToolSelect = (schema: ToolSchema) => {
     setSelectedToolSchema(schema);
     // Initialize parameters with default values from schema
     const defaultParams = initializeParameterValues(schema);
@@ -23,7 +21,7 @@ const ExperimentBuilder: React.FC = () => {
   };
 
   const handleCreateExperiment = () => {
-    if (selectedToolId && selectedToolSchema) {
+    if (selectedToolSchema) {
       // Validate parameters
       const validation = validateParameterValues(selectedToolSchema, parameters);
       if (!validation.valid) {
@@ -35,7 +33,7 @@ const ExperimentBuilder: React.FC = () => {
       // Prepare parameters (expand float_range, etc.)
       const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
       
-      createExperiment(selectedToolId, preparedParams, selectedToolSchema.label);
+      createExperiment(selectedToolSchema.tool_id, preparedParams, selectedToolSchema.label);
     }
   };
 
@@ -66,7 +64,7 @@ const ExperimentBuilder: React.FC = () => {
           ))}
         </Stepper>
         <Paper sx={{ p: 3, mb: 3 }}>
-          {activeStep === 0 && <ToolSelector selectedToolId={selectedToolId} onSelectTool={handleToolSelect} />}
+          {activeStep === 0 && <ToolSelector selectedToolId={selectedToolSchema?.tool_id} onSelectTool={handleToolSelect} />}
 
           {activeStep === 1 && selectedToolSchema && (
             <ParameterConfig toolSchema={selectedToolSchema} values={parameters} onChange={setParameters} />
@@ -100,7 +98,7 @@ const ExperimentBuilder: React.FC = () => {
               variant="contained"
               endIcon={<ArrowForward />}
               onClick={() => setActiveStep((prev) => prev + 1)}
-              disabled={!selectedToolId}
+              disabled={!selectedToolSchema}
             >
               Continue
             </Button>
@@ -109,7 +107,7 @@ const ExperimentBuilder: React.FC = () => {
               variant="contained"
               startIcon={<Add />}
               onClick={handleCreateExperiment}
-              disabled={!selectedToolId}
+              disabled={!selectedToolSchema}
             >
               Create Experiment
             </Button>

@@ -2,6 +2,7 @@ export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'complet
 
 export interface Dataset {
   id: string;
+  uploadId: string | null; // Backend upload_id from file upload
   geneExpressionFile: null | {
     name: string;
     size: number;
@@ -24,6 +25,7 @@ export interface Experiment {
   id: string;
   toolId: string;
   toolName: string;
+  jobId?: string; // Backend job identifier
   parameters: ParameterValue;
   status: ExperimentStatus;
   createdAt: Date;
@@ -31,10 +33,22 @@ export interface Experiment {
   result: ExperimentResult | null;
 }
 
+export interface Spot {
+  barcode: string;
+  x: number;
+  y: number;
+  domain: number;
+}
+
+export interface Domain {
+  id: number;
+  color: string;
+}
+
 export interface ExperimentResult {
-  domains: number[];
-  coordinates: { x: number; y: number }[];
-  domainColors: string[];
+  jobId: string;
+  spots: Spot[];
+  domains: Domain[];
 }
 
 export type ParameterType = 'slider' | 'number' | 'select' | 'checkbox';
