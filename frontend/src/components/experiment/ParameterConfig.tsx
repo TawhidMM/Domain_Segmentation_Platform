@@ -406,7 +406,7 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
       </Typography>
 
       {/* Side-by-side layout for basic and advanced parameters */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: showAdvanced ? '1fr 1fr' : '1fr', gap: 3, maxWidth: showAdvanced ? '100%' : '50%' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
         {/* Basic Parameters Section */}
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
@@ -432,21 +432,68 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
           </Box>
         </Box>
 
-        {/* Advanced Parameters Section */}
-        {hasAdvanced && showAdvanced && (
+        {/* Advanced Parameters Section - Always rendered */}
+        {hasAdvanced && (
           <Paper
             elevation={0}
             sx={{
               p: 2.5,
-              backgroundColor: 'rgba(0, 0, 0, 0.02)',
+              backgroundColor: showAdvanced ? 'rgba(0, 0, 0, 0.02)' : 'rgba(0, 0, 0, 0.01)',
               border: '1px solid',
-              borderColor: 'divider',
+              borderColor: showAdvanced ? 'divider' : 'rgba(0, 0, 0, 0.05)',
+              transition: 'all 0.3s ease-in-out',
+              opacity: showAdvanced ? 1 : 0.4,
+              cursor: showAdvanced ? 'default' : 'pointer',
+              position: 'relative',
+              overflow: 'hidden',
+              '&:hover': !showAdvanced ? {
+                opacity: 0.6,
+                borderColor: 'rgba(0, 0, 0, 0.1)',
+              } : {},
             }}
+            onClick={!showAdvanced ? () => setShowAdvanced(true) : undefined}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: 'warning.main' }}>
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                fontWeight: 600, 
+                mb: 2, 
+                color: showAdvanced ? 'warning.main' : 'text.disabled',
+                transition: 'color 0.3s ease-in-out',
+              }}
+            >
               Advanced Settings
             </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            
+            {!showAdvanced && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 200,
+                  flexDirection: 'column',
+                  gap: 1,
+                }}
+              >
+                <Tune sx={{ fontSize: 40, color: 'text.disabled', opacity: 0.3 }} />
+                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                  Click to expand
+                </Typography>
+              </Box>
+            )}
+
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 3,
+                opacity: showAdvanced ? 1 : 0,
+                transform: showAdvanced ? 'translateY(0)' : 'translateY(-10px)',
+                transition: 'all 0.3s ease-in-out',
+                pointerEvents: showAdvanced ? 'auto' : 'none',
+              }}
+            >
               {advancedParams.map(([paramKey, param]) => {
                 // Check if parameter should be visible based on depends_on
                 if (!shouldShowParameter(param.depends_on, values)) {
