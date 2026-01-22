@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { Box, Typography, Paper, Chip } from '@mui/material';
-import { CloudUpload, Check, Lock } from '@mui/icons-material';
+import { Box, Typography, Paper, Chip, LinearProgress } from '@mui/material';
+import { CloudUpload, Check, Lock, Error as ErrorIcon } from '@mui/icons-material';
 
 interface FileUploadCardProps {
   title: string;
@@ -8,7 +8,12 @@ interface FileUploadCardProps {
   acceptedFormats: string[];
   required?: boolean;
   disabled?: boolean;
-  uploadedFile: File | null;
+  uploadedFile: {
+    name: string;
+    size: number;
+    uploadProgress: number;
+    status: 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
+  } | null;
   onFileSelect: (file: File) => void;
 }
 
@@ -83,6 +88,8 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
             borderRadius: 2,
             backgroundColor: disabled
               ? 'action.disabledBackground'
+              : uploadedFile?.status === 'error'
+              ? 'error.main'
               : isUploaded
               ? 'primary.main'
               : 'rgba(13, 148, 136, 0.1)',
@@ -94,6 +101,8 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         >
           {disabled ? (
             <Lock sx={{ fontSize: 24, color: 'text.disabled' }} />
+          ) : uploadedFile?.status === 'error' ? (
+            <ErrorIcon sx={{ fontSize: 24, color: 'white' }} />
           ) : isUploaded ? (
             <Check sx={{ fontSize: 24, color: 'white' }} />
           ) : (
@@ -138,18 +147,46 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
           </Typography>
 
           {isUploaded ? (
-            <Chip
-              label={uploadedFile.name}
-              size="small"
-              onDelete={() => {}} // Placeholder for delete functionality
-              sx={{
-                maxWidth: '100%',
-                '& .MuiChip-label': {
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                },
-              }}
-            />
+            <Box>
+              <Chip
+                label={uploadedFile.name}
+                size="small"
+                onDelete={() => {}} // Placeholder for delete functionality
+                sx={{
+                  maxWidth: '100%',
+                  '& .MuiChip-label': {
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  },
+                }}
+              />
+              {uploadedFile.status === 'uploading' && (
+                <Box sx={{ mt: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Uploading...
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                      {uploadedFile.uploadProgress}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress variant="determinate" value={uploadedFile.uploadProgress} sx={{ height: 4, borderRadius: 2 }} />
+                </Box>
+              )}
+              {uploadedFile.status === 'processing' && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="caption" sx={{ color: 'primary.main' }}>
+                    Processing...
+                  </Typography>
+                  <LinearProgress sx={{ mt: 0.5, height: 4, borderRadius: 2 }} />
+                </Box>
+              )}
+              {uploadedFile.status === 'error' && (
+                <Typography variant="caption" sx={{ color: 'error.main', mt: 1, display: 'block' }}>
+                  Upload failed. Please try again.
+                </Typography>
+              )}
+            </Box>
           ) : (
             <Typography variant="caption" sx={{ color: 'text.disabled' }}>
               {acceptedFormats.join(', ')}

@@ -28,7 +28,7 @@ const DatasetUpload: React.FC = () => {
           onFileSelect={uploadGeneExpression}
         />
 
-        <FileUploadCard
+        {/* <FileUploadCard
           title="Spatial Coordinates"
           description="Upload spot/cell spatial coordinates with X and Y positions corresponding to the tissue image."
           acceptedFormats={['.csv', '.tsv', '.json']}
@@ -44,7 +44,7 @@ const DatasetUpload: React.FC = () => {
           disabled
           uploadedFile={dataset.tissueImageFile}
           onFileSelect={uploadTissueImage}
-        />
+        /> */}
       </Box>
 
       {dataset.summary && (
