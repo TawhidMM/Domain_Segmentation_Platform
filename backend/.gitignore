@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+alembic.ini
+.venv/
+experiments/
+uploads/
+.idea/
+.vscode/
+.DS_Store
