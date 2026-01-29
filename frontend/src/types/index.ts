@@ -31,6 +31,7 @@ export interface Experiment {
   createdAt: Date;
   completedAt: Date | null;
   result: ExperimentResult | null;
+  metrics?: ExperimentMetrics | null;
 }
 
 export interface Spot {
@@ -49,6 +50,14 @@ export interface ExperimentResult {
   jobId: string;
   spots: Spot[];
   domains: Domain[];
+}
+
+export interface ExperimentMetrics {
+  silhouette: number;
+  davies_bouldin: number;
+  calinski_harabasz: number;
+  morans_I: number;
+  gearys_C: number;
 }
 
 export type ParameterType = 'slider' | 'number' | 'select' | 'checkbox';
@@ -90,7 +99,7 @@ export interface DependsOnCondition {
 export interface ToolParameterSchema {
   type: ToolParameterType;
   label: string;
-  default: number | string | number[] | FloatRangeDefault;
+  default?: number | string | number[] | FloatRangeDefault;
   min?: number;
   max?: number;
   options?: string[];
@@ -98,12 +107,23 @@ export interface ToolParameterSchema {
   ui_group: 'basic' | 'advanced';
 }
 
+export interface ProfileOverrides {
+  [paramKey: string]: number | string | number[];
+}
+
+export interface ToolProfile {
+  overrides: ProfileOverrides;
+}
+
 export interface ToolSchema {
   tool_id: string;
   label: string;
   description: string;
-  params: {
+  parameters: {
     [key: string]: ToolParameterSchema;
+  };
+  profiles?: {
+    [profileName: string]: ToolProfile;
   };
 }
 

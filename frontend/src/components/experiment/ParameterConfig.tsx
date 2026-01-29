@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Info, Add, Close, Tune } from '@mui/icons-material';
 import { ToolSchema, ToolParameterSchema, DependsOnCondition, FloatRangeDefault } from '@/types';
+import { applyDependentDefaults } from '@/utils/parameterUtils';
 
 interface ParameterConfigProps {
   toolSchema: ToolSchema;
@@ -370,14 +371,16 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleParamChange = (paramKey: string, value: any) => {
-    onChange({ ...values, [paramKey]: value });
+    const nextValues = { ...values, [paramKey]: value };
+    const updatedValues = applyDependentDefaults(toolSchema, values, nextValues, paramKey);
+    onChange(updatedValues);
   };
 
   // Separate parameters into basic and advanced
-  const basicParams = Object.entries(toolSchema.params).filter(
+  const basicParams = Object.entries(toolSchema.parameters).filter(
     ([_, param]) => param.ui_group === 'basic'
   );
-  const advancedParams = Object.entries(toolSchema.params).filter(
+  const advancedParams = Object.entries(toolSchema.parameters).filter(
     ([_, param]) => param.ui_group === 'advanced'
   );
   const hasAdvanced = advancedParams.length > 0;

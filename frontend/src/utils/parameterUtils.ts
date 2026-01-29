@@ -3,12 +3,84 @@ import { ToolSchema, ToolParameterSchema, FloatRangeDefault } from '@/types';
 /**
  * Initialize parameter values from tool schema defaults
  */
+export const resolveDefaultValue = (
+  paramKey: string,
+  param: ToolParameterSchema,
+  currentValues: Record<string, any>,
+  toolSchema?: ToolSchema
+): any => {
+  // Check for profile-based overrides
+  if (toolSchema?.profiles && currentValues.profile) {
+    const profileConfig = toolSchema.profiles[currentValues.profile];
+    if (profileConfig?.overrides?.[paramKey] !== undefined) {
+      return profileConfig.overrides[paramKey];
+    }
+  }
+
+  // Static default
+  if (param.default !== undefined) {
+    return param.default;
+  }
+
+  // No default
+  return undefined;
+};
+
+const isShallowEqual = (a: any, b: any): boolean => {
+  if (a === b) return true;
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  if (typeof a === 'object' && typeof b === 'object') {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  return false;
+};
+
+/**
+ * Apply profile-based overrides when profile parameter changes
+ */
+export const applyDependentDefaults = (
+  toolSchema: ToolSchema,
+  prevValues: Record<string, any>,
+  nextValues: Record<string, any>,
+  changedKey?: string
+): Record<string, any> => {
+  const updated = { ...nextValues };
+
+  // If profile changed, apply profile overrides
+  if (changedKey === 'profile' && toolSchema.profiles && updated.profile) {
+    const profileConfig = toolSchema.profiles[updated.profile];
+    if (profileConfig?.overrides) {
+      Object.entries(profileConfig.overrides).forEach(([paramKey, overrideValue]) => {
+        updated[paramKey] = overrideValue;
+      });
+    }
+  }
+
+  return updated;
+};
+
 export const initializeParameterValues = (toolSchema: ToolSchema): Record<string, any> => {
   const values: Record<string, any> = {};
 
-  Object.entries(toolSchema.params).forEach(([paramKey, param]) => {
-    values[paramKey] = param.default;
+  Object.entries(toolSchema.parameters).forEach(([paramKey, param]) => {
+    values[paramKey] = resolveDefaultValue(paramKey, param, values, toolSchema);
   });
+
+  // Apply profile overrides if profile is set
+  if (values.profile && toolSchema.profiles) {
+    const profileConfig = toolSchema.profiles[values.profile];
+    if (profileConfig?.overrides) {
+      Object.entries(profileConfig.overrides).forEach(([paramKey, overrideValue]) => {
+        values[paramKey] = overrideValue;
+      });
+    }
+  }
 
   return values;
 };
@@ -39,14 +111,8 @@ export const prepareParametersForSubmission = (
   const prepared: Record<string, any> = {};
 
   Object.entries(values).forEach(([paramKey, value]) => {
-    const param = toolSchema.params[paramKey];
-    
-    if (param.type === 'float_range') {
-      // Expand float_range to array
-      prepared[paramKey] = expandFloatRange(value as FloatRangeDefault);
-    } else {
-      prepared[paramKey] = value;
-    }
+    // Pass parameters as-is (float_range stays as {min, max, step})
+    prepared[paramKey] = value;
   });
 
   return prepared;
@@ -61,7 +127,7 @@ export const validateParameterValues = (
 ): { valid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
-  Object.entries(toolSchema.params).forEach(([paramKey, param]) => {
+  Object.entries(toolSchema.parameters).forEach(([paramKey, param]) => {
     const value = values[paramKey];
 
     // Check if required parameter is present

@@ -165,7 +165,14 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
       {/* Main Content */}
       <Box sx={{ flex: 1, p: 3, overflow: 'auto' }} className="workspace-scroll">
         {experiment.status === 'completed' && experiment.result ? (
-          <SpatialPlot result={experiment.result} height={550} rotation={rotation} mirrorX={mirrorX} mirrorY={mirrorY} />
+          <SpatialPlot
+            result={experiment.result}
+            metrics={experiment.metrics}
+            height={550}
+            rotation={rotation}
+            mirrorX={mirrorX}
+            mirrorY={mirrorY}
+          />
         ) : (
           <Paper
             sx={{

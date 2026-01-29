@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 import { Dataset, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue } from '@/types';
 import { generateMockDatasetSummary } from '@/data/mockData';
 import { uploadGeneExpressionFile } from '@/services/uploadService';
-import { fetchExperimentResult } from '@/services/experimentService';
+import { fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 
 interface AppContextType {
@@ -130,6 +130,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date(),
       completedAt: null,
       result: null,
+      metrics: null,
     };
 
     setExperiments((prev) => [...prev, experiment]);
@@ -184,7 +185,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setExperiments((prev) =>
           prev.map((e) =>
             e.id === exp.id
-              ? { ...e, status: 'running' as ExperimentStatus, jobId, result: null }
+              ? { ...e, status: 'running' as ExperimentStatus, jobId, result: null, metrics: null }
               : e
           )
         );
@@ -210,6 +211,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       try {
         const result = await fetchExperimentResult(target.jobId);
+        let metrics = null;
+        try {
+          metrics = await fetchExperimentMetrics(target.jobId);
+        } catch (metricsError) {
+          console.error(`Failed to fetch metrics for experiment ${experimentId}:`, metricsError);
+        }
         setExperiments((prev) =>
           prev.map((e) =>
             e.id === experimentId
@@ -218,6 +225,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   status: 'completed' as ExperimentStatus,
                   completedAt: new Date(),
                   result: { ...result, jobId: target.jobId },
+                  metrics,
                 }
               : e
           )
