@@ -115,7 +115,7 @@ class ScribbleDomAdapter(ToolAdapter):
     def _read_predictions(self) -> dict:
         base_dir = (
                 self.workspace["output"]
-                / "final_outputs"
+                / self.FINAL_OUTPUT_FOLDER
                 / self.DATASET
                 / self.SAMPLE
         )

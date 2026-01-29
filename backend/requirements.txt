@@ -6,3 +6,4 @@ pydantic
 sqlalchemy
 uliweb-alembic
 python-dotenv
+pyyaml

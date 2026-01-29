@@ -1,12 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict, Any
 from app.tools.schema.scribbledom import SCRIBBLEDOM_UI_SCHEMA
+from app.tools.schema.staig import STAIG_UI_SCHEMA
 
 router = APIRouter()
 
 # Tool registry - add more tools here as they become available
 TOOL_SCHEMAS = {
     "ScribbleDom": SCRIBBLEDOM_UI_SCHEMA,
+    "Staig": STAIG_UI_SCHEMA
 }
 
 

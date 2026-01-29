@@ -17,9 +17,10 @@ def run_tool(job_id: str, tool_name: str, user_params: dict, upload_id: str):
 
     cmd = [
         "docker", "run", "--rm",
+        "--gpus", "all",
         "-v", f"{workspace['root']}:/workspace",
         tool["image"],
-        "/workspace/config/config.json"
+        f"/workspace/config/{tool['config_file']}"
     ]
 
     run_docker(cmd, workspace)
