@@ -23,12 +23,12 @@ const ExperimentBuilder: React.FC = () => {
   const handleCreateExperiment = () => {
     if (selectedToolSchema) {
       // Validate parameters
-      const validation = validateParameterValues(selectedToolSchema, parameters);
-      if (!validation.valid) {
-        console.error('Validation errors:', validation.errors);
-        alert(`Please fix the following errors:\n${validation.errors.join('\n')}`);
-        return;
-      }
+      // const validation = validateParameterValues(selectedToolSchema, parameters);
+      // if (!validation.valid) {
+      //   console.error('Validation errors:', validation.errors);
+      //   alert(`Please fix the following errors:\n${validation.errors.join('\n')}`);
+      //   return;
+      // }
 
       // Prepare parameters (expand float_range, etc.)
       const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);

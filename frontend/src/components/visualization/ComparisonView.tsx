@@ -125,6 +125,7 @@ const ComparisonView: React.FC = () => {
               <Box key={exp.id}>
                 <SpatialPlot
                   result={exp.result}
+                  metrics={exp.metrics}
                   title={`${exp.toolName} (${exp.parameters.n_clusters} domains)`}
                   height={350}
                   showLegend={false}

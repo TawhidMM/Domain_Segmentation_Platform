@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { ExperimentResult } from '@/types';
+import { ExperimentMetrics, ExperimentResult } from '@/types';
 import { Data, Layout, Config } from 'plotly.js';
 
 interface SpatialPlotProps {
   result: ExperimentResult | null;
+  metrics?: ExperimentMetrics | null;
   title?: string;
   height?: number;
   showLegend?: boolean;
@@ -17,6 +18,7 @@ interface SpatialPlotProps {
 
 const SpatialPlot: React.FC<SpatialPlotProps> = ({
   result,
+  metrics,
   title,
   height = 500,
   showLegend = true,
@@ -25,6 +27,8 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   mirrorX = false,
   mirrorY = false,
 }) => {
+  const formatMetric = (value?: number | null) => (value === null || value === undefined ? '—' : value.toFixed(3));
+
   const plotData: Data[] = useMemo(() => {
     if (!result || !result.spots || !result.domains) return [];
 
@@ -149,6 +153,34 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         bgcolor: 'white',
       }}
     >
+      <Box
+        sx={{
+          px: compact ? 1.5 : 2,
+          py: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: '#F8FAFC',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: compact ? 1 : 1.5,
+        }}
+      >
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Silhouette: <b>{formatMetric(metrics?.silhouette)}</b>
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Davies–Bouldin: <b>{formatMetric(metrics?.davies_bouldin)}</b>
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Calinski–Harabasz: <b>{formatMetric(metrics?.calinski_harabasz)}</b>
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Moran’s I: <b>{formatMetric(metrics?.morans_I)}</b>
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Geary’s C: <b>{formatMetric(metrics?.gearys_C)}</b>
+        </Typography>
+      </Box>
       <Plot data={plotData} layout={layout} config={config} style={{ width: '100%', height }} useResizeHandler />
     </Box>
   );
