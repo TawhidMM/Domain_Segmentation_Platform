@@ -1,5 +1,6 @@
 import json
 
+from app.core.config import FRONTEND_RESULT_FILENAME
 from app.services.docker_runner import run_docker
 from app.tools.loader import load_adapter
 from app.tools.registry import TOOLS
@@ -27,6 +28,6 @@ def run_tool(job_id: str, tool_name: str, user_params: dict, upload_id: str):
 
     result = adapter.build_frontend_output(job_id)
 
-    result_path = workspace["output"] / "frontend_result.json"
+    result_path = workspace["output"] / FRONTEND_RESULT_FILENAME
     with open(result_path, "w") as f:
         json.dump(result, f)

@@ -1,4 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+
+from app.core.config import FRONTEND_RESULT_FILENAME
 from app.services.experiment_service import create_experiment
 import json
 
@@ -34,7 +36,7 @@ async def submit_experiment(
 
 @router.get("/result/{job_id}")
 def get_result(job_id: str):
-    path = get_workspace(job_id)["output"] / "frontend_result.json"
+    path = get_workspace(job_id)["output"] / FRONTEND_RESULT_FILENAME
     if not path.exists():
         raise HTTPException(404, "Result not ready")
 

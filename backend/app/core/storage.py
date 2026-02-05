@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 class LocalStorage:
     def save_chunk(self, path: Path, chunk: bytes):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -8,5 +9,6 @@ class LocalStorage:
 
     def read(self, path: Path):
         return open(path, "rb")
+
 
 storage = LocalStorage()

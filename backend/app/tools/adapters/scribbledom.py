@@ -1,14 +1,13 @@
 import json
 import shutil
-import zipfile
 from pathlib import Path
-import csv
-import colorsys
 
 from app.core.config import UPLOAD_DIR, UPLOAD_ZIP_FILENAME
+from app.services.tools_service import resolve_config
 from app.tools.adapters.base import ToolAdapter
-from app.tools.params.scribbledom import SCRIBBLEDOM_PARAMS
-from app.utils.params import resolve_params
+from app.tools.manifests.scribbledom import SCRIBBLEDOM_MANIFEST
+from app.utils.visium import merge_predictions_and_coords, get_color_mapped_domain
+from app.utils.zip_utils import extract_zip
 
 
 class ScribbleDomAdapter(ToolAdapter):
@@ -27,7 +26,7 @@ class ScribbleDomAdapter(ToolAdapter):
 
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        self.extract_dataset(zip_dir, target_dir)
+        extract_zip(zip_dir, target_dir)
         has_scribble = self._stage_manual_scribble(target_dir)
 
         # if self.schema == "expert" and not has_scribble:
@@ -38,7 +37,7 @@ class ScribbleDomAdapter(ToolAdapter):
         self._normalize_h5_filename(target_dir)
 
     def build_config(self, user_params: dict):
-        resolved_params = resolve_params(user_params, SCRIBBLEDOM_PARAMS)
+        resolved_params = resolve_config(manifest=SCRIBBLEDOM_MANIFEST, user_input=user_params)
 
         system_config = {
             "preprocessed_data_folder": self.PREPROCESSED_DATA_FOLDER,
@@ -86,33 +85,8 @@ class ScribbleDomAdapter(ToolAdapter):
         raise FileNotFoundError(f"Matrix file ending in '_filtered_feature_bc_matrix.h5' "
                                 f"not found in {target_dir.name}")
 
-    def extract_dataset(self, zip_path: Path, target_dir: Path):
-        temp_extract_path = target_dir / f"tmp"
 
-        try:
-            if temp_extract_path.exists():
-                shutil.rmtree(temp_extract_path)
-
-            temp_extract_path.mkdir(parents=True, exist_ok=True)
-
-            with zipfile.ZipFile(zip_path, "r") as z:
-                z.extractall(temp_extract_path)
-
-            items = [i for i in temp_extract_path.iterdir()]
-            if len(items) == 1 and items[0].is_dir():
-                content_root = items[0]
-            else:
-                content_root = temp_extract_path
-
-            for item in content_root.iterdir():
-                shutil.move(str(item), str(target_dir / item.name))
-
-        finally:
-            shutil.rmtree(temp_extract_path)
-
-
-
-    def _read_predictions(self) -> dict:
+    def build_frontend_output(self, job_id: str) -> dict:
         base_dir = (
                 self.workspace["output"]
                 / self.FINAL_OUTPUT_FOLDER
@@ -124,99 +98,16 @@ class ScribbleDomAdapter(ToolAdapter):
         if not csv_files:
             raise FileNotFoundError("No prediction CSV found in ScribbleDom output")
 
-        target_file = csv_files[0]
-
-        pred_map = {}
-
-        with open(target_file, newline="") as f:
-            reader = csv.reader(f)
-            next(reader)
-
-            for row in reader:
-                if len(row) < 2:
-                    continue
-
-                barcode = row[0].strip()
-                domain = int(row[1])
-
-                pred_map[barcode] = domain
-
-        return pred_map
-
-    def _read_coordinates(self) -> dict:
-        spatial_dir = (
+        prediction_file = csv_files[0]
+        coords_file = (
                 self.workspace["input"]
                 / self.DATASET
                 / self.SAMPLE
                 / "spatial"
-        )
+                / "tissue_positions_list.csv")
 
-        coord_file = spatial_dir / "tissue_positions_list.csv"
-        if not coord_file.exists():
-            raise FileNotFoundError("tissue_positions_list.csv not found")
-
-        coord_map = {}
-
-        with open(coord_file, newline="") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if row[1] == 0:
-                    continue
-                barcode = row[0]
-                x = float(row[5])
-                y = float(row[4])
-                coord_map[barcode] = (x, y)
-
-        return coord_map
-
-    def _merge_predictions_and_coords(self):
-        pred = self._read_predictions()
-        coords = self._read_coordinates()
-
-        spots = []
-
-        for barcode, domain in pred.items():
-            if barcode not in coords:
-                continue
-
-            x, y = coords[barcode]
-            spots.append({
-                "barcode": barcode,
-                "x": x,
-                "y": y,
-                "domain": domain
-            })
-
-        return spots
-
-    def _generate_domain_colors(self, spots):
-        domain_ids = sorted({s["domain"] for s in spots})
-        n = len(domain_ids)
-
-        color_map = {}
-
-        for i, d in enumerate(domain_ids):
-            hue = i / max(1, n)
-            r, g, b = colorsys.hsv_to_rgb(hue, 0.65, 0.95)
-            color_map[d] = "#{:02X}{:02X}{:02X}".format(
-                int(r * 255),
-                int(g * 255),
-                int(b * 255)
-            )
-
-        return color_map
-
-    def build_frontend_output(self, job_id: str) -> dict:
-        spots = self._merge_predictions_and_coords()
-        color_map = self._generate_domain_colors(spots)
-
-        domains = [
-            {
-                "id": d,
-                "color": color_map[d]
-            }
-            for d in sorted(color_map.keys())
-        ]
+        spots = merge_predictions_and_coords(prediction_file, coords_file)
+        domains = get_color_mapped_domain(spots)
 
         return {
             "jobId": job_id,
