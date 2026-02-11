@@ -46,22 +46,30 @@ def apply_global_defaults(
     return config
 
 
+from copy import deepcopy
+
+
 def apply_profile_overrides(
-    manifest: Dict[str, Any],
-    user_input: Dict[str, Any],
-    config: Dict[str, Any]
+        manifest: Dict[str, Any],
+        user_input: Dict[str, Any],
+        config: Dict[str, Any]
 ) -> Dict[str, Any]:
 
-    profile = user_input.get("profile")
-    if not profile:
+    profile = user_input.get("profile") or config.get("profile") or "default"
+
+    profiles_dict = manifest.get("profiles", {})
+    if not profiles_dict:
         return config
 
-    profile_data = manifest.get("profiles", {}).get(profile)
+    profile_data = profiles_dict.get(profile)
     if not profile_data:
         return config
 
-    config.update(profile_data.get("overrides", {}))
-    config.update(profile_data.get("internal_params", {}))
+    if "overrides" in profile_data:
+        config.update(deepcopy(profile_data["overrides"]))
+
+    if "internal_params" in profile_data:
+        config.update(deepcopy(profile_data["internal_params"]))
 
     return config
 

@@ -7,3 +7,6 @@ sqlalchemy
 uliweb-alembic
 python-dotenv
 pyyaml
+scikit-learn
+numpy
+pandas

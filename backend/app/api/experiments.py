@@ -1,9 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+import json
+
+from fastapi import APIRouter, Form, HTTPException
 
 from app.core.config import FRONTEND_RESULT_FILENAME
 from app.services.experiment_service import create_experiment
-import json
-
 from app.services.tool_executor import run_tool
 from app.utils.workspace import get_workspace
 
@@ -39,6 +39,15 @@ def get_result(job_id: str):
     path = get_workspace(job_id)["output"] / FRONTEND_RESULT_FILENAME
     if not path.exists():
         raise HTTPException(404, "Result not ready")
+
+    return json.loads(path.read_text())
+
+
+@router.get("/metrics/{job_id}")
+def get_metrics(job_id: str):
+    path = get_workspace(job_id)["output"] / "metrics.json"
+    if not path.exists():
+        raise HTTPException(404, "Metrics not ready")
 
     return json.loads(path.read_text())
 

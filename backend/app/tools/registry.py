@@ -12,5 +12,11 @@ TOOLS = {
         "entrypoint": ["/bin/bash", "/run_scribbledom.sh"],
         "adapter": "app.tools.adapters.staig.StaigAdapter",
         "config_file": "config.yml"
+    },
+    "deepst": {
+        "type": "docker",
+        "image": "deepst:latest",
+        "adapter": "app.tools.adapters.deepst.DeepStAdapter",
+        "config_file": "config.json"
     }
 }
