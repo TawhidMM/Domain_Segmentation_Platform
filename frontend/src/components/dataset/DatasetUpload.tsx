@@ -27,24 +27,6 @@ const DatasetUpload: React.FC = () => {
           uploadedFile={dataset.geneExpressionFile}
           onFileSelect={uploadGeneExpression}
         />
-
-        {/* <FileUploadCard
-          title="Spatial Coordinates"
-          description="Upload spot/cell spatial coordinates with X and Y positions corresponding to the tissue image."
-          acceptedFormats={['.csv', '.tsv', '.json']}
-          required
-          uploadedFile={dataset.spatialCoordinatesFile}
-          onFileSelect={uploadSpatialCoordinates}
-        />
-
-        <FileUploadCard
-          title="Tissue Image (H&E)"
-          description="Optional histology image for integrated analysis and visualization overlay."
-          acceptedFormats={['.png', '.jpg', '.jpeg', '.tif', '.tiff']}
-          disabled
-          uploadedFile={dataset.tissueImageFile}
-          onFileSelect={uploadTissueImage}
-        /> */}
       </Box>
 
       {dataset.summary && (

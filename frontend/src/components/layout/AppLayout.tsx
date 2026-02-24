@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import TopNavBar from './TopNavBar';
 import LeftPanel from '../navigation/LeftPanel';
 import MainWorkspace from '../workspace/MainWorkspace';
+import FloatingCompareBar from '../visualization/FloatingCompareBar';
 
 const AppLayout: React.FC = () => {
   return (
@@ -12,6 +13,7 @@ const AppLayout: React.FC = () => {
         <LeftPanel />
         <MainWorkspace />
       </Box>
+      <FloatingCompareBar />
     </Box>
   );
 };

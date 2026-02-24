@@ -13,7 +13,6 @@ const validateSpaceRangerZip = (file: File) => {
 
 export async function uploadGeneExpressionFile(
   file: File,
-  datasetId: string,
   onProgress: (pct: number) => void
 ): Promise<string> { // Return upload_id
   // Validate file format

@@ -30,7 +30,13 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   const formatMetric = (value?: number | null) => (value === null || value === undefined ? '—' : value.toFixed(3));
 
   const plotData: Data[] = useMemo(() => {
-    if (!result || !result.spots || !result.domains) return [];
+    if (!result || !result.spots || !result.domains) {
+      return [];
+    }
+
+    if (result.spots.length === 0 || result.domains.length === 0) {
+      return [];
+    }
 
     // Helper to transform coordinates
     const transformCoords = (x: number, y: number) => {
@@ -51,23 +57,25 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
       return { x: rotatedX, y: rotatedY };
     };
 
-    return result.domains.map((domain) => {
-      const spotsForDomain = result.spots.filter((spot) => spot.domain === domain.id);
+    const data = result.domains.map((domain) => {
+      const spotsForDomain = result.spots.filter((spot) => spot.domain === domain.domain_id);
 
       return {
         x: spotsForDomain.map((spot) => transformCoords(spot.x, spot.y).x),
         y: spotsForDomain.map((spot) => transformCoords(spot.x, spot.y).y),
         mode: 'markers' as const,
         type: 'scatter' as const,
-        name: `Domain ${domain.id + 1}`,
+        name: `Domain ${domain.domain_id + 1}`,
         marker: {
           color: domain.color,
           size: compact ? 4 : 6,
           opacity: 0.8,
         },
-        hovertemplate: `Domain ${domain.id + 1}<br>X: %{x:.1f}<br>Y: %{y:.1f}<extra></extra>`,
+        hovertemplate: `Domain ${domain.domain_id + 1}<br>X: %{x:.1f}<br>Y: %{y:.1f}<extra></extra>`,
       };
     });
+
+    return data;
   }, [result, compact, rotation, mirrorX, mirrorY]);
 
   const layout: Partial<Layout> = useMemo(
@@ -143,6 +151,12 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
     );
   }
 
+  // Generate a stable key based on data to force re-render
+  const plotKey = useMemo(
+    () => `plot-${result?.jobId || 'empty'}-${rotation}-${mirrorX}-${mirrorY}`,
+    [result?.jobId, rotation, mirrorX, mirrorY]
+  );
+
   return (
     <Box
       sx={{
@@ -151,6 +165,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         border: '1px solid',
         borderColor: 'divider',
         bgcolor: 'white',
+        width: '100%',
       }}
     >
       <Box
@@ -175,13 +190,20 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
           Calinski–Harabasz: <b>{formatMetric(metrics?.calinski_harabasz)}</b>
         </Typography>
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          Moran’s I: <b>{formatMetric(metrics?.morans_I)}</b>
+          Moran's I: <b>{formatMetric(metrics?.morans_I)}</b>
         </Typography>
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          Geary’s C: <b>{formatMetric(metrics?.gearys_C)}</b>
+          Geary's C: <b>{formatMetric(metrics?.gearys_C)}</b>
         </Typography>
       </Box>
-      <Plot data={plotData} layout={layout} config={config} style={{ width: '100%', height }} useResizeHandler />
+      <Plot
+        key={plotKey}
+        data={plotData}
+        layout={layout}
+        config={config}
+        style={{ width: '100%', height }}
+        useResizeHandler
+      />
     </Box>
   );
 };

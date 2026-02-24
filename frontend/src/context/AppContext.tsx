@@ -1,9 +1,14 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Dataset, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue } from '@/types';
+import { Dataset, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmissionResponse } from '@/types';
 import { generateMockDatasetSummary } from '@/data/mockData';
 import { uploadGeneExpressionFile } from '@/services/uploadService';
 import { fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
+
+interface JobRedirectInfo {
+  jobId: string;
+  accessToken: string;
+}
 
 interface AppContextType {
   dataset: Dataset;
@@ -21,7 +26,7 @@ interface AppContextType {
   // Experiment actions
   createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string) => void;
   setActiveExperiment: (id: string | null) => void;
-  submitExperiments: (email: string) => void;
+  submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
   refreshExperimentResult: (experimentId: string) => Promise<void>;
   toggleComparisonExperiment: (id: string) => void;
   clearComparisonExperiments: () => void;
@@ -36,7 +41,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [dataset, setDataset] = useState<Dataset>({
     id: crypto.randomUUID(),
-    uploadId: null, // Backend upload_id from file upload
+    uploadId: null,
     geneExpressionFile: null,
     spatialCoordinatesFile: null,
     tissueImageFile: null,
@@ -63,7 +68,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       try {
         // Call upload service with progress callback
-        const uploadId = await uploadGeneExpressionFile(file, dataset.id, (progress) => {
+        const uploadId = await uploadGeneExpressionFile(file, (progress) => {
           setDataset((prev) => ({
             ...prev,
             geneExpressionFile: prev.geneExpressionFile
@@ -145,17 +150,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  const submitExperiments = useCallback(async (email: string) => {
+  const submitExperiments = useCallback(async (email: string): Promise<JobRedirectInfo | null> => {
     if (!dataset.uploadId) {
       console.error('No upload_id available. Please upload dataset first.');
-      return;
+      return null;
     }
 
     const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
     
     if (unsubmittedExperiments.length === 0) {
       console.log('No experiments to submit');
-      return;
+      return null;
     }
 
     // Update status to queued
@@ -165,11 +170,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       )
     );
 
+    let firstJobRedirect: JobRedirectInfo | null = null;
+
     // Submit each experiment to backend
     for (const exp of unsubmittedExperiments) {
       try {
         const formData = new FormData();
-        formData.append('upload_id', dataset.uploadId);
+        formData.append('dataset_id', dataset.uploadId);
         formData.append('tool_name', exp.toolId);
         formData.append('params', JSON.stringify(exp.parameters));
         formData.append('experiment_name', exp.toolName || exp.toolId);
@@ -178,14 +185,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        const jobId = response.data.job_id as string;
+        const jobSubmissionResponse = response.data as JobSubmissionResponse;
+        const jobId = jobSubmissionResponse.job_id;
+        const accessToken = jobSubmissionResponse.access_token;
+        
         console.log(`Experiment ${exp.id} submitted with job_id: ${jobId}`);
 
-        // Update experiment with job_id and running status
+        // Store redirect info from first submission
+        if (!firstJobRedirect) {
+          firstJobRedirect = { jobId, accessToken };
+        }
+
+        // Update experiment with job_id and queued status
         setExperiments((prev) =>
           prev.map((e) =>
             e.id === exp.id
-              ? { ...e, status: 'running' as ExperimentStatus, jobId, result: null, metrics: null }
+              ? { ...e, status: 'queued' as ExperimentStatus, jobId, result: null, metrics: null }
               : e
           )
         );
@@ -199,6 +214,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         );
       }
     }
+
+    return firstJobRedirect;
   }, [experiments, dataset.uploadId]);
 
   const refreshExperimentResult = useCallback(
