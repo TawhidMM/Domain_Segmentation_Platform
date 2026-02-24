@@ -42,12 +42,13 @@ export interface Spot {
 }
 
 export interface Domain {
-  id: number;
+  domain_id: number;
   color: string;
 }
 
 export interface ExperimentResult {
   jobId: string;
+  toolName?: string;
   spots: Spot[];
   domains: Domain[];
 }
@@ -128,3 +129,17 @@ export interface ToolSchema {
 }
 
 export type WorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison';
+
+// Job tracking types
+export type JobStatus = 'queued' | 'running' | 'finished' | 'failed';
+
+export interface JobSubmissionResponse {
+  job_id: string;
+  access_token: string;
+  status: JobStatus;
+}
+
+export interface JobStatusResponse {
+  status: JobStatus;
+  error?: string;
+}

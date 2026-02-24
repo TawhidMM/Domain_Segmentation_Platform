@@ -77,10 +77,13 @@
     font-family: 'Inter', sans-serif;
   }
 
-  html, body, #root {
+  html, body {
     height: 100%;
     margin: 0;
-    overflow: hidden;
+  }
+  
+  #root {
+    min-height: 100%;
   }
 }
 

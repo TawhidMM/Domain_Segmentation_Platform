@@ -14,9 +14,11 @@ import {
   ListItemText,
   Alert,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import { Send, Science, Email, Schedule } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
+import { toast } from 'sonner';
 
 interface SubmitModalProps {
   open: boolean;
@@ -27,6 +29,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
   const { experiments, submitExperiments } = useApp();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
 
@@ -35,16 +38,34 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
     return re.test(email);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateEmail(email)) {
       setEmailError('Please enter a valid email address');
       return;
     }
 
-    submitExperiments(email);
-    setEmail('');
-    setEmailError('');
-    onClose();
+    setIsSubmitting(true);
+    try {
+      const redirectInfo = await submitExperiments(email);
+      
+      setEmail('');
+      setEmailError('');
+      onClose();
+
+      if (redirectInfo) {
+        toast.success('Experiment submitted successfully! Opening job tracker in new tab...');
+        // Open job status page in new tab so user can continue creating experiments
+        const jobUrl = `${window.location.origin}/experiment/${redirectInfo.jobId}?t=${redirectInfo.accessToken}`;
+        window.open(jobUrl, '_blank');
+      } else {
+        toast.error('No jobs were submitted');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast.error('Failed to submit experiments');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -116,16 +137,16 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} variant="outlined">
+        <Button onClick={onClose} variant="outlined" disabled={isSubmitting}>
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          startIcon={<Send />}
-          disabled={unsubmittedExperiments.length === 0}
+          startIcon={isSubmitting ? <CircularProgress size={20} /> : <Send />}
+          disabled={unsubmittedExperiments.length === 0 || isSubmitting}
         >
-          Submit All
+          {isSubmitting ? 'Submitting...' : 'Submit All'}
         </Button>
       </DialogActions>
     </Dialog>
