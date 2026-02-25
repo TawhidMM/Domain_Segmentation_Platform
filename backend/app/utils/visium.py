@@ -96,7 +96,7 @@ def get_color_mapped_domain(spots:list):
 
     domains = [
         {
-            "id": d,
+            "domain_id": d,
             "color": color_map[d]
         }
         for d in sorted(color_map.keys())

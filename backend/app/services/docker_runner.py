@@ -1,7 +1,7 @@
-import subprocess
 import json
-import os
+import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 
 
 class DockerExecutionError(Exception):
@@ -10,14 +10,14 @@ class DockerExecutionError(Exception):
 
 def run_docker(
     cmd: list,
-    workspace: dict,
+    logs_dir: Path,
     timeout: int = None
 ):
-    logs_dir = workspace["logs"]
-    os.makedirs(logs_dir, exist_ok=True)
+    print("Entered run_docker")
+    logs_dir.mkdir(parents=True, exist_ok=True)
 
-    stdout_path = os.path.join(logs_dir, "docker_stdout.log")
-    stderr_path = os.path.join(logs_dir, "docker_stderr.log")
+    stdout_path = logs_dir / "docker_stdout.log"
+    stderr_path = logs_dir / "docker_stderr.log"
 
     start_time = datetime.now(timezone.utc)
 
@@ -34,11 +34,8 @@ def run_docker(
         process.kill()
         raise DockerExecutionError("Docker execution timed out")
 
-    with open(stdout_path, "w") as f:
-        f.write(stdout)
-
-    with open(stderr_path, "w") as f:
-        f.write(stderr)
+    stdout_path.write_text(stdout)
+    stderr_path.write_text(stderr)
 
     execution_meta = {
         "command": cmd,
@@ -47,8 +44,8 @@ def run_docker(
         "finished_at": datetime.now(timezone.utc).isoformat()
     }
 
-    with open(os.path.join(logs_dir, "execution.json"), "w") as f:
-        json.dump(execution_meta, f, indent=4)
+    execution_path = logs_dir / "execution.json"
+    execution_path.write_text(json.dumps(execution_meta, indent=4))
 
     if process.returncode != 0:
         raise DockerExecutionError(

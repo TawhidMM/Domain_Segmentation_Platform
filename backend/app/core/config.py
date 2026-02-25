@@ -1,40 +1,65 @@
-import os
-from dotenv import load_dotenv
-from sqlalchemy.engine.url import URL
 from pathlib import Path
+from typing import ClassVar, Optional
+
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class Settings(BaseSettings):
+    # App settings
+    APP_ENV: str = "development"
+    SECRET_KEY: str
 
+    # Database credentials
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
 
-load_dotenv()
+    # Redis settings
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
 
-def get_database_url():
-    return URL.create(
-        drivername="postgresql",
-        username=os.getenv("POSTGRES_USER"),
-        password=os.getenv("POSTGRES_PASSWORD"),
-        host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT", 5432)),
-        database=os.getenv("POSTGRES_DB")
+    # Paths (computed after initialization)
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
+    EXPERIMENTS_ROOT: Optional[Path] = None
+    UPLOAD_ROOT: Optional[Path] = None
+
+    # Constants
+    CONTAINER_WORKSPACE_PATH: ClassVar[Path] = Path("/workspace")
+    EXPERIMENT_DIR: ClassVar[str] = "experiments"
+    UPLOAD_DIR: ClassVar[str] = "uploads"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
     )
 
+    def model_post_init(self, __context) -> None:
+
+        if self.EXPERIMENTS_ROOT is None:
+            self.EXPERIMENTS_ROOT = self.BASE_DIR / self.EXPERIMENT_DIR
+        if self.UPLOAD_ROOT is None:
+            self.UPLOAD_ROOT = self.BASE_DIR / self.UPLOAD_DIR
+
+    @computed_field
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"postgresql://{self.POSTGRES_USER}:"
+            f"{self.POSTGRES_PASSWORD}@"
+            f"{self.DB_HOST}:{self.DB_PORT}/"
+            f"{self.POSTGRES_DB}"
+        )
+
+    @computed_field
+    @property
+    def REDIS_URL(self) -> str:
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 
-DATABASE_URL = get_database_url().render_as_string(hide_password=False)
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-EXPERIMENTS_ROOT = BASE_DIR / "experiments"
-UPLOAD_DIR = BASE_DIR / "uploads"
-
-directories = [EXPERIMENTS_ROOT, UPLOAD_DIR]
-
-for directory in directories:
-    directory.mkdir(parents=True, exist_ok=True)
-
-
-FRONTEND_RESULT_FILENAME = "frontend_result.json"
-UPLOAD_ZIP_FILENAME = "input.zip"
-
-
-
+settings = Settings()
 

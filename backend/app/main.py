@@ -1,15 +1,30 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.experiments import router as experiments_router
 from app.api.datasets import router as datasets_router
 from app.api.tools import router as tools_router
+from app.core.startup import create_directories
 
-app = FastAPI(title="Spatial Transcriptomics Backend")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_directories()
+
+    yield
+
+
+app = FastAPI(
+    title="Spatial Transcriptomics Backend",
+    lifespan=lifespan
+)
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://[::]:8080"],  # Frontend URLs
+    allow_origins=["http://localhost:8080", "http://[::]:8080"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,3 +47,4 @@ app.include_router(
     prefix="/api/tools",
     tags=["Tools"]
 )
+

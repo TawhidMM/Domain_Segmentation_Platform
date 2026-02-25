@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 
+from app.core.workspace import Workspace
+
+
 class ToolAdapter(ABC):
 
-    def __init__(self, workspace: dict):
+    def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
     @abstractmethod

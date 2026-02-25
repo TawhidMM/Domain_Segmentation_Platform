@@ -1,39 +1,54 @@
 import json
+import os
 from pathlib import Path
 
-from app.core.config import FRONTEND_RESULT_FILENAME
+from app.core.config import settings
+from app.core.workspace import Workspace
 from app.services.docker_runner import run_docker
 from app.tools.loader import load_adapter
 from app.tools.registry import TOOLS
 from app.utils.metrics import load_and_align, spatial_weights, compute_silhouette, compute_davies_bouldin, \
     compute_calinski_harabasz, morans_I, gearys_C
-from app.utils.workspace import get_workspace
+
 
 
 def run_tool(job_id: str, tool_name: str, user_params: dict, upload_id: str):
     tool = TOOLS[tool_name.lower()]
-    workspace = get_workspace(job_id)
+    workspace = Workspace(job_id)
 
     adapter = load_adapter(tool["adapter"], workspace)
 
     adapter.prepare_inputs(upload_id)
+    print("input files prepared")
     adapter.build_config(user_params)
+    print("config built")
+
+    container_workspace = settings.CONTAINER_WORKSPACE_PATH
+    container_config_path = container_workspace / "config" / tool["config_file"]
+
+    uid = os.getuid()
+    gid = os.getgid()
 
     cmd = [
         "docker", "run", "--rm",
         "--gpus", "all",
-        "-v", f"{workspace['root']}:/workspace",
+        "-v", f"{workspace.root_dir}:{container_workspace}",
         tool["image"],
-        f"/workspace/config/{tool['config_file']}"
+        str(container_config_path)
     ]
 
-    run_docker(cmd, workspace)
+    print("Workspace root exists:", workspace.root_dir.exists())
+    print("About to call run_docker")
 
-    result = adapter.build_frontend_output(job_id)
+    run_docker(cmd, workspace.logs_dir)
 
-    result_path = workspace["output"] / FRONTEND_RESULT_FILENAME
-    with open(result_path, "w") as f:
-        json.dump(result, f)
+    print("tool finished")
+
+    result = adapter.build_frontend_output(job_id, tool_name)
+
+    print("result creation done")
+
+    workspace.result_file.write_text(json.dumps(result, indent=2))
 
 
 

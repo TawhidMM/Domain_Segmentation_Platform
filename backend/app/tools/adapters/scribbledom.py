@@ -2,8 +2,9 @@ import json
 import shutil
 from pathlib import Path
 
-from app.core.config import UPLOAD_DIR, UPLOAD_ZIP_FILENAME
+from app.core.config import settings
 from app.services.tools_service import resolve_config
+from app.services.upload_service import UPLOAD_ZIP_FILENAME
 from app.tools.adapters.base import ToolAdapter
 from app.tools.manifests.scribbledom import SCRIBBLEDOM_MANIFEST
 from app.utils.visium import merge_predictions_and_coords, get_color_mapped_domain
@@ -20,8 +21,8 @@ class ScribbleDomAdapter(ToolAdapter):
 
 
     def prepare_inputs(self, dataset_id):
-        zip_dir = UPLOAD_DIR / f"upload_{dataset_id}" / UPLOAD_ZIP_FILENAME
-        target_dir = (self.workspace["input"] /
+        zip_dir = settings.UPLOAD_DIR / f"upload_{dataset_id}" / UPLOAD_ZIP_FILENAME
+        target_dir = (self.workspace.input_dir /
                       self.DATASET / self.SAMPLE)
 
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -45,18 +46,20 @@ class ScribbleDomAdapter(ToolAdapter):
             "model_output_folder": self.MODEL_OUTPUT_FOLDER,
             "final_output_folder": self.FINAL_OUTPUT_FOLDER,
 
-            "space_ranger_output_directory": self.workspace["input"].name,
+            "space_ranger_output_directory": self.workspace.input_dir.name,
             "dataset": self.DATASET,
             "samples": [self.SAMPLE]
         }
 
-        config_path = self.workspace['config'] / "config.json"
+        self.workspace.config_dir.mkdir(parents=True, exist_ok=True)
+
+        config_path = self.workspace.config_dir / "config.json"
         with open(config_path, "w") as f:
             json.dump({**resolved_params, **system_config}, f, indent=4)
 
 
     def _stage_manual_scribble(self, target_dir: Path):
-        staged_dir = self.workspace["root"] / "staged_inputs"
+        staged_dir = self.workspace.root_dir / "staged_inputs"
         staged_dir.mkdir(parents=True, exist_ok=True)
 
         for f in list(target_dir.iterdir()):
@@ -86,9 +89,9 @@ class ScribbleDomAdapter(ToolAdapter):
                                 f"not found in {target_dir.name}")
 
 
-    def build_frontend_output(self, job_id: str) -> dict:
+    def build_frontend_output(self, job_id: str, tool_name: str) -> dict:
         base_dir = (
-                self.workspace["output"]
+                self.workspace.output_dir
                 / self.FINAL_OUTPUT_FOLDER
                 / self.DATASET
                 / self.SAMPLE
@@ -100,7 +103,7 @@ class ScribbleDomAdapter(ToolAdapter):
 
         prediction_file = csv_files[0]
         coords_file = (
-                self.workspace["input"]
+                self.workspace.input_dir
                 / self.DATASET
                 / self.SAMPLE
                 / "spatial"
@@ -111,6 +114,7 @@ class ScribbleDomAdapter(ToolAdapter):
 
         return {
             "jobId": job_id,
+            "toolName": tool_name,
             "spots": spots,
             "domains": domains
         }

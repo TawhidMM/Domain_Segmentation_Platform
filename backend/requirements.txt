@@ -10,3 +10,9 @@ pyyaml
 scikit-learn
 numpy
 pandas
+pydantic-settings
+matplotlib
+celery
+redis
+psycopg2-binary
+umap-learn

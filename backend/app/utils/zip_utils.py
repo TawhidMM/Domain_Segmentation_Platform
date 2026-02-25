@@ -1,8 +1,14 @@
 import zipfile
 import shutil
+from pathlib import Path
 
-def extract_zip(zip_path: str, target_dir: str):
+
+def extract_zip(zip_path: Path, target_dir: Path):
     temp_extract_path = target_dir / f"tmp"
+
+    print(f"zip path : {zip_path}")
+    print(f"target path : {target_dir}")
+    print(f"temp extract path : {temp_extract_path}")
 
     try:
         if temp_extract_path.exists():

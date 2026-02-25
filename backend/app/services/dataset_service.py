@@ -1,14 +1,23 @@
-from sqlalchemy.orm import Session
-from app.models.dataset import Dataset
-from uuid import uuid4
-from pathlib import Path
+from datetime import datetime, timezone
 
-def create_dataset(db: Session, zip_path: Path) -> Dataset:
+from sqlalchemy.orm import Session
+
+from app.models.dataset import Dataset
+from app.repositories import dataset_repository
+
+
+def create_dataset(
+    db: Session,
+    upload_id: str,
+    zip_path: str
+) -> str:
+
     dataset = Dataset(
-        id=f"ds_{uuid4().hex[:8]}",
+        dataset_id=upload_id,
         zip_path=str(zip_path),
+        created_at=datetime.now(timezone.utc)
     )
-    db.add(dataset)
-    db.commit()
-    db.refresh(dataset)
-    return dataset
+
+    dataset_repository.create_dataset(db, dataset)
+
+    return dataset.dataset_id

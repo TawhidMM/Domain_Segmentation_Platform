@@ -1,5 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Depends
+from sqlalchemy.orm import Session
 
+from app.core.database import get_db
+from app.services.dataset_service import create_dataset
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
 )
@@ -7,21 +10,34 @@ from app.services.upload_service import (
 router = APIRouter()
 
 @router.post("/init-upload")
-def init(filename: str = Form(...), total_chunks: int = Form(...)):
-    upload_id = init_upload(filename, total_chunks)
+def init(
+    total_chunks: int = Form(...)
+):
+    upload_id = init_upload(total_chunks)
     return {"upload_id": upload_id}
+
 
 @router.post("/upload-chunk")
 async def upload(
     upload_id: str = Form(...),
-    chunk_index: int = Form(...),
     chunk: UploadFile = File(...)
 ):
     upload_chunk(upload_id, await chunk.read())
     return {"status": "ok"}
 
+
 @router.post("/finalize-upload")
-def finalize(upload_id: str = Form(...)):
+def finalize(
+    upload_id: str = Form(...),
+    db: Session = Depends(get_db)
+):
+
     zip_path = finalize_upload(upload_id)
-    # extract_dataset(zip_path, upload_id)
-    return {"upload_id": upload_id, "status": "processing"}
+
+    dataset_id = create_dataset(
+        db=db,
+        upload_id=upload_id,
+        zip_path=zip_path
+    )
+
+    return {"dataset_id": dataset_id}
