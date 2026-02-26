@@ -47,4 +47,3 @@ app.include_router(
     prefix="/api/tools",
     tags=["Tools"]
 )
-

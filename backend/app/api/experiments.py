@@ -187,33 +187,6 @@ def export_experiment(
     )
 
 
-@router.get("/{experiment_id}/export/umap")
-def export_umap(
-    experiment_id: str,
-    token: str = Query(...),
-    format: str = Query("svg"),
-    db: Session = Depends(get_db)
-):
-
-    if format != "svg":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported format: {format}. Only 'svg' is supported."
-        )
-
-    data, content_type, filename = experiment_service.export_experiment_umap(
-        db=db,
-        job_id=experiment_id,
-        token=token
-    )
-
-    return StreamingResponse(
-        BytesIO(data),
-        media_type=content_type,
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
-
-
 @router.get("/compare/export/metrics")
 def export_compare_metrics(
     c: str = Query(...),
@@ -246,3 +219,48 @@ def export_compare_metrics(
         media_type=content_type,
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@router.get("/compare/consensus")
+def get_consensus_predictions(
+    c: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    print(" [[[]]][[[[]]][[[]]]][[[[]]]")
+    payload = _decode_compare_payload(c)
+    items = _extract_compare_items(payload)
+
+    return experiment_service.build_consensus_predictions(
+        db=db,
+        experiments=items
+    )
+
+
+@router.get("/{experiment_id}/export/umap")
+def export_umap(
+    experiment_id: str,
+    token: str = Query(...),
+    format: str = Query("svg"),
+    db: Session = Depends(get_db)
+):
+
+    if format != "svg":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format: {format}. Only 'svg' is supported."
+        )
+
+    data, content_type, filename = experiment_service.export_experiment_umap(
+        db=db,
+        job_id=experiment_id,
+        token=token
+    )
+
+    return StreamingResponse(
+        BytesIO(data),
+        media_type=content_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+
