@@ -193,7 +193,6 @@ def export_experiment(
     db,
     job_id: str,
     token: str,
-    format_type: str = "svg",
     include_metadata: bool = True,
     bundle: bool = False
 ) -> Tuple[bytes, str, str]:

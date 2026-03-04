@@ -1,5 +1,6 @@
 import colorsys
 import csv
+import json
 from pathlib import Path
 
 REQUIRED = [
@@ -15,6 +16,21 @@ def validate_visium_input(input_dir: Path):
                 f"Invalid Visium input: missing '{name}'. "
                 "Please upload a standard Space Ranger output directory."
             )
+
+
+def read_scale_factors(spatial_dir: Path) -> dict:
+    scale_file = spatial_dir / "scalefactors_json.json"
+
+    if not scale_file.exists():
+        raise FileNotFoundError(
+            f"Scale factors file not found at {scale_file}. "
+            "Expected 'scalefactors_json.json' in spatial directory."
+        )
+
+    with open(scale_file, "r") as f:
+        scale_factors = json.load(f)
+
+    return scale_factors
 
 
 def read_predictions(prediction_file:Path) -> dict:
@@ -37,8 +53,13 @@ def read_predictions(prediction_file:Path) -> dict:
 
     return pred_map
 
-def read_coordinates(coord_file:Path) -> dict:
+def read_coordinates(coord_file: Path, scale_factors: dict = None) -> dict:
     coord_map = {}
+
+    # Default scale factor if not provided
+    scale_factor = 1.0
+    if scale_factors and "tissue_hires_scalef" in scale_factors:
+        scale_factor = scale_factors["tissue_hires_scalef"]
 
     with open(coord_file, newline="") as f:
         reader = csv.reader(f)
@@ -46,16 +67,21 @@ def read_coordinates(coord_file:Path) -> dict:
             if row[1] == 0:
                 continue
             barcode = row[0]
-            x = float(row[5])
-            y = float(row[4])
-            coord_map[barcode] = (x, y)
+            pxl_col = float(row[5])  # x coordinate
+            pxl_row = float(row[4])  # y coordinate
+
+            # Scale coordinates to high resolution
+            scaled_x = pxl_col * scale_factor
+            scaled_y = pxl_row * scale_factor
+
+            coord_map[barcode] = (scaled_x, scaled_y)
 
     return coord_map
 
 
-def merge_predictions_and_coords(predictions_file:Path, coords_file:Path):
+def merge_predictions_and_coords(predictions_file: Path, coords_file: Path, scale_factors: dict = None) -> list:
     pred = read_predictions(predictions_file)
-    coords = read_coordinates(coords_file)
+    coords = read_coordinates(coords_file, scale_factors)
 
     spots = []
 
@@ -103,3 +129,16 @@ def get_color_mapped_domain(spots:list):
     ]
 
     return domains
+
+
+def get_histology_image_path(spatial_dir: Path) -> tuple[Path | None, str | None]:
+
+    hires_image = spatial_dir / "tissue_hires_image.png"
+    lowres_image = spatial_dir / "tissue_lowres_image.png"
+    
+    if hires_image.exists():
+        return hires_image, "hires"
+    elif lowres_image.exists():
+        return lowres_image, "lowres"
+    
+    return None, None

@@ -175,7 +175,6 @@ def export_experiment(
         db=db,
         job_id=job_id,
         token=token,
-        format_type=format,
         include_metadata=include_metadata,
         bundle=bundle
     )
@@ -226,7 +225,6 @@ def get_consensus_predictions(
     c: str = Query(...),
     db: Session = Depends(get_db)
 ):
-    print(" [[[]]][[[[]]][[[]]]][[[[]]]")
     payload = _decode_compare_payload(c)
     items = _extract_compare_items(payload)
 

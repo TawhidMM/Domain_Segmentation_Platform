@@ -7,7 +7,7 @@ from app.services.tools_service import resolve_config
 from app.services.upload_service import UPLOAD_ZIP_FILENAME
 from app.tools.adapters.base import ToolAdapter
 from app.tools.manifests.scribbledom import SCRIBBLEDOM_MANIFEST
-from app.utils.visium import merge_predictions_and_coords, get_color_mapped_domain
+from app.utils.visium import merge_predictions_and_coords, get_color_mapped_domain, read_scale_factors, get_histology_image_path
 from app.utils.zip_utils import extract_zip
 
 
@@ -109,12 +109,26 @@ class ScribbleDomAdapter(ToolAdapter):
                 / "spatial"
                 / "tissue_positions_list.csv")
 
-        spots = merge_predictions_and_coords(prediction_file, coords_file)
+        spatial_dir = (
+                self.workspace.input_dir
+                / self.DATASET
+                / self.SAMPLE
+                / "spatial")
+
+        # Read scale factors for high-resolution coordinate scaling
+        scale_factors = read_scale_factors(spatial_dir)
+
+        spots = merge_predictions_and_coords(prediction_file, coords_file, scale_factors)
         domains = get_color_mapped_domain(spots)
+
+        # Check for histology image
+        histology_path, histology_type = get_histology_image_path(spatial_dir)
+        has_histology = histology_path is not None
 
         return {
             "jobId": job_id,
             "toolName": tool_name,
             "spots": spots,
-            "domains": domains
+            "domains": domains,
+            "has_histology": has_histology
         }
