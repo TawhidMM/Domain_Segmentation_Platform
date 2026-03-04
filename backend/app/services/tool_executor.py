@@ -26,9 +26,6 @@ def run_tool(job_id: str, tool_name: str, user_params: dict, upload_id: str):
     container_workspace = settings.CONTAINER_WORKSPACE_PATH
     container_config_path = container_workspace / "config" / tool["config_file"]
 
-    uid = os.getuid()
-    gid = os.getgid()
-
     cmd = [
         "docker", "run", "--rm",
         "--gpus", "all",

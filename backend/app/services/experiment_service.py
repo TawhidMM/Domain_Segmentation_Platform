@@ -4,15 +4,22 @@ import uuid
 from datetime import datetime, timezone
 from io import StringIO
 from typing import Optional, Tuple
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from fastapi import HTTPException
 
 from app.core.workspace import Workspace
 from app.models.experiment import Experiment, ExperimentStatus, VALID_EXPERIMENT_TRANSITIONS
 from app.repositories import dataset_repository, experiment_repository
-from app.utils.security import generate_token_pair, verify_token
+from app.utils.consensus import (
+    align_tool_labels,
+    compute_consensus_and_confidence,
+    pick_reference_index,
+    build_label_matrix
+)
 from app.utils.metrics_export import create_metrics_zip_export, generate_metric_svg
+from app.utils.security import generate_token_pair, verify_token
 from app.utils.svg_export import SpatialPlotExporter, create_zip_export
 from app.utils.umap_export import UmapPlotExporter
 
@@ -158,7 +165,7 @@ def get_result_json(
 
     result = json.loads(result_path.read_text())
     
-    # Ensure toolName is always included (backward compatibility)
+    # Ensure the toolName is always included (backward compatibility)
     if "toolName" not in result and experiment.tool_name:
         result["toolName"] = experiment.tool_name
     
@@ -186,14 +193,13 @@ def export_experiment(
     db,
     job_id: str,
     token: str,
-    format_type: str = "svg",
     include_metadata: bool = True,
     bundle: bool = False
 ) -> Tuple[bytes, str, str]:
 
     experiment = require_experiment_with_access(db, job_id, token)
 
-    # Ensure experiment is finished
+    # Ensure the experiment is finished
     if experiment.status != ExperimentStatus.FINISHED:
         raise HTTPException(
             status_code=422,
@@ -251,7 +257,7 @@ def export_experiment_umap(
 
     experiment = require_experiment_with_access(db, job_id, token)
 
-    # Ensure experiment is finished
+    # Ensure the experiment is finished
     if experiment.status != ExperimentStatus.FINISHED:
         raise HTTPException(
             status_code=422,
@@ -306,7 +312,7 @@ def export_experiment_umap(
         }
 
     # Sort embedding barcodes deterministically
-    embedding_barcodes_sorted = np.sort(embedding_barcodes)
+    np.sort(embedding_barcodes)
 
     # Align embeddings with spots
     valid_idx = []
@@ -482,3 +488,76 @@ def export_compare_metrics(
     filename = "comparison_metrics_export.zip"
     return zip_data, "application/zip", filename
 
+
+def build_consensus_predictions(db, experiments: list) -> dict:
+    if not experiments:
+        raise HTTPException(status_code=400, detail="No experiments provided")
+
+    loaded = []
+    for item in experiments:
+        job_id = item.get("job_id")
+        token = item.get("token")
+
+        experiment = require_experiment_with_access(db, job_id, token)
+        workspace = Workspace(job_id)
+        result_path = workspace.result_file
+
+        if not result_path.exists():
+            raise HTTPException(status_code=404, detail=f"Result not found for experiment {job_id}")
+
+        result_json = json.loads(result_path.read_text())
+        spots = result_json.get("spots", [])
+
+        loaded.append({
+            "job_id": job_id,
+            "experiment": experiment,
+            "workspace": workspace,
+            "spots": spots
+        })
+
+
+    labels_matrix, common_barcodes = build_label_matrix(loaded)
+
+
+    reference_idx = pick_reference_index(loaded)
+    reference_labels = labels_matrix[reference_idx]
+
+    # Align all tool labels to reference
+    aligned_labels = []
+    for idx, labels in enumerate(labels_matrix):
+        if idx == reference_idx:
+            aligned_labels.append(labels)
+            continue
+        aligned_labels.append(align_tool_labels(reference_labels, labels))
+
+    aligned_stack = np.vstack(aligned_labels)
+    consensus_labels, confidence_scores = compute_consensus_and_confidence(
+        aligned_stack,
+        reference_labels
+    )
+
+    # Build output with spatial coordinates from reference
+    reference_spots = loaded[reference_idx]["spots"]
+    ref_barcode_map = {spot["barcode"]: spot for spot in reference_spots}
+
+    spots_output = []
+    for i, barcode in enumerate(common_barcodes):
+        ref_spot = ref_barcode_map.get(barcode)
+        if not ref_spot:
+            continue
+
+        spots_output.append({
+            "barcode": barcode,
+            "x": ref_spot["x"],
+            "y": ref_spot["y"],
+            "consensus_domain": int(consensus_labels[i]),
+            "confidence": float(confidence_scores[i])
+        })
+
+    return {
+        "metadata": {
+            "reference_tool": loaded[reference_idx]["job_id"],
+            "num_experiments": len(loaded)
+        },
+        "spots": spots_output
+    }
