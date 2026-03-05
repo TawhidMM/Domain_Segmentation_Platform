@@ -362,6 +362,9 @@ const FocusPage: React.FC = () => {
             rotation={rotation}
             mirrorX={mirrorX}
             mirrorY={mirrorY}
+            jobId={jobId}
+            accessToken={accessToken}
+            hasHistology={result?.has_histology}
           />
 
           <Box sx={{ mt: 3 }}>

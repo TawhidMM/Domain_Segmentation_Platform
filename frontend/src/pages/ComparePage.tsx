@@ -1,50 +1,75 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Box, Container, Typography, Chip, Paper, Alert, Button, CircularProgress, Stack } from '@mui/material';
-import { GridView, Download as DownloadIcon } from '@mui/icons-material';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Box, Container, Typography, Chip, Button, CircularProgress, Tabs, Tab } from '@mui/material';
+import { GridView, Download as DownloadIcon, BarChart as BarChartIcon, TableChart as TableChartIcon, MapOutlined as MapIcon } from '@mui/icons-material';
 import { useMultiJobResults } from '@/hooks/useMultiJobResults';
+import { useCompareJobsParams } from '@/hooks/useCompareJobsParams';
+import { useDragAndDrop } from '@/hooks/useDragAndDrop';
+import { useJobReordering } from '@/hooks/useJobReordering';
 import CompareJobList from '@/components/visualization/CompareJobList';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
-import { exportComparisonMetrics } from '@/services/experimentService';
+import MetricsTable from '@/components/visualization/MetricsTable';
+import MetricsBarCharts from '@/components/visualization/MetricsBarCharts';
+import SpatialConsensusVisualization from '@/components/visualization/SpatialConsensusVisualization';
+import { exportComparisonMetrics, fetchConsensusData } from '@/services/experimentService';
 import { toast } from 'sonner';
 
 const ComparePage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
   const [isExportingMetrics, setIsExportingMetrics] = useState(false);
+  const [activeTab, setActiveTab] = useState<'plots' | 'metrics' | 'consensus'>('plots');
+  const [consensusData, setConsensusData] = useState<any>(null);
+  const [consensusLoading, setConsensusLoading] = useState(false);
+  const [consensusError, setConsensusError] = useState<string | null>(null);
 
-  // Parse URL params
-  const jobsParam = searchParams.get('jobs');
-  const tokensParam = searchParams.get('tokens');
+  // Parse and validate URL params
+  const { jobIds, tokens, isValid } = useCompareJobsParams();
 
-  const { jobIds, tokens, isValid } = useMemo(() => {
-    if (!jobsParam || !tokensParam) {
-      return { jobIds: [], tokens: [], isValid: false };
-    }
+  // Drag and drop functionality
+  const { isDragging, isDragOver, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } =
+    useDragAndDrop();
 
-    const jobs = jobsParam.split(',').filter(Boolean);
-    const toks = tokensParam.split(',').filter(Boolean);
-
-    const valid = jobs.length === toks.length && jobs.length >= 2;
-
-    return { jobIds: jobs, tokens: toks, isValid: valid };
-  }, [jobsParam, tokensParam]);
+  // Job reordering and removal
+  const { handleReorderJobs, handleRemoveJob } = useJobReordering({ jobIds, tokens, setSearchParams });
 
   // Fetch results for all completed jobs
   const jobResults = useMultiJobResults(jobIds, tokens);
 
-  // If invalid or < 2 jobs, redirect
-  React.useEffect(() => {
-    if (!isValid) {
-      if (jobIds.length === 1) {
-        // Redirect to single job focus page
-        navigate(`/experiment/${jobIds[0]}?t=${tokens[0]}`);
-      } else {
-        // Redirect to home
-        navigate('/');
-      }
+  const comparisonPayload = useMemo(() => {
+    if (jobIds.length < 2) {
+      return '';
     }
-  }, [isValid, jobIds, tokens, navigate]);
+
+    const payload = { jobs: jobIds, tokens };
+    const jsonStr = JSON.stringify(payload);
+    const b64 = btoa(jsonStr);
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }, [jobIds, tokens]);
+
+  // Fetch consensus data from backend
+  useEffect(() => {
+    if (!comparisonPayload) {
+      setConsensusData(null);
+      return;
+    }
+
+    const loadConsensusData = async () => {
+      setConsensusLoading(true);
+      setConsensusError(null);
+      try {
+        const data = await fetchConsensusData(comparisonPayload);
+        setConsensusData(data);
+      } catch (error) {
+        console.error('Error fetching consensus data:', error);
+        setConsensusError(error instanceof Error ? error.message : 'Unknown error');
+        setConsensusData(null);
+      } finally {
+        setConsensusLoading(false);
+      }
+    };
+
+    loadConsensusData();
+  }, [comparisonPayload]);
 
   if (!isValid) {
     return (
@@ -59,23 +84,10 @@ const ComparePage: React.FC = () => {
     );
   }
 
-  const handleRemoveJob = (jobId: string) => {
-    const newJobs = jobIds.filter((id) => id !== jobId);
-    const newTokens = tokens.filter((_, index) => jobIds[index] !== jobId);
 
-    if (newJobs.length < 2) {
-      // Redirect to remaining job focus page
-      navigate(`/experiment/${newJobs[0]}?t=${newTokens[0]}`);
-    } else {
-      // Update URL
-      const newJobsParam = newJobs.join(',');
-      const newTokensParam = newTokens.join(',');
-      setSearchParams({ jobs: newJobsParam, tokens: newTokensParam });
-    }
-  };
 
   const handleDownloadMetrics = useCallback(async () => {
-    if (jobIds.length < 2) {
+    if (jobIds.length < 2 || !comparisonPayload) {
       toast.error('At least 2 experiments required');
       return;
     }
@@ -83,12 +95,7 @@ const ComparePage: React.FC = () => {
     setIsExportingMetrics(true);
     try {
       // Encode the payload for backend
-      const payload = { jobs: jobIds, tokens };
-      const jsonStr = JSON.stringify(payload);
-      const b64 = btoa(jsonStr); // standard base64
-      const urlSafe = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''); // URL-safe
-      
-      const blob = await exportComparisonMetrics(urlSafe);
+      const blob = await exportComparisonMetrics(comparisonPayload);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -106,7 +113,9 @@ const ComparePage: React.FC = () => {
     } finally {
       setIsExportingMetrics(false);
     }
-  }, [jobIds, tokens]);
+  }, [jobIds, comparisonPayload]);
+
+
 
   // Build job list for comparison
   const comparisonJobs = jobIds.map((jobId, index) => ({
@@ -166,6 +175,41 @@ const ComparePage: React.FC = () => {
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Compare {jobIds.length} jobs side by side
         </Typography>
+
+        {/* Tabs */}
+        <Box sx={{ mt: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs
+            value={activeTab}
+            onChange={(_, newValue) => setActiveTab(newValue)}
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                minHeight: 48,
+              },
+            }}
+          >
+            <Tab
+              label="Plots"
+              value="plots"
+              icon={<BarChartIcon sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+            />
+            <Tab
+              label="Metrics"
+              value="metrics"
+              icon={<TableChartIcon sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+            />
+            <Tab
+              label="Consensus"
+              value="consensus"
+              icon={<MapIcon sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+            />
+          </Tabs>
+        </Box>
       </Box>
 
       {/* Main Content */}
@@ -175,8 +219,9 @@ const ComparePage: React.FC = () => {
 
         {/* Right Content */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-          {/* Grid Content */}
-          <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
+          {/* Plots Tab */}
+          {activeTab === 'plots' && (
+            <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
             {jobsWithResults.length === 0 ? (
               <Box
                 sx={{
@@ -203,21 +248,143 @@ const ComparePage: React.FC = () => {
                   gap: 3,
                 }}
               >
-                {jobsWithResults.map((job) => (
-                  <Box key={job.id}>
-                    <SpatialPlot
-                      result={job.result}
-                      metrics={job.metrics}
-                      title={`Job ${jobIds.indexOf(job.id) + 1}`}
-                      height={400}
-                      showLegend={false}
-                      compact
-                    />
-                  </Box>
-                ))}
+                {jobsWithResults.map((job) => {
+                  const dragging = isDragging(job.id);
+                  const dragOver = isDragOver(job.id);
+
+                  return (
+                    <Box
+                      key={job.id}
+                      draggable
+                      onDragStart={() => handleDragStart(job.id)}
+                      onDragOver={(e) => handleDragOver(e, job.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, job.id, handleReorderJobs)}
+                      onDragEnd={handleDragEnd}
+                      sx={{
+                        cursor: 'grab',
+                        opacity: dragging ? 0.5 : 1,
+                        transform: dragOver && !dragging ? 'scale(0.98)' : 'scale(1)',
+                        transition: 'all 0.2s ease',
+                        border: dragOver && !dragging ? '2px dashed' : '2px solid transparent',
+                        borderColor: dragOver && !dragging ? 'primary.main' : 'transparent',
+                        borderRadius: 2,
+                        p: dragOver && !dragging ? 1 : 0,
+                        '&:active': {
+                          cursor: 'grabbing',
+                        },
+                        '&:hover': {
+                          boxShadow: dragging ? 'none' : 2,
+                        },
+                      }}
+                    >
+                      <SpatialPlot
+                        result={job.result}
+                        metrics={job.metrics}
+                        title={job.result?.toolName}
+                        height={400}
+                        showLegend={false}
+                        compact
+                      />
+                    </Box>
+                  );
+                })}
               </Box>
             )}
-          </Box>
+            </Box>
+          )}
+
+          {/* Metrics Tab */}
+          {activeTab === 'metrics' && (
+            <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
+              {jobsWithResults.length === 0 ? (
+                <Box
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <CircularProgress size={48} sx={{ mb: 2 }} />
+                  <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
+                    Loading Metrics
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+                    Fetching comparison metrics...
+                  </Typography>
+                </Box>
+              ) : (
+                <>
+                  <MetricsTable jobs={jobsWithResults} jobIds={jobIds} />
+                  <MetricsBarCharts
+                    metrics={jobsWithResults}
+                    jobIds={jobIds}
+                    comparisonPayload={comparisonPayload}
+                    onDownloadAll={handleDownloadMetrics}
+                  />
+                </>
+              )}
+            </Box>
+          )}
+
+          {/* Consensus Tab */}
+          {activeTab === 'consensus' && (
+            <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
+              {consensusError && (
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: 'error.light',
+                    borderRadius: 1,
+                    mb: 2,
+                    color: 'error.main',
+                  }}
+                >
+                  <Typography variant="body2">Error: {consensusError}</Typography>
+                </Box>
+              )}
+              {consensusLoading ? (
+                <Box
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <CircularProgress size={48} sx={{ mb: 2 }} />
+                  <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
+                    Loading Consensus
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+                    Building consensus predictions...
+                  </Typography>
+                </Box>
+              ) : consensusData ? (
+                <SpatialConsensusVisualization
+                  data={consensusData}
+                  isLoading={consensusLoading}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    No consensus data available
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
         </Box>
       </Box>
     </Box>
