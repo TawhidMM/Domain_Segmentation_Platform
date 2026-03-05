@@ -357,7 +357,7 @@ const FocusPage: React.FC = () => {
       {/* Left Sidebar - Dataset/Run Explorer */}
       <Box
         sx={{
-          width: 320,
+          width: 260,
           borderRight: '1px solid',
           borderColor: 'divider',
           overflow: 'auto',
@@ -366,11 +366,11 @@ const FocusPage: React.FC = () => {
           flexDirection: 'column',
         }}
       >
-        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Box sx={{ p: 3, pb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '16px', mb: 0.5 }}>
             Experiment Runs
           </Typography>
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '13px' }}>
             Select a run to view results
           </Typography>
         </Box>

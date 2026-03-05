@@ -27,12 +27,12 @@ const DatasetExplorer: React.FC<DatasetExplorerProps> = ({
   }
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, textTransform: 'uppercase' }}>
-        Datasets ({datasets.length})
+    <Box sx={{ p: 3, pt: 1, flex: 1, overflow: 'auto' }}>
+      <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', color: 'text.secondary', letterSpacing: '0.5px' }}>
+        Datasets
       </Typography>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {datasets.map((dataset) => (
           <DatasetItem
             key={dataset.dataset_id}
