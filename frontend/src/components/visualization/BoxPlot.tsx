@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
 import ReactECharts from 'echarts-for-react';
 import { EChartsOption } from 'echarts';
-import { calculateStats, calculateQuartiles } from '@/utils/metricsUtils';
+import { calculateStats } from '@/utils/metricsUtils';
 
 interface BoxPlotProps {
   metricKey: string;
@@ -18,6 +18,47 @@ interface BoxPlotProps {
 }
 
 const CHART_COLORS = ['#2563EB', '#0EA5E9', '#14B8A6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
+
+function quantile(sortedValues: number[], q: number): number {
+  if (sortedValues.length === 0) return 0;
+  const position = (sortedValues.length - 1) * q;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+
+  if (lower === upper) {
+    return sortedValues[lower];
+  }
+
+  const weight = position - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+}
+
+function computeBoxStats(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+
+  const q1 = quantile(sorted, 0.25);
+  const median = quantile(sorted, 0.5);
+  const q3 = quantile(sorted, 0.75);
+
+  const iqr = q3 - q1;
+  const lowerFence = q1 - 1.5 * iqr;
+  const upperFence = q3 + 1.5 * iqr;
+
+  const inFence = sorted.filter((value) => value >= lowerFence && value <= upperFence);
+
+  const lowerWhisker = inFence.length > 0 ? inFence[0] : sorted[0];
+  const upperWhisker = inFence.length > 0 ? inFence[inFence.length - 1] : sorted[sorted.length - 1];
+
+  return {
+    lowerWhisker,
+    q1,
+    median,
+    q3,
+    upperWhisker,
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+  };
+}
 
 const BoxPlot: React.FC<BoxPlotProps> = ({
   metricKey,
@@ -37,15 +78,17 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
 
     // Prepare data for box plot
     const boxPlotData = validData.map((exp) => {
-      const q = calculateQuartiles(exp.values);
+      const q = computeBoxStats(exp.values);
       const stats = calculateStats(exp.values);
 
       return {
         name: exp.toolName,
-        value: [q.min, q.q1, stats.mean, q.median, q.q3, q.max],
+        value: [q.lowerWhisker, q.q1, q.median, q.q3, q.upperWhisker],
         stats: {
           mean: stats.mean,
           median: q.median,
+          whiskerMin: q.lowerWhisker,
+          whiskerMax: q.upperWhisker,
           min: q.min,
           max: q.max,
           q1: q.q1,
@@ -85,14 +128,21 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         },
         formatter: (params: any) => {
           if (params.componentSubType === 'boxplot') {
-            const [min, q1, mean, median, q3, max] = params.value;
+            const stats = params.data?.stats;
+            const [whiskerMin, q1, median, q3, whiskerMax] = params.value;
+            const mean = stats?.mean;
+            const min = stats?.min;
+            const max = stats?.max;
+
+            const meanText = typeof mean === 'number' ? mean.toFixed(4) : 'N/A';
             return `<strong>${params.name}</strong><br/>
-Min: ${min.toFixed(4)}<br/>
+Whisker Min: ${whiskerMin.toFixed(4)}<br/>
 Q1: ${q1.toFixed(4)}<br/>
-Mean: ${mean.toFixed(4)} ●<br/>
-Median: ${median.toFixed(4)} —<br/>
+Median: ${median.toFixed(4)} ─<br/>
+Mean: ${meanText} ═<br/>
 Q3: ${q3.toFixed(4)}<br/>
-Max: ${max.toFixed(4)}`;
+Whisker Max: ${whiskerMax.toFixed(4)}<br/>
+Min/Max: ${typeof min === 'number' ? min.toFixed(4) : 'N/A'} / ${typeof max === 'number' ? max.toFixed(4) : 'N/A'}`;
           }
           return params.name;
         },
@@ -178,18 +228,22 @@ Max: ${max.toFixed(4)}`;
       },
       series: [
         {
-          name: 'Box Plot',
+          name: 'Distribution',
           type: 'boxplot',
           data: boxPlotData.map((d, idx) => ({
             value: d.value,
+            stats: d.stats,
             itemStyle: {
               color: CHART_COLORS[idx % CHART_COLORS.length],
-              borderColor: CHART_COLORS[idx % CHART_COLORS.length],
+              borderColor: '#0f172a',
+              borderWidth: 2,
+              opacity: 0.75,
             },
           })),
           itemStyle: {
-            color: '#2563EB',
-            borderColor: '#1e40af',
+            color: '#93c5fd',
+            borderColor: '#0f172a',
+            borderWidth: 2,
           },
           boxWidth: ['40%', '50%'],
           emphasis: {
@@ -202,14 +256,12 @@ Max: ${max.toFixed(4)}`;
             },
           },
         },
-        // Mean indicators (scatter plot)
+        // Mean indicators
         {
           name: 'Mean',
           type: 'scatter',
           data: boxPlotData.map((d, idx) => {
-            // Position on x-axis (category index), y-axis (mean value)
             const xIndex = idx;
-            // ECharts scatter uses [x_value, y_value] where x_value can be category index
             return {
               value: [xIndex, d.stats.mean],
               itemStyle: {
@@ -219,16 +271,39 @@ Max: ${max.toFixed(4)}`;
               },
             };
           }),
-          symbolSize: 8,
+          symbol: 'rect',
+          symbolSize: [18, 3],
+          z: 6,
           tooltip: {
             formatter: (params: any) => {
-              return `${params.name}: ${params.value[1].toFixed(4)}`;
+              return `<strong>${params.name}</strong><br/>Mean: ${params.value[1].toFixed(4)}`;
+            },
+          },
+        },
+        // Median indicators
+        {
+          name: 'Median',
+          type: 'scatter',
+          data: boxPlotData.map((d, idx) => ({
+            value: [idx, d.stats.median],
+            itemStyle: {
+              color: '#ef4444',
+              borderColor: '#ffffff',
+              borderWidth: 1.5,
+            },
+          })),
+          symbol: 'rect',
+          symbolSize: [12, 3],
+          z: 7,
+          tooltip: {
+            formatter: (params: any) => {
+              return `<strong>${params.name}</strong><br/>Median: ${params.value[1].toFixed(4)}`;
             },
           },
         },
       ],
       legend: {
-        data: ['Box Plot', 'Mean'],
+        data: ['Distribution', 'Mean', 'Median'],
         top: 40,
         orient: 'horizontal',
         textStyle: {

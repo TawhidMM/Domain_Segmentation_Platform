@@ -11,7 +11,7 @@ import SpatialPlot from '@/components/visualization/SpatialPlot';
 import MetricsTable from '@/components/visualization/MetricsTable';
 import MetricsBarCharts from '@/components/visualization/MetricsBarCharts';
 import SpatialConsensusVisualization from '@/components/visualization/SpatialConsensusVisualization';
-import { exportComparisonMetrics, fetchConsensusData } from '@/services/experimentService';
+import { downloadCompareMetricBoxplots, fetchConsensusData } from '@/services/experimentService';
 import { toast } from 'sonner';
 
 const ComparePage: React.FC = () => {
@@ -85,18 +85,19 @@ const ComparePage: React.FC = () => {
   }
 
   const handleDownloadMetrics = useCallback(async () => {
-    if (experimentIds.length < 2 || !comparisonPayload) {
+    if (experimentIds.length < 2) {
       toast.error('At least 2 experiments required');
       return;
     }
 
     setIsExportingMetrics(true);
     try {
-      const blob = await exportComparisonMetrics(comparisonPayload);
+      // const blob = await exportComparisonMetrics(comparisonPayload);
+      const blob = await downloadCompareMetricBoxplots(experimentIds);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'comparison_metrics_export.zip';
+      a.download = 'metric_boxplots.zip';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -109,7 +110,7 @@ const ComparePage: React.FC = () => {
     } finally {
       setIsExportingMetrics(false);
     }
-  }, [experimentIds, comparisonPayload]);
+  }, [experimentIds]);
 
   // Build experiment list for comparison sidebar
   const comparisonExperiments = experimentIds.map((expId, index) => ({

@@ -56,6 +56,15 @@ export async function exportComparisonMetrics(encodedPayload: string): Promise<B
   return res.data as Blob;
 }
 
+export async function downloadCompareMetricBoxplots(experimentIds: string[]): Promise<Blob> {
+  const res = await axios.post(
+    `/experiments/compare/download-boxplots`,
+    { experiment_ids: experimentIds },
+    { responseType: 'blob' }
+  );
+  return res.data as Blob;
+}
+
 export async function exportComparisonMetricSvg(encodedPayload: string, metricKey: string): Promise<Blob> {
   const params = { c: encodedPayload, metric: metricKey };
   const res = await axios.get(`/experiments/compare/export/metrics`, {
