@@ -51,6 +51,7 @@ export interface ExperimentResult {
   toolName?: string;
   spots: Spot[];
   domains: Domain[];
+  has_histology?: boolean;
 }
 
 export interface ExperimentMetrics {
@@ -59,6 +60,22 @@ export interface ExperimentMetrics {
   calinski_harabasz: number;
   morans_I: number;
   gearys_C: number;
+}
+
+export interface ConsensusSpot {
+  barcode: string;
+  x: number;
+  y: number;
+  consensus_domain: number;
+  confidence: number;
+}
+
+export interface ConsensusResponse {
+  metadata: {
+    reference_tool: string;
+    num_experiments: number;
+  };
+  spots: ConsensusSpot[];
 }
 
 export type ParameterType = 'slider' | 'number' | 'select' | 'checkbox';

@@ -1,5 +1,5 @@
 import axios from '@/lib/axios';
-import { ExperimentMetrics, ExperimentResult, JobStatusResponse } from '@/types';
+import { ExperimentMetrics, ExperimentResult, JobStatusResponse, ConsensusResponse } from '@/types';
 
 export async function fetchExperimentResult(jobId: string, token?: string): Promise<ExperimentResult> {
   const params = token ? { token } : {};
@@ -43,4 +43,19 @@ export async function exportComparisonMetrics(encodedPayload: string): Promise<B
     responseType: 'blob'
   });
   return res.data as Blob;
+}
+
+export async function exportComparisonMetricSvg(encodedPayload: string, metricKey: string): Promise<Blob> {
+  const params = { c: encodedPayload, metric: metricKey };
+  const res = await axios.get(`/experiments/compare/export/metrics`, {
+    params,
+    responseType: 'blob'
+  });
+  return res.data as Blob;
+}
+
+export async function fetchConsensusData(encodedPayload: string): Promise<ConsensusResponse> {
+  const params = { c: encodedPayload };
+  const res = await axios.get(`/experiments/compare/consensus`, { params });
+  return res.data as ConsensusResponse;
 }
