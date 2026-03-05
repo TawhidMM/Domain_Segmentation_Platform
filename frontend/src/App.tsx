@@ -18,7 +18,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/experiment/:jobId" element={<FocusPage />} />
+          <Route path="/experiment/:experimentId" element={<FocusPage />} />
           <Route path="/compare" element={<ComparePage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

@@ -6,7 +6,7 @@ import { fetchExperimentMetrics, fetchExperimentResult } from '@/services/experi
 import axios from '@/lib/axios';
 
 interface JobRedirectInfo {
-  jobId: string;
+  experimentId: string;
   accessToken: string;
 }
 
@@ -24,7 +24,7 @@ interface AppContextType {
   isDatasetReady: () => boolean;
   
   // Experiment actions
-  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string) => void;
+  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number) => void;
   setActiveExperiment: (id: string | null) => void;
   submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
   refreshExperimentResult: (experimentId: string) => Promise<void>;
@@ -125,12 +125,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return !!(dataset.geneExpressionFile /* && dataset.spatialCoordinatesFile */);
   }, [dataset]);
 
-  const createExperiment = useCallback((toolId: string, parameters: ParameterValue, toolLabel: string) => {
+  const createExperiment = useCallback((toolId: string, parameters: ParameterValue, toolLabel: string, numberOfRuns: number = 1) => {
     const experiment: Experiment = {
       id: crypto.randomUUID(),
       toolId,
       toolName: toolLabel,
       parameters,
+      numberOfRuns,
       status: 'not-submitted',
       createdAt: new Date(),
       completedAt: null,
@@ -179,6 +180,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         formData.append('dataset_id', dataset.uploadId);
         formData.append('tool_name', exp.toolId);
         formData.append('params', JSON.stringify(exp.parameters));
+        formData.append('number_of_runs', String(exp.numberOfRuns ?? 1));
         formData.append('experiment_name', exp.toolName || exp.toolId);
 
         const response = await axios.post('/experiments/submit', formData, {
@@ -186,21 +188,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
 
         const jobSubmissionResponse = response.data as JobSubmissionResponse;
-        const jobId = jobSubmissionResponse.job_id;
+        const experimentId = jobSubmissionResponse.experiment_id;
         const accessToken = jobSubmissionResponse.access_token;
         
-        console.log(`Experiment ${exp.id} submitted with job_id: ${jobId}`);
+        console.log(`Experiment ${exp.id} submitted with experiment_id: ${experimentId}`);
 
         // Store redirect info from first submission
         if (!firstJobRedirect) {
-          firstJobRedirect = { jobId, accessToken };
+          firstJobRedirect = { experimentId, accessToken };
         }
 
-        // Update experiment with job_id and queued status
+        // Update experiment with experimentId and queued status
         setExperiments((prev) =>
           prev.map((e) =>
             e.id === exp.id
-              ? { ...e, status: 'queued' as ExperimentStatus, jobId, result: null, metrics: null }
+              ? { ...e, status: 'queued' as ExperimentStatus, jobId: experimentId, result: null, metrics: null }
               : e
           )
         );

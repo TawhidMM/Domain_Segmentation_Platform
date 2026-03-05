@@ -1,23 +1,29 @@
 import React, { useState } from 'react';
-import { Box, Button, Divider, Stepper, Step, StepLabel, Paper } from '@mui/material';
+import { Box, Button, Stepper, Step, StepLabel, Paper } from '@mui/material';
 import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { ToolSchema } from '@/types';
 import { initializeParameterValues, prepareParametersForSubmission, validateParameterValues } from '@/utils/parameterUtils';
 import ToolSelector from './ToolSelector';
 import ParameterConfig from './ParameterConfig';
+import ExperimentSettings from './ExperimentSettings';
 
 const ExperimentBuilder: React.FC = () => {
   const { createExperiment } = useApp();
   const [activeStep, setActiveStep] = useState(0);
   const [selectedToolSchema, setSelectedToolSchema] = useState<ToolSchema | null>(null);
   const [parameters, setParameters] = useState<Record<string, any>>({});
+  const [numberOfRuns, setNumberOfRuns] = useState(1);
 
   const handleToolSelect = (schema: ToolSchema) => {
     setSelectedToolSchema(schema);
     // Initialize parameters with default values from schema
     const defaultParams = initializeParameterValues(schema);
     setParameters(defaultParams);
+  };
+
+  const handleNumberOfRunsChange = (value: number) => {
+    setNumberOfRuns(value);
   };
 
   const handleCreateExperiment = () => {
@@ -33,7 +39,7 @@ const ExperimentBuilder: React.FC = () => {
       // Prepare parameters (expand float_range, etc.)
       const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
       
-      createExperiment(selectedToolSchema.tool_id, preparedParams, selectedToolSchema.label);
+      createExperiment(selectedToolSchema.tool_id, preparedParams, selectedToolSchema.label, numberOfRuns);
     }
   };
 
@@ -67,7 +73,13 @@ const ExperimentBuilder: React.FC = () => {
           {activeStep === 0 && <ToolSelector selectedToolId={selectedToolSchema?.tool_id} onSelectTool={handleToolSelect} />}
 
           {activeStep === 1 && selectedToolSchema && (
-            <ParameterConfig toolSchema={selectedToolSchema} values={parameters} onChange={setParameters} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {/* Tool Parameters Section */}
+              <ParameterConfig toolSchema={selectedToolSchema} values={parameters} onChange={setParameters} />
+
+              {/* Experiment Settings Card */}
+              <ExperimentSettings numberOfRuns={numberOfRuns} onChange={handleNumberOfRunsChange} />
+            </Box>
           )}
         </Paper>
       </Box>

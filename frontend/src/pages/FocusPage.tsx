@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -14,19 +14,18 @@ import {
   Tooltip,
 } from '@mui/material';
 import { Copy, CheckCircle, AlertCircle, Clock, Zap, Plus, Check, RotateCw, FlipHorizontal, FlipVertical, Download as DownloadIcon } from 'lucide-react';
-import { useJobTracking } from '@/hooks/useJobTracking';
 import { useComparisonBasket } from '@/hooks/useComparisonBasket';
 import FloatingCompareBar from '@/components/visualization/FloatingCompareBar';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
-import { exportExperiment, exportExperimentUmap } from '@/services/experimentService';
+import { DatasetExplorer } from '@/components/experiment';
+import { exportExperiment, exportExperimentUmap, fetchExperimentDetails, fetchRunStatus, fetchExperimentResult, fetchExperimentMetrics } from '@/services/experimentService';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { ExperimentDetails, ExperimentResult, ExperimentMetrics } from '@/types';
 
 const FocusPage: React.FC = () => {
-  const { jobId } = useParams<{ jobId: string }>();
+  const { experimentId } = useParams<{ experimentId: string }>();
   const [searchParams] = useSearchParams();
   const accessToken = searchParams.get('t');
-  const navigate = useNavigate();
   const { addJob, removeJob, isJobInBasket } = useComparisonBasket();
   const [rotation, setRotation] = useState(0);
   const [mirrorX, setMirrorX] = useState(false);
@@ -34,12 +33,136 @@ const FocusPage: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingUmap, setIsExportingUmap] = useState(false);
 
-  const { status, result, metrics, isLoading, isPolling, error, errorCode } = useJobTracking(
-    jobId || '',
-    accessToken
-  );
+  // Experiment and run state
+  const [experimentData, setExperimentData] = useState<ExperimentDetails | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [expandedDatasets, setExpandedDatasets] = useState<Set<string>>(new Set());
+  
+  // Run data state (replaces useJobTracking)
+  const [status, setStatus] = useState<string | null>(null);
+  const [result, setResult] = useState<ExperimentResult | null>(null);
+  const [metrics, setMetrics] = useState<ExperimentMetrics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPolling, setIsPolling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
 
-  const isInBasket = jobId && isJobInBasket(jobId);
+  const isInBasket = selectedRunId && isJobInBasket(selectedRunId);
+
+  // Load experiment structure on mount
+  useEffect(() => {
+    const loadExperiment = async () => {
+      if (!experimentId || !accessToken) {
+        setError('Missing experiment ID or access token');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const data = await fetchExperimentDetails(experimentId, accessToken);
+        setExperimentData(data);
+
+        // Auto-select first run of first dataset
+        if (data.datasets?.length > 0) {
+          const firstDataset = data.datasets[0];
+          if (firstDataset.runs?.length > 0) {
+            setSelectedRunId(firstDataset.runs[0].run_id);
+            setExpandedDatasets(new Set([firstDataset.dataset_id]));
+          }
+        }
+      } catch (err: any) {
+        const code = err.response?.status;
+        setErrorCode(code);
+        setError(code === 403 ? 'Unauthorized access' : code === 404 ? 'Experiment not found' : 'Failed to load experiment');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExperiment();
+  }, [experimentId, accessToken]);
+
+  // Load run data when selected run changes
+  useEffect(() => {
+    let pollingInterval: NodeJS.Timeout | null = null;
+
+    const loadRunData = async () => {
+      if (!selectedRunId || !accessToken) return;
+
+      try {
+        // Fetch run status
+        const runStatus = await fetchRunStatus(selectedRunId, accessToken);
+        setStatus(runStatus.status);
+
+        // If finished, fetch results and metrics
+        if (runStatus.status === 'finished') {
+          const [resultData, metricsData] = await Promise.all([
+            fetchExperimentResult(selectedRunId, accessToken),
+            fetchExperimentMetrics(selectedRunId, accessToken).catch(() => null),
+          ]);
+          setResult(resultData);
+          setMetrics(metricsData);
+          setIsPolling(false);
+        } else if (runStatus.status === 'queued' || runStatus.status === 'running') {
+          // Start polling
+          setIsPolling(true);
+          pollingInterval = setInterval(async () => {
+            try {
+              const updatedStatus = await fetchRunStatus(selectedRunId, accessToken);
+              setStatus(updatedStatus.status);
+
+              if (updatedStatus.status === 'finished') {
+                const [resultData, metricsData] = await Promise.all([
+                  fetchExperimentResult(selectedRunId, accessToken),
+                  fetchExperimentMetrics(selectedRunId, accessToken).catch(() => null),
+                ]);
+                setResult(resultData);
+                setMetrics(metricsData);
+                setIsPolling(false);
+                if (pollingInterval) clearInterval(pollingInterval);
+              } else if (updatedStatus.status === 'failed') {
+                setIsPolling(false);
+                if (pollingInterval) clearInterval(pollingInterval);
+              }
+            } catch (err) {
+              console.error('Polling error:', err);
+            }
+          }, 5000);
+        }
+      } catch (err: any) {
+        const code = err.response?.status;
+        setErrorCode(code);
+        setError('Failed to load run data');
+        toast.error('Failed to load run data');
+      }
+    };
+
+    loadRunData();
+
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [selectedRunId, accessToken]);
+
+  const handleRunSelect = (runId: string) => {
+    setSelectedRunId(runId);
+    setResult(null);
+    setMetrics(null);
+    setStatus(null);
+  };
+
+  const handleDatasetToggle = (datasetId: string) => {
+    setExpandedDatasets((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(datasetId)) {
+        newSet.delete(datasetId);
+      } else {
+        newSet.add(datasetId);
+      }
+      return newSet;
+    });
+  };
 
   const copyLink = useCallback(() => {
     const fullUrl = window.location.href;
@@ -49,29 +172,29 @@ const FocusPage: React.FC = () => {
   }, []);
 
   const handleAddToCompare = useCallback(() => {
-    if (!jobId || !accessToken) return;
+    if (!selectedRunId || !accessToken) return;
 
     if (isInBasket) {
-      removeJob(jobId);
+      removeJob(selectedRunId);
       toast.success('Removed from comparison');
     } else {
-      addJob(jobId, accessToken);
+      addJob(selectedRunId, accessToken);
       toast.success('Added to comparison');
     }
-  }, [jobId, accessToken, isInBasket, addJob, removeJob]);
+  }, [selectedRunId, accessToken, isInBasket, addJob, removeJob]);
 
   const handleDownloadSVG = useCallback(async () => {
-    if (!jobId || !accessToken) return;
+    if (!selectedRunId || !accessToken) return;
 
     setIsExporting(true);
     try {
-      const blob = await exportExperiment(jobId, 'svg', accessToken);
+      const blob = await exportExperiment(selectedRunId, 'svg', accessToken);
       
       // Create download link
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `experiment_${jobId}.svg`;
+      a.download = `run_${selectedRunId}.svg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -84,19 +207,19 @@ const FocusPage: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [jobId, accessToken]);
+  }, [selectedRunId, accessToken]);
 
   const handleDownloadUmap = useCallback(async () => {
-    if (!jobId || !accessToken) return;
+    if (!selectedRunId || !accessToken) return;
 
     setIsExportingUmap(true);
     try {
-      const blob = await exportExperimentUmap(jobId, accessToken);
+      const blob = await exportExperimentUmap(selectedRunId, accessToken);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `experiment_${jobId}_umap.svg`;
+      a.download = `run_${selectedRunId}_umap.svg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -109,7 +232,7 @@ const FocusPage: React.FC = () => {
     } finally {
       setIsExportingUmap(false);
     }
-  }, [jobId, accessToken]);
+  }, [selectedRunId, accessToken]);
 
   const getStatusColor = (stat: string | null): 'warning' | 'info' | 'success' | 'error' | 'default' => {
     switch (stat) {
@@ -142,7 +265,7 @@ const FocusPage: React.FC = () => {
   };
 
   // Invalid access link
-  if (!accessToken || !jobId) {
+  if (!accessToken || !experimentId) {
     return (
       <Container maxWidth="sm" sx={{ py: 6 }}>
         <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -230,15 +353,61 @@ const FocusPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4, pb: 12 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          Job Status
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-          Tracking results for job <code>{jobId}</code>
-        </Typography>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* Left Sidebar - Dataset/Run Explorer */}
+      <Box
+        sx={{
+          width: 320,
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          overflow: 'auto',
+          backgroundColor: 'background.default',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Experiment Runs
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            Select a run to view results
+          </Typography>
+        </Box>
+        {isLoading && !experimentData ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+            <CircularProgress />
+          </Box>
+        ) : error && !experimentData ? (
+          <Box sx={{ p: 2 }}>
+            <Alert severity="error">{error}</Alert>
+          </Box>
+        ) : experimentData ? (
+          <DatasetExplorer
+            datasets={experimentData.datasets}
+            selectedRunId={selectedRunId}
+            expandedDatasets={expandedDatasets}
+            onRunSelect={handleRunSelect}
+            onDatasetToggle={handleDatasetToggle}
+          />
+        ) : null}
+      </Box>
+
+      {/* Main Content Area */}
+      <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <Container maxWidth="lg" sx={{ py: 4, pb: 12, flex: 1 }}>
+          {/* Header */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+              Run Results
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+              {selectedRunId ? (
+                <>Viewing results for run <code>{selectedRunId.substring(0, 12)}...</code></>
+              ) : (
+                'Select a run from the sidebar to view results'
+              )}
+            </Typography>
 
         {/* Status Chip and Copy Link */}
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -362,7 +531,7 @@ const FocusPage: React.FC = () => {
             rotation={rotation}
             mirrorX={mirrorX}
             mirrorY={mirrorY}
-            jobId={jobId}
+            jobId={selectedRunId || ''}
             accessToken={accessToken}
             hasHistology={result?.has_histology}
           />
@@ -422,8 +591,10 @@ const FocusPage: React.FC = () => {
         </Box>
       ) : null}
 
-      <FloatingCompareBar />
-    </Container>
+          <FloatingCompareBar />
+        </Container>
+      </Box>
+    </Box>
   );
 };
 

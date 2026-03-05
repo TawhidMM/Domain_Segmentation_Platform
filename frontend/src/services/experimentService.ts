@@ -1,15 +1,15 @@
 import axios from '@/lib/axios';
-import { ExperimentMetrics, ExperimentResult, JobStatusResponse, ConsensusResponse } from '@/types';
+import { ExperimentMetrics, ExperimentResult, JobStatusResponse, ConsensusResponse, ExperimentDetails, RunStatus } from '@/types';
 
-export async function fetchExperimentResult(jobId: string, token?: string): Promise<ExperimentResult> {
+export async function fetchExperimentResult(runId: string, token?: string): Promise<ExperimentResult> {
   const params = token ? { token } : {};
-  const res = await axios.get(`/experiments/result/${jobId}`, { params });
+  const res = await axios.get(`/experiments/runs/${runId}/result`, { params });
   return res.data as ExperimentResult;
 }
 
-export async function fetchExperimentMetrics(jobId: string, token?: string): Promise<ExperimentMetrics> {
+export async function fetchExperimentMetrics(runId: string, token?: string): Promise<ExperimentMetrics> {
   const params = token ? { token } : {};
-  const res = await axios.get(`/experiments/metrics/${jobId}`, { params });
+  const res = await axios.get(`/experiments/runs/${runId}/metrics`, { params });
   return res.data as ExperimentMetrics;
 }
 
@@ -18,18 +18,29 @@ export async function fetchJobStatus(jobId: string, token: string): Promise<JobS
   return res.data as JobStatusResponse;
 }
 
-export async function exportExperiment(jobId: string, format: 'svg' | 'pdf', token?: string): Promise<Blob> {
+// New endpoints for experiment details page
+export async function fetchExperimentDetails(experimentId: string, token: string): Promise<ExperimentDetails> {
+  const res = await axios.get(`/experiments/${experimentId}`, { params: { token } });
+  return res.data as ExperimentDetails;
+}
+
+export async function fetchRunStatus(runId: string, token: string): Promise<RunStatus> {
+  const res = await axios.get(`/experiments/runs/${runId}`, { params: { token } });
+  return res.data as RunStatus;
+}
+
+export async function exportExperiment(runId: string, format: 'svg' | 'pdf', token?: string): Promise<Blob> {
   const params = token ? { token, format } : { format };
-  const res = await axios.get(`/experiments/export/${jobId}`, { 
+  const res = await axios.get(`/experiments/runs/${runId}/export`, { 
     params,
     responseType: 'blob'
   });
   return res.data as Blob;
 }
 
-export async function exportExperimentUmap(jobId: string, token: string): Promise<Blob> {
+export async function exportExperimentUmap(runId: string, token: string): Promise<Blob> {
   const params = { token };
-  const res = await axios.get(`/experiments/${jobId}/export/umap`, {
+  const res = await axios.get(`/experiments/runs/${runId}/export/umap`, {
     params,
     responseType: 'blob'
   });

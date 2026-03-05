@@ -55,7 +55,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
       if (redirectInfo) {
         toast.success('Experiment submitted successfully! Opening job tracker in new tab...');
         // Open job status page in new tab so user can continue creating experiments
-        const jobUrl = `${window.location.origin}/experiment/${redirectInfo.jobId}?t=${redirectInfo.accessToken}`;
+        const jobUrl = `${window.location.origin}/experiment/${redirectInfo.experimentId}?t=${redirectInfo.accessToken}`;
         window.open(jobUrl, '_blank');
       } else {
         toast.error('No jobs were submitted');

@@ -27,6 +27,7 @@ export interface Experiment {
   toolName: string;
   jobId?: string; // Backend job identifier
   parameters: ParameterValue;
+  numberOfRuns: number;
   status: ExperimentStatus;
   createdAt: Date;
   completedAt: Date | null;
@@ -151,7 +152,7 @@ export type WorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison';
 export type JobStatus = 'queued' | 'running' | 'finished' | 'failed';
 
 export interface JobSubmissionResponse {
-  job_id: string;
+  experiment_id: string;
   access_token: string;
   status: JobStatus;
 }
@@ -160,3 +161,33 @@ export interface JobStatusResponse {
   status: JobStatus;
   error?: string;
 }
+
+// Experiment Details Page Types
+export interface RunDetail {
+  run_id: string;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface DatasetGroup {
+  dataset_id: string;
+  runs: RunDetail[];
+}
+
+export interface ExperimentDetails {
+  experiment_id: string;
+  tool_name: string;
+  started_at: string | null;
+  finished_at: string | null;
+  datasets: DatasetGroup[];
+}
+
+export interface RunStatus {
+  run_id: string;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export type RunStatusValue = 'queued' | 'running' | 'finished' | 'failed';
