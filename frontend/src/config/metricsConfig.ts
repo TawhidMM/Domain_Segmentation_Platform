@@ -1,3 +1,23 @@
+
+export const UNIFIED_CHART_COLORS = [
+  '#2563EB',
+  '#F59E0B',
+  '#10B981', 
+  '#EF4444', 
+  '#0EA5E9',
+  '#EC4899', 
+  '#8B5CF6', 
+  '#16A34A', 
+];
+
+/**
+ * Get color for a specific tool index
+ * Uses circular assignment for more than 8 tools
+ */
+export function getToolColor(index: number): string {
+  return UNIFIED_CHART_COLORS[index % UNIFIED_CHART_COLORS.length];
+}
+
 /**
  * Configuration for metrics display and evaluation
  * Defines metric properties, display labels, and optimization direction
