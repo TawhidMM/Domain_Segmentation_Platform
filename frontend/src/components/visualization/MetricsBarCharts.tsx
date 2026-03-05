@@ -2,10 +2,9 @@ import React, { useMemo } from 'react';
 import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import MetricBarChart from './MetricBarChart';
 import BoxPlot from './BoxPlot';
-import { METRIC_CONFIG } from '@/config/metricsConfig';
-import { toast } from 'sonner';
+import { METRIC_CONFIG, UNIFIED_CHART_COLORS } from '@/config/metricsConfig';
 import { AllExperimentRunMetrics } from '@/hooks/useMultiExperimentBestRuns';
-import { calculateStats } from '@/utils/metricsUtils';
+import { calculateStats, findBestJobIds } from '@/utils/metricsUtils';
 
 interface MetricsBarChartsProps {
   experimentMetrics: Array<{
@@ -18,8 +17,6 @@ interface MetricsBarChartsProps {
   onDownloadAll: () => void;
   isLoading?: boolean;
 }
-
-const CHART_COLORS = ['#4f46e5', '#0ea5e9', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
   experimentMetrics,
@@ -34,14 +31,14 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
 
   // Build bar chart data (using average for multi-run experiments)
   const chartDataByMetric = useMemo(() => {
-    const data: Record<string, Array<{ experimentId: string; toolName: string; value: number | null }>> = {};
+    const data: Record<string, Array<{ jobId: string; toolName: string; value: number | null }>> = {};
 
     METRIC_CONFIG.forEach((metric) => {
       data[metric.key] = experimentIds.map((expId) => {
         const exp = experimentMetrics.find((m) => m.experimentId === expId);
         if (!exp?.metricsData?.runs) {
           return {
-            experimentId: expId,
+            jobId: expId,
             toolName: exp?.toolName || expId,
             value: null,
           };
@@ -53,7 +50,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
 
         if (values.length === 0) {
           return {
-            experimentId: expId,
+            jobId: expId,
             toolName: exp?.toolName || expId,
             value: null,
           };
@@ -61,7 +58,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
 
         const { mean } = calculateStats(values);
         return {
-          experimentId: expId,
+          jobId: expId,
           toolName: exp?.toolName || expId,
           value: mean,
         };
@@ -128,8 +125,11 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
           
           const colorMap: Record<string, string> = {};
           experimentIds.forEach((expId, idx) => {
-            colorMap[expId] = CHART_COLORS[idx % CHART_COLORS.length];
+            colorMap[expId] = UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length];
           });
+
+          // Determine best job ID based on metric direction using utility function
+          const bestJobIds = findBestJobIds(chartData, metric.better);
 
           return (
             <Box
@@ -148,7 +148,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
                 metricKey={metric.key}
                 data={chartData}
                 colorByJobId={colorMap}
-                bestJobIds={[]}
+                bestJobIds={bestJobIds}
                 onDownload={() => {}}
               />
 

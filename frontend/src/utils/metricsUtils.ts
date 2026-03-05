@@ -6,6 +6,12 @@ export interface MetricStats {
   values: number[];
 }
 
+export interface ChartDataItem {
+  jobId: string;
+  toolName: string;
+  value: number | null;
+}
+
 export function calculateStats(values: number[]): MetricStats {
   if (values.length === 0) {
     return { mean: 0, stdDev: 0, min: 0, max: 0, values: [] };
@@ -53,3 +59,21 @@ export function calculateQuartiles(values: number[]): { min: number; q1: number;
     max,
   };
 }
+
+
+export function findBestJobIds(
+  data: ChartDataItem[],
+  direction: 'higher' | 'lower'
+): string[] {
+  const validData = data.filter((item) => item.value !== null);
+  
+  if (validData.length === 0) {
+    return [];
+  }
+
+  const values = validData.map((item) => item.value as number);
+  const bestValue = direction === 'higher' ? Math.max(...values) : Math.min(...values);
+
+  return validData.filter((item) => item.value === bestValue).map((item) => item.jobId);
+}
+

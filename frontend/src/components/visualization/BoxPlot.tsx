@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import ReactECharts from 'echarts-for-react';
 import { EChartsOption } from 'echarts';
 import { calculateStats } from '@/utils/metricsUtils';
+import { UNIFIED_CHART_COLORS } from '@/config/metricsConfig';
 
 interface BoxPlotProps {
   metricKey: string;
@@ -17,7 +18,7 @@ interface BoxPlotProps {
   width?: string | number;
 }
 
-const CHART_COLORS = ['#2563EB', '#0EA5E9', '#14B8A6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
+
 
 function quantile(sortedValues: number[], q: number): number {
   if (sortedValues.length === 0) return 0;
@@ -234,7 +235,7 @@ Min/Max: ${typeof min === 'number' ? min.toFixed(4) : 'N/A'} / ${typeof max === 
             value: d.value,
             stats: d.stats,
             itemStyle: {
-              color: CHART_COLORS[idx % CHART_COLORS.length],
+              color: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
               borderColor: '#0f172a',
               borderWidth: 2,
               opacity: 0.75,
@@ -266,7 +267,7 @@ Min/Max: ${typeof min === 'number' ? min.toFixed(4) : 'N/A'} / ${typeof max === 
               value: [xIndex, d.stats.mean],
               itemStyle: {
                 color: '#facc15',
-                borderColor: CHART_COLORS[idx % CHART_COLORS.length],
+                borderColor: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
                 borderWidth: 2,
               },
             };
