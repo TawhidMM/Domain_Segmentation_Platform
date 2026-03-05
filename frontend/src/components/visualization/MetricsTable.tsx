@@ -12,33 +12,31 @@ import {
 } from '@mui/material';
 import { TrendingUp as TrendingUpIcon, TrendingDown as TrendingDownIcon } from '@mui/icons-material';
 import { METRIC_CONFIG, getMetricGroups } from '@/config/metricsConfig';
-import { useMetricsAnalysis } from '@/hooks/useMetricsAnalysis';
-import { ExperimentMetrics } from '@/types';
+import { formatMetricWithStd, calculateStats } from '@/utils/metricsUtils';
+import { AllExperimentRunMetrics } from '@/hooks/useMultiExperimentBestRuns';
 
 interface MetricsTableProps {
-  jobs: Array<{
-    id: string;
-    metrics: ExperimentMetrics | null;
-    result?: {
-      toolName?: string;
-    } | null;
+  experimentMetrics: Array<{
+    experimentId: string;
+    toolName: string;
+    metricsData: AllExperimentRunMetrics | null;
   }>;
-  jobIds: string[];
+  experimentIds: string[];
 }
 
 /**
  * Get accent color for metric based on optimization direction
  */
 const getMetricAccentColor = (better: 'higher' | 'lower') => {
-  return better === 'higher' ? '#1976d2' : '#ed6c02'; // Blue for higher, Orange for lower
+  return better === 'higher' ? '#1976d2' : '#ed6c02';
 };
 
 /**
  * Direction Indicator Component
  */
 const DirectionIndicator: React.FC<{ better: 'higher' | 'lower' }> = ({ better }) => {
-  const color = better === 'higher' ? '#2e7d32' : '#c57c1c'; // Darker greens and oranges
-  
+  const color = better === 'higher' ? '#2e7d32' : '#c57c1c';
+
   return (
     <Box
       sx={{
@@ -63,61 +61,38 @@ const DirectionIndicator: React.FC<{ better: 'higher' | 'lower' }> = ({ better }
 
 /**
  * MetricsTable Component
- * Displays comparison metrics in a clean, scientific table format
- * Highlights best values according to metric optimization direction
+ * Displays mean ± std metrics for multi-run experiments
  */
-const MetricsTable: React.FC<MetricsTableProps> = ({ jobs, jobIds }) => {
-  const { isBestValue, formatMetricValue } = useMetricsAnalysis({ jobs });
+const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experimentIds }) => {
+  // Calculate stats for each experiment and metric
+  const metricsStats = useMemo(() => {
+    const stats: Record<string, Record<string, { mean: number; stdDev: number }>> = {};
 
-  // Calculate normalized values for opacity scaling
-  const getValueOpacity = useMemo(() => {
-    return (metricKey: string, jobId: string): number => {
-      const job = jobs.find((j) => j.id === jobId);
-      const value = job?.metrics?.[metricKey as keyof ExperimentMetrics];
-      
-      if (value === null || value === undefined) return 1;
-      
-      const metric = METRIC_CONFIG.find((m) => m.key === metricKey);
-      if (!metric) return 1;
-      
-      // Get all values for this metric
-      const allValues = jobs
-        .map((j) => j.metrics?.[metricKey as keyof ExperimentMetrics])
-        .filter((v): v is number => v !== null && v !== undefined);
-      
-      if (allValues.length === 0) return 1;
-      
-      const min = Math.min(...allValues);
-      const max = Math.max(...allValues);
-      const range = max - min;
-      
-      if (range === 0) return 1;
-      
-      // Normalize to 0-1, then scale to 0.7-1 range for better visibility
-      const normalized = metric.better === 'higher'
-        ? (value - min) / range
-        : (max - value) / range;
-      
-      return 0.7 + normalized * 0.3; // Maps to 0.7-1 range (less transparent)
-    };
-  }, [jobs]);
+    experimentIds.forEach((expId) => {
+      stats[expId] = {};
+      const expData = experimentMetrics.find((m) => m.experimentId === expId);
 
-  // Create stable callback references
-  const getCellContent = useMemo(
-    () => (metricKey: string, jobId: string) => {
-      const job = jobs.find((j) => j.id === jobId);
-      const value = job?.metrics?.[metricKey as keyof ExperimentMetrics];
-      return formatMetricValue(value);
-    },
-    [jobs, formatMetricValue]
-  );
+      METRIC_CONFIG.forEach((metric) => {
+        if (!expData?.metricsData?.runs) {
+          stats[expId][metric.key] = { mean: 0, stdDev: 0 };
+          return;
+        }
 
-  const getIsBest = useMemo(
-    () => (metricKey: string, jobId: string) => {
-      return isBestValue(metricKey, jobId);
-    },
-    [isBestValue]
-  );
+        const values = expData.metricsData.runs
+          .map((run) => run.metrics[metric.key as keyof typeof run.metrics])
+          .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+
+        if (values.length === 0) {
+          stats[expId][metric.key] = { mean: 0, stdDev: 0 };
+        } else {
+          const { mean, stdDev } = calculateStats(values);
+          stats[expId][metric.key] = { mean, stdDev };
+        }
+      });
+    });
+
+    return stats;
+  }, [experimentMetrics, experimentIds]);
 
   const metricGroups = getMetricGroups();
   let previousGroup: string | null = null;
@@ -164,12 +139,12 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ jobs, jobIds }) => {
               >
                 Metric
               </TableCell>
-              {jobIds.map((jobId, index) => {
-                const job = jobs.find((j) => j.id === jobId);
-                const toolName = job?.result?.toolName || `Exp ${index + 1}`;
+              {experimentIds.map((expId, index) => {
+                const expData = experimentMetrics.find((m) => m.experimentId === expId);
+                const toolName = expData?.toolName || `Exp ${index + 1}`;
                 return (
                   <TableCell
-                    key={jobId}
+                    key={expId}
                     align="right"
                     sx={{
                       bgcolor: '#f8f9fb',
@@ -180,7 +155,7 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ jobs, jobIds }) => {
                       px: 3,
                       borderBottom: '2px solid',
                       borderColor: 'grey.300',
-                      minWidth: 120,
+                      minWidth: 140,
                       color: 'grey.800',
                     }}
                   >
@@ -193,18 +168,16 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ jobs, jobIds }) => {
           <TableBody>
             {METRIC_CONFIG.map((metric) => {
               const accentColor = getMetricAccentColor(metric.better);
-              
-              // Check if we need a group divider
+
               const showGroupDivider = metric.group !== previousGroup;
               previousGroup = metric.group;
 
               return (
                 <React.Fragment key={metric.key}>
-                  {/* Group Divider */}
                   {showGroupDivider && (
                     <TableRow>
                       <TableCell
-                        colSpan={jobIds.length + 1}
+                        colSpan={experimentIds.length + 1}
                         sx={{
                           bgcolor: 'transparent',
                           borderBottom: 'none',
@@ -229,7 +202,6 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ jobs, jobIds }) => {
                     </TableRow>
                   )}
 
-                  {/* Metric Row */}
                   <TableRow
                     sx={{
                       '&:hover': {
@@ -244,7 +216,6 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ jobs, jobIds }) => {
                       },
                     }}
                   >
-                    {/* Metric Name Column */}
                     <TableCell
                       sx={{
                         py: 2.5,
@@ -276,41 +247,34 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ jobs, jobIds }) => {
                       </Box>
                     </TableCell>
 
-                    {/* Metric Value Columns */}
-                    {jobIds.map((jobId) => {
-                      const isBest = getIsBest(metric.key, jobId);
-                      const cellContent = getCellContent(metric.key, jobId);
-                      const opacity = getValueOpacity(metric.key, jobId);
+                    {experimentIds.map((expId) => {
+                      const stats = metricsStats[expId]?.[metric.key];
+                      const cellContent = stats ? formatMetricWithStd(stats.mean, stats.stdDev, 3) : 'N/A';
 
                       return (
                         <TableCell
-                          key={jobId}
+                          key={expId}
                           align="right"
                           sx={{
                             py: 2.5,
                             px: 3,
-                            fontSize: '0.9375rem',
+                            fontSize: '0.875rem',
                             fontVariantNumeric: 'tabular-nums',
                             fontFamily: '"Roboto Mono", monospace',
-                            fontWeight: isBest ? 700 : 500,
-                            color: isBest ? accentColor : 'grey.700',
+                            color: 'grey.700',
                             borderBottom: '1px solid',
                             borderColor: 'grey.100',
                             bgcolor: 'white',
-                            opacity: 1,
                             transition: 'all 0.15s ease',
-                            position: 'relative',
                           }}
                         >
                           <Box
                             sx={{
                               display: 'inline-block',
-                              px: isBest ? 1.5 : 0,
-                              py: isBest ? 0.75 : 0,
+                              px: 1.5,
+                              py: 0.75,
                               borderRadius: 1.5,
-                              bgcolor: isBest ? `${accentColor}12` : 'transparent',
-                              border: isBest ? `1.5px solid ${accentColor}24` : 'none',
-                              boxShadow: isBest ? `inset 0 0 0 1px ${accentColor}20` : 'none',
+                              bgcolor: '#f3f4f6',
                             }}
                           >
                             {cellContent}

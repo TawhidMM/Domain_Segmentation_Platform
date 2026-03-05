@@ -47,7 +47,7 @@ const FocusPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
 
-  const isInBasket = selectedRunId && isJobInBasket(selectedRunId);
+  const isInBasket = experimentId && isJobInBasket(experimentId);
 
   // Load experiment structure on mount
   useEffect(() => {
@@ -172,16 +172,16 @@ const FocusPage: React.FC = () => {
   }, []);
 
   const handleAddToCompare = useCallback(() => {
-    if (!selectedRunId || !accessToken) return;
+    if (!experimentId || !accessToken) return;
 
     if (isInBasket) {
-      removeJob(selectedRunId);
+      removeJob(experimentId);
       toast.success('Removed from comparison');
     } else {
-      addJob(selectedRunId, accessToken);
+      addJob(experimentId, accessToken);
       toast.success('Added to comparison');
     }
-  }, [selectedRunId, accessToken, isInBasket, addJob, removeJob]);
+  }, [experimentId, accessToken, isInBasket, addJob, removeJob]);
 
   const handleDownloadSVG = useCallback(async () => {
     if (!selectedRunId || !accessToken) return;
