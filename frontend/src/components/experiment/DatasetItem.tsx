@@ -24,9 +24,15 @@ const DatasetItem: React.FC<DatasetItemProps> = ({
       elevation={0}
       sx={{
         border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: '10px',
         overflow: 'hidden',
+        backgroundColor: '#fafafa',
+        transition: 'all 0.2s ease',
+        '&:hover': {
+          borderColor: '#d1d5db',
+          backgroundColor: '#f5f5f5',
+        },
       }}
     >
       {/* Dataset Header */}
@@ -37,36 +43,36 @@ const DatasetItem: React.FC<DatasetItemProps> = ({
           display: 'flex',
           justifyContent: 'flex-start',
           alignItems: 'center',
-          gap: 1.5,
+          gap: 1,
           px: 2,
-          py: 1.5,
+          py: 1.25,
           textAlign: 'left',
           textTransform: 'none',
           color: 'text.primary',
-          bgcolor: isExpanded ? 'action.selected' : 'transparent',
-          borderBottom: isExpanded ? '1px solid' : 'none',
-          borderBottomColor: 'divider',
+          bgcolor: 'transparent',
+          borderBottom: isExpanded ? '1px solid #e5e7eb' : 'none',
           '&:hover': {
-            bgcolor: 'action.hover',
+            bgcolor: 'transparent',
           },
         }}
       >
         {/* Toggle Icon */}
-        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 24 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 20, color: 'text.secondary' }}>
           {isExpanded ? (
-            <ChevronDown size={18} strokeWidth={2} />
+            <ChevronDown size={16} strokeWidth={2.5} />
           ) : (
-            <ChevronRight size={18} strokeWidth={2} />
+            <ChevronRight size={16} strokeWidth={2.5} />
           )}
         </Box>
 
         {/* Dataset Icon and ID */}
-        <Database size={16} style={{ flexShrink: 0 }} />
+        <Database size={14} style={{ flexShrink: 0, color: '#6b7280' }} />
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
           <Typography
             variant="body2"
             sx={{
               fontWeight: 500,
+              fontSize: '13px',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -79,16 +85,16 @@ const DatasetItem: React.FC<DatasetItemProps> = ({
         {/* Run Count Badge */}
         <Box
           sx={{
-            bgcolor: 'primary.light',
-            color: 'primary.main',
-            px: 1,
+            bgcolor: '#eef4ff',
+            color: '#3b82f6',
+            px: 1.25,
             py: 0.5,
-            borderRadius: 0.75,
-            minWidth: 28,
+            borderRadius: '999px',
+            minWidth: 32,
             textAlign: 'center',
           }}
         >
-          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '11px' }}>
             {dataset.runs.length}
           </Typography>
         </Box>
