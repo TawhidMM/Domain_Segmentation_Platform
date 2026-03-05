@@ -70,3 +70,15 @@ export async function fetchConsensusData(encodedPayload: string): Promise<Consen
   const res = await axios.get(`/experiments/compare/consensus`, { params });
   return res.data as ConsensusResponse;
 }
+
+export async function fetchBestRunResult(experimentId: string, token: string): Promise<ExperimentResult> {
+  const params = { token };
+  const res = await axios.get(`/experiments/${experimentId}/best-run`, { params });
+  return res.data as ExperimentResult;
+}
+
+export async function fetchAllExperimentRunMetrics(experimentId: string, token: string): Promise<any> {
+  const params = { token };
+  const res = await axios.get(`/experiments/${experimentId}/run-metrics`, { params });
+  return res.data;
+}

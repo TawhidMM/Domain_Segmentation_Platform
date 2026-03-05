@@ -1,139 +1,170 @@
-import React, { useMemo, useCallback } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import React, { useMemo } from 'react';
+import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import MetricBarChart from './MetricBarChart';
+import BoxPlot from './BoxPlot';
 import { METRIC_CONFIG } from '@/config/metricsConfig';
-import { useMetricsAnalysis } from '@/hooks/useMetricsAnalysis';
-import { ExperimentMetrics, ExperimentResult } from '@/types';
-import { exportComparisonMetricSvg } from '@/services/experimentService';
 import { toast } from 'sonner';
+import { AllExperimentRunMetrics } from '@/hooks/useMultiExperimentBestRuns';
+import { calculateStats } from '@/utils/metricsUtils';
 
 interface MetricsBarChartsProps {
-  metrics: Array<{
-    id: string;
-    metrics: ExperimentMetrics | null;
-    result: ExperimentResult | null;
+  experimentMetrics: Array<{
+    experimentId: string;
+    toolName: string;
+    totalRuns: number;
+    metricsData: AllExperimentRunMetrics | null;
   }>;
-  jobIds: string[];
-  comparisonPayload: string;
+  experimentIds: string[];
   onDownloadAll: () => void;
+  isLoading?: boolean;
 }
 
-const CHART_COLORS = [
-  '#4f46e5',
-  '#0ea5e9',
-  '#14b8a6',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-];
+const CHART_COLORS = ['#4f46e5', '#0ea5e9', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({ metrics, jobIds, comparisonPayload, onDownloadAll }) => {
-  const { isBestValue } = useMetricsAnalysis({ jobs: metrics });
+const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
+  experimentMetrics,
+  experimentIds,
+  onDownloadAll,
+  isLoading = false,
+}) => {
+  // Check if any experiment has multiple runs
+  const hasMultipleRuns = useMemo(() => {
+    return experimentMetrics.some((exp) => (exp.totalRuns ?? 0) > 1);
+  }, [experimentMetrics]);
 
-  const jobMap = useMemo(() => {
-    const map: Record<string, { toolName: string; jobId: string; metrics: ExperimentMetrics | null }> = {};
-    jobIds.forEach((jobId, index) => {
-      const job = metrics.find((j) => j.id === jobId);
-      const toolName = job?.result?.toolName || `Experiment ${index + 1}`;
-      map[jobId] = { toolName, jobId, metrics: job?.metrics || null };
-    });
-    return map;
-  }, [metrics, jobIds]);
-
-  const colorByJobId = useMemo(() => {
-    const colors: Record<string, string> = {};
-    jobIds.forEach((jobId, index) => {
-      colors[jobId] = CHART_COLORS[index % CHART_COLORS.length];
-    });
-    return colors;
-  }, [jobIds]);
-
+  // Build bar chart data (using average for multi-run experiments)
   const chartDataByMetric = useMemo(() => {
-    const data: Record<string, Array<{ jobId: string; toolName: string; value: number | null }>> = {};
+    const data: Record<string, Array<{ experimentId: string; toolName: string; value: number | null }>> = {};
+
     METRIC_CONFIG.forEach((metric) => {
-      data[metric.key] = jobIds.map((jobId) => {
-        const job = jobMap[jobId];
+      data[metric.key] = experimentIds.map((expId) => {
+        const exp = experimentMetrics.find((m) => m.experimentId === expId);
+        if (!exp?.metricsData?.runs) {
+          return {
+            experimentId: expId,
+            toolName: exp?.toolName || expId,
+            value: null,
+          };
+        }
+
+        const values = exp.metricsData.runs
+          .map((run) => run.metrics[metric.key as keyof typeof run.metrics])
+          .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+
+        if (values.length === 0) {
+          return {
+            experimentId: expId,
+            toolName: exp?.toolName || expId,
+            value: null,
+          };
+        }
+
+        const { mean } = calculateStats(values);
         return {
-          jobId,
-          toolName: job?.toolName || jobId,
-          value: job?.metrics?.[metric.key as keyof ExperimentMetrics] ?? null,
+          experimentId: expId,
+          toolName: exp?.toolName || expId,
+          value: mean,
         };
       });
     });
+
     return data;
-  }, [jobIds, jobMap]);
+  }, [experimentIds, experimentMetrics]);
 
-  const downloadHandlers = useMemo(() => {
-    const handlers: Record<string, () => Promise<void>> = {};
+  // Build box plot data (for experiments with multiple runs)
+  const boxPlotDataByMetric = useMemo(() => {
+    const data: Record<string, Array<{ experimentId: string; toolName: string; values: number[] }>> = {};
+
     METRIC_CONFIG.forEach((metric) => {
-      handlers[metric.key] = async () => {
-        try {
-          const blob = await exportComparisonMetricSvg(comparisonPayload, metric.key);
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${metric.key}_comparison.svg`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        } catch (error) {
-          console.error('Failed to export metric SVG:', error);
-          toast.error('Failed to export SVG. Please try again.');
-        }
-      };
+      data[metric.key] = experimentIds
+        .map((expId) => {
+          const exp = experimentMetrics.find((m) => m.experimentId === expId);
+          if (!exp?.metricsData?.runs || (exp.totalRuns ?? 0) <= 1) {
+            return null;
+          }
+
+          const values = exp.metricsData.runs
+            .map((run) => run.metrics[metric.key as keyof typeof run.metrics])
+            .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+
+          return {
+            experimentId: expId,
+            toolName: exp?.toolName || expId,
+            values,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
     });
-    return handlers;
-  }, [comparisonPayload]);
 
-  const handleDownload = useCallback(
-    (metricKey: string) => {
-      const handler = downloadHandlers[metricKey];
-      if (handler) {
-        handler();
-      }
-    },
-    [downloadHandlers]
-  );
+    return data;
+  }, [experimentIds, experimentMetrics]);
 
-  const metricCards = useMemo(() => {
-    return METRIC_CONFIG.map((metric) => {
-      const subtitle = metric.better === 'higher' ? '(higher is better)' : '(lower is better)';
-      const bestJobIds = jobIds.filter((jobId) => isBestValue(metric.key, jobId));
-
-      return (
-        <MetricBarChart
-          key={metric.key}
-          title={metric.label}
-          subtitle={subtitle}
-          metricKey={metric.key}
-          data={chartDataByMetric[metric.key] || []}
-          colorByJobId={colorByJobId}
-          bestJobIds={bestJobIds}
-          onDownload={handleDownload}
-        />
-      );
-    });
-  }, [chartDataByMetric, colorByJobId, handleDownload, isBestValue, jobIds]);
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ mt: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'grey.900' }}>
-          Metric Charts
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.900' }}>
+          {hasMultipleRuns ? 'Metrics Comparison (Averages & Distributions)' : 'Average Metrics'}
         </Typography>
         <Button variant="contained" onClick={onDownloadAll} sx={{ textTransform: 'none' }}>
-          Download All Metrics (ZIP)
+          Download Metrics
         </Button>
       </Box>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 2.5,
-        }}
-      >
-        {metricCards}
+
+      {/* Metrics Grid - Bar Charts and Box Plots Side by Side */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {METRIC_CONFIG.map((metric) => {
+          const subtitle = metric.better === 'higher' ? '(higher is better)' : '(lower is better)';
+          const chartData = chartDataByMetric[metric.key] || [];
+          const boxData = boxPlotDataByMetric[metric.key] || [];
+          
+          const colorMap: Record<string, string> = {};
+          experimentIds.forEach((expId, idx) => {
+            colorMap[expId] = CHART_COLORS[idx % CHART_COLORS.length];
+          });
+
+          return (
+            <Box
+              key={`metric-${metric.key}`}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: hasMultipleRuns && boxData.length > 0 ? '1fr 1fr' : '1fr',
+                gap: 3,
+                alignItems: 'center',
+              }}
+            >
+              {/* Bar Chart */}
+              <MetricBarChart
+                title={metric.label}
+                subtitle={subtitle}
+                metricKey={metric.key}
+                data={chartData}
+                colorByJobId={colorMap}
+                bestJobIds={[]}
+                onDownload={() => {}}
+              />
+
+              {/* Box Plot (only if multiple runs) */}
+              {hasMultipleRuns && boxData.length > 0 && (
+                <BoxPlot
+                  metricKey={metric.key}
+                  metricLabel={metric.label}
+                  direction={metric.better as 'higher' | 'lower'}
+                  experimentData={boxData}
+                  height={380}
+                />
+              )}
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );

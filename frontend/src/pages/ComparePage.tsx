@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Box, Container, Typography, Chip, Button, CircularProgress, Tabs, Tab } from '@mui/material';
 import { GridView, Download as DownloadIcon, BarChart as BarChartIcon, TableChart as TableChartIcon, MapOutlined as MapIcon } from '@mui/icons-material';
-import { useMultiJobResults } from '@/hooks/useMultiJobResults';
+import { useMultiExperimentBestRuns } from '@/hooks/useMultiExperimentBestRuns';
 import { useCompareJobsParams } from '@/hooks/useCompareJobsParams';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { useJobReordering } from '@/hooks/useJobReordering';
@@ -23,28 +23,28 @@ const ComparePage: React.FC = () => {
   const [consensusError, setConsensusError] = useState<string | null>(null);
 
   // Parse and validate URL params
-  const { jobIds, tokens, isValid } = useCompareJobsParams();
+  const { jobIds: experimentIds, tokens, isValid } = useCompareJobsParams();
 
   // Drag and drop functionality
   const { isDragging, isDragOver, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } =
     useDragAndDrop();
 
   // Job reordering and removal
-  const { handleReorderJobs, handleRemoveJob } = useJobReordering({ jobIds, tokens, setSearchParams });
+  const { handleReorderJobs, handleRemoveJob } = useJobReordering({ jobIds: experimentIds, tokens, setSearchParams });
 
-  // Fetch results for all completed jobs
-  const jobResults = useMultiJobResults(jobIds, tokens);
+  // Fetch best-run results and all metrics for experiments
+  const { bestRunState, metricsState } = useMultiExperimentBestRuns(experimentIds, tokens);
 
   const comparisonPayload = useMemo(() => {
-    if (jobIds.length < 2) {
+    if (experimentIds.length < 2) {
       return '';
     }
 
-    const payload = { jobs: jobIds, tokens };
+    const payload = { experiment_ids: experimentIds, tokens };
     const jsonStr = JSON.stringify(payload);
     const b64 = btoa(jsonStr);
     return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  }, [jobIds, tokens]);
+  }, [experimentIds, tokens]);
 
   // Fetch consensus data from backend
   useEffect(() => {
@@ -84,19 +84,15 @@ const ComparePage: React.FC = () => {
     );
   }
 
-
-
   const handleDownloadMetrics = useCallback(async () => {
-    if (jobIds.length < 2 || !comparisonPayload) {
+    if (experimentIds.length < 2 || !comparisonPayload) {
       toast.error('At least 2 experiments required');
       return;
     }
 
     setIsExportingMetrics(true);
     try {
-      // Encode the payload for backend
       const blob = await exportComparisonMetrics(comparisonPayload);
-
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -113,26 +109,32 @@ const ComparePage: React.FC = () => {
     } finally {
       setIsExportingMetrics(false);
     }
-  }, [jobIds, comparisonPayload]);
+  }, [experimentIds, comparisonPayload]);
 
-
-
-  // Build job list for comparison
-  const comparisonJobs = jobIds.map((jobId, index) => ({
-    id: jobId,
+  // Build experiment list for comparison sidebar
+  const comparisonExperiments = experimentIds.map((expId, index) => ({
+    id: expId,
     token: tokens[index],
-    result: jobResults[jobId]?.result || null,
-    metrics: jobResults[jobId]?.metrics || null,
-    isLoading: jobResults[jobId]?.isLoading || false,
-    error: jobResults[jobId]?.error || null,
-    errorCode: jobResults[jobId]?.errorCode,
+    result: bestRunState[expId]?.result || null,
+    metrics: null,
+    isLoading: bestRunState[expId]?.isLoading || false,
+    error: bestRunState[expId]?.error || null,
+    errorCode: bestRunState[expId]?.errorCode,
   }));
 
-  // Filter jobs with results for grid display
-  const jobsWithResults = comparisonJobs.filter((job) => job.result);
+  // Filter experiments with results for plot display
+  const experimentsWithResults = comparisonExperiments.filter((exp) => exp.result);
 
-  // Calculate grid columns
-  const gridCols = jobsWithResults.length <= 2 ? jobsWithResults.length : 2;
+  // Calculate grid columns based on number of experiments
+  const gridCols = experimentsWithResults.length <= 2 ? experimentsWithResults.length : 2;
+
+  // Prepare metrics data for MetricsTable and MetricsBarCharts
+  const experimentMetricsData = experimentIds.map((expId, index) => ({
+    experimentId: expId,
+    toolName: bestRunState[expId]?.result?.toolName || `Experiment ${index + 1}`,
+    totalRuns: bestRunState[expId]?.totalRuns || 0,
+    metricsData: metricsState[expId]?.metricsData || null,
+  }));
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', flexDirection: 'column' }}>
@@ -153,14 +155,14 @@ const ComparePage: React.FC = () => {
               Compare Experiments
             </Typography>
             <Chip
-              label={`${jobIds.length} experiments`}
+              label={`${experimentIds.length} experiments`}
               size="small"
               sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 600 }}
             />
           </Box>
 
           {/* Download Metrics Button */}
-          {jobIds.length >= 2 && (
+          {experimentIds.length >= 2 && (
             <Button
               startIcon={<DownloadIcon />}
               variant="outlined"
@@ -173,7 +175,7 @@ const ComparePage: React.FC = () => {
           )}
         </Box>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Compare {jobIds.length} jobs side by side
+          Compare {experimentIds.length} experiments side by side
         </Typography>
 
         {/* Tabs */}
@@ -215,89 +217,96 @@ const ComparePage: React.FC = () => {
       {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Panel */}
-        <CompareJobList jobs={comparisonJobs} jobIds={jobIds} tokens={tokens} onRemoveJob={handleRemoveJob} />
+        <CompareJobList jobs={comparisonExperiments} jobIds={experimentIds} tokens={tokens} onRemoveJob={handleRemoveJob} />
 
         {/* Right Content */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
           {/* Plots Tab */}
           {activeTab === 'plots' && (
             <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
-            {jobsWithResults.length === 0 ? (
-              <Box
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'column',
-                }}
-              >
-                <CircularProgress size={48} sx={{ mb: 2 }} />
-                <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
-                  Loading Results
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-                  Fetching comparison results...
-                </Typography>
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-                  gap: 3,
-                }}
-              >
-                {jobsWithResults.map((job) => {
-                  const dragging = isDragging(job.id);
-                  const dragOver = isDragOver(job.id);
+              {experimentsWithResults.length === 0 ? (
+                <Box
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <CircularProgress size={48} sx={{ mb: 2 }} />
+                  <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
+                    Loading Results
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+                    Fetching best-run results...
+                  </Typography>
+                </Box>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+                    gap: 3,
+                  }}
+                >
+                  {experimentsWithResults.map((exp) => {
+                    const dragging = isDragging(exp.id);
+                    const dragOver = isDragOver(exp.id);
 
-                  return (
-                    <Box
-                      key={job.id}
-                      draggable
-                      onDragStart={() => handleDragStart(job.id)}
-                      onDragOver={(e) => handleDragOver(e, job.id)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, job.id, handleReorderJobs)}
-                      onDragEnd={handleDragEnd}
-                      sx={{
-                        cursor: 'grab',
-                        opacity: dragging ? 0.5 : 1,
-                        transform: dragOver && !dragging ? 'scale(0.98)' : 'scale(1)',
-                        transition: 'all 0.2s ease',
-                        border: dragOver && !dragging ? '2px dashed' : '2px solid transparent',
-                        borderColor: dragOver && !dragging ? 'primary.main' : 'transparent',
-                        borderRadius: 2,
-                        p: dragOver && !dragging ? 1 : 0,
-                        '&:active': {
-                          cursor: 'grabbing',
-                        },
-                        '&:hover': {
-                          boxShadow: dragging ? 'none' : 2,
-                        },
-                      }}
-                    >
-                      <SpatialPlot
-                        result={job.result}
-                        metrics={job.metrics}
-                        title={job.result?.toolName}
-                        height={400}
-                        showLegend={false}
-                        compact
-                      />
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
+                    return (
+                      <Box
+                        key={exp.id}
+                        draggable
+                        onDragStart={() => handleDragStart(exp.id)}
+                        onDragOver={(e) => handleDragOver(e, exp.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, exp.id, handleReorderJobs)}
+                        onDragEnd={handleDragEnd}
+                        sx={{
+                          cursor: 'grab',
+                          opacity: dragging ? 0.5 : 1,
+                          transform: dragOver && !dragging ? 'scale(0.98)' : 'scale(1)',
+                          transition: 'all 0.2s ease',
+                          border: dragOver && !dragging ? '2px dashed' : '2px solid transparent',
+                          borderColor: dragOver && !dragging ? 'primary.main' : 'transparent',
+                          borderRadius: 2,
+                          p: dragOver && !dragging ? 1 : 0,
+                          '&:active': {
+                            cursor: 'grabbing',
+                          },
+                          '&:hover': {
+                            boxShadow: dragging ? 'none' : 2,
+                          },
+                        }}
+                      >
+                        <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+                            {exp.result?.toolName}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', mb: 2, display: 'block' }}>
+                            Best run spatial plot
+                          </Typography>
+                          <SpatialPlot
+                            result={exp.result}
+                            title={exp.result?.toolName}
+                            height={350}
+                            showLegend={false}
+                            compact
+                          />
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
             </Box>
           )}
 
           {/* Metrics Tab */}
           {activeTab === 'metrics' && (
             <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
-              {jobsWithResults.length === 0 ? (
+              {experimentsWithResults.length === 0 ? (
                 <Box
                   sx={{
                     height: '100%',
@@ -312,16 +321,15 @@ const ComparePage: React.FC = () => {
                     Loading Metrics
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-                    Fetching comparison metrics...
+                    Fetching metrics...
                   </Typography>
                 </Box>
               ) : (
                 <>
-                  <MetricsTable jobs={jobsWithResults} jobIds={jobIds} />
+                  <MetricsTable experimentMetrics={experimentMetricsData} experimentIds={experimentIds} />
                   <MetricsBarCharts
-                    metrics={jobsWithResults}
-                    jobIds={jobIds}
-                    comparisonPayload={comparisonPayload}
+                    experimentMetrics={experimentMetricsData}
+                    experimentIds={experimentIds}
                     onDownloadAll={handleDownloadMetrics}
                   />
                 </>
