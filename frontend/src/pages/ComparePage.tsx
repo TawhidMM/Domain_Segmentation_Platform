@@ -30,25 +30,27 @@ const ComparePage: React.FC = () => {
     useDragAndDrop();
 
   // Job reordering and removal
-  const { handleReorderJobs, handleRemoveJob } = useJobReordering({ jobIds: experimentIds, tokens, setSearchParams });
+  const { handleReorderJobs, handleRemoveJob: handleRemoveExperiment } = useJobReordering({ jobIds: experimentIds, tokens, setSearchParams });
 
   // Fetch best-run results and all metrics for experiments
   const { bestRunState, metricsState } = useMultiExperimentBestRuns(experimentIds, tokens);
 
-  const comparisonPayload = useMemo(() => {
+  const consensusExperiments = useMemo(() => {
     if (experimentIds.length < 2) {
-      return '';
+      return [];
     }
 
-    const payload = { experiment_ids: experimentIds, tokens };
-    const jsonStr = JSON.stringify(payload);
-    const b64 = btoa(jsonStr);
-    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    return experimentIds
+      .map((experimentId, index) => ({
+        experiment_id: experimentId,
+        token: tokens[index],
+      }))
+      .filter((item) => item.token);
   }, [experimentIds, tokens]);
 
   // Fetch consensus data from backend
   useEffect(() => {
-    if (!comparisonPayload) {
+    if (consensusExperiments.length < 2) {
       setConsensusData(null);
       return;
     }
@@ -57,7 +59,7 @@ const ComparePage: React.FC = () => {
       setConsensusLoading(true);
       setConsensusError(null);
       try {
-        const data = await fetchConsensusData(comparisonPayload);
+        const data = await fetchConsensusData(consensusExperiments);
         setConsensusData(data);
       } catch (error) {
         console.error('Error fetching consensus data:', error);
@@ -69,7 +71,7 @@ const ComparePage: React.FC = () => {
     };
 
     loadConsensusData();
-  }, [comparisonPayload]);
+  }, [consensusExperiments]);
 
   if (!isValid) {
     return (
@@ -218,7 +220,7 @@ const ComparePage: React.FC = () => {
       {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Panel */}
-        <CompareJobList jobs={comparisonExperiments} jobIds={experimentIds} tokens={tokens} onRemoveJob={handleRemoveJob} />
+        <CompareJobList experiments={comparisonExperiments} onRemoveExperiment={handleRemoveExperiment} />
 
         {/* Right Content */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>

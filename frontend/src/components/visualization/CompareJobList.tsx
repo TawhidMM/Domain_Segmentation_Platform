@@ -3,7 +3,7 @@ import { Box, Typography, Stack, IconButton, Tooltip } from '@mui/material';
 import { X, ExternalLink, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-interface ComparisonJob {
+interface Experiment {
   id: string;
   token: string;
   result: any;
@@ -14,17 +14,15 @@ interface ComparisonJob {
 }
 
 interface CompareJobListProps {
-  jobs: ComparisonJob[];
-  jobIds: string[];
-  tokens: string[];
-  onRemoveJob: (jobId: string) => void;
+  experiments: Experiment[];
+  onRemoveExperiment: (experimentId: string) => void;
 }
 
-const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, onRemoveJob }) => {
+const CompareJobList: React.FC<CompareJobListProps> = ({experiments, onRemoveExperiment}) => {
   const navigate = useNavigate();
 
-  const handleViewIndividually = (jobId: string, token: string) => {
-    navigate(`/experiment/${jobId}?t=${token}`);
+  const handleViewIndividually = (experimentId: string, token: string) => {
+    navigate(`/experiment/${experimentId}?t=${token}`);
   };
 
   return (
@@ -50,19 +48,19 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A', mb: 0.5 }}>
-          Compared Jobs
+          Compared Experiments
         </Typography>
         <Typography variant="body2" sx={{ color: '#64748B' }}>
-          {jobs.length} experiment{jobs.length !== 1 ? 's' : ''}
+          {experiments.length} experiment{experiments.length !== 1 ? 's' : ''}
         </Typography>
       </Box>
 
-      {/* Jobs List */}
+      {/* Experiments List */}
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
         <Stack spacing={1.5}>
-          {jobs.map((job) => (
+          {experiments.map((experiment) => (
             <Box
-              key={job.id}
+              key={experiment.id}
               sx={{
                 p: 1.75,
                 border: '1px solid',
@@ -79,7 +77,7 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
               {/* Tool Name */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Box
-                  onClick={() => handleViewIndividually(job.id, job.token)}
+                  onClick={() => handleViewIndividually(experiment.id, experiment.token)}
                   sx={{
                     flex: 1,
                     minWidth: 0,
@@ -102,7 +100,7 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {job.result?.toolName || 'Experiment'}
+                    {experiment.result?.toolName || 'Experiment'}
                   </Typography>
                   <ExternalLink size={14} style={{ opacity: 0.45, flexShrink: 0 }} />
                 </Box>
@@ -111,7 +109,7 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
                   <IconButton
                     onClick={(e) => {
                       e.stopPropagation();
-                      onRemoveJob(job.id);
+                      onRemoveExperiment(experiment.id);
                     }}
                     size="small"
                     sx={{
@@ -126,7 +124,7 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
                 </Tooltip>
               </Box>
 
-              {/* Job ID in Compact Style */}
+              {/* Experiment ID in Compact Style */}
               <Box
                 sx={{
                   px: 1,
@@ -134,7 +132,7 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
                   backgroundColor: '#EFF6FF',
                   borderRadius: '8px',
                   border: '1px solid #D7E3F6',
-                  mb: job.isLoading ? 1 : 0,
+                  mb: experiment.isLoading ? 1 : 0,
                 }}
               >
                 <Typography
@@ -147,18 +145,18 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
                     fontSize: '0.68rem',
                   }}
                 >
-                  {job.id.substring(0, 10)}...{job.id.substring(job.id.length - 6)}
+                  {experiment.id.substring(0, 10)}...{experiment.id.substring(experiment.id.length - 6)}
                 </Typography>
               </Box>
 
-              {job.isLoading && (
+              {experiment.isLoading && (
                 <Typography variant="caption" sx={{ color: '#94A3B8' }}>
                   Loading...
                 </Typography>
               )}
 
               {/* Error state */}
-              {job.errorCode && job.errorCode >= 400 && (
+              {experiment.errorCode && experiment.errorCode >= 400 && (
                 <Box
                   sx={{
                     display: 'flex',
@@ -192,7 +190,7 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ jobs, jobIds, tokens, o
                         lineHeight: 1.3,
                       }}
                     >
-                      {job.errorCode === 403 ? 'Unauthorized access' : 'Resource not found'}
+                      {experiment.errorCode === 403 ? 'Unauthorized access' : 'Resource not found'}
                     </Typography>
                   </Box>
                 </Box>

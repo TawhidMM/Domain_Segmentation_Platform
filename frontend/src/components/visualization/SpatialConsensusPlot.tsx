@@ -137,6 +137,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
         zeroline: false,
         scaleanchor: 'x' as const,
         scaleratio: 1,
+        autorange: 'reversed' as const,
       } as any,
       showlegend: mode === 'consensus' || mode === 'combined',
       legend: {

@@ -66,7 +66,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
   metricLabel,
   direction,
   experimentData,
-  height = 380,
+  height = 420,
   width = '100%',
 }) => {
   const option: EChartsOption = useMemo(() => {
@@ -103,8 +103,14 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
     const allValues = validData.flatMap((exp) => exp.values);
     const minValue = Math.min(...allValues);
     const maxValue = Math.max(...allValues);
-    const range = maxValue - minValue;
-    const padding = range * 0.1;
+    let range = maxValue - minValue;
+    
+   
+    if (range < 0.1) {
+      range = 0.1;
+    }
+    
+    const padding = Math.max(range * 0.15, range * 0.15); // 15% padding + minimum buffer
 
     return {
       title: {
@@ -137,13 +143,13 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
 
             const meanText = typeof mean === 'number' ? mean.toFixed(4) : 'N/A';
             return `<strong>${params.name}</strong><br/>
-Whisker Min: ${whiskerMin.toFixed(4)}<br/>
-Q1: ${q1.toFixed(4)}<br/>
-Median: ${median.toFixed(4)} ─<br/>
-Mean: ${meanText} ═<br/>
-Q3: ${q3.toFixed(4)}<br/>
-Whisker Max: ${whiskerMax.toFixed(4)}<br/>
-Min/Max: ${typeof min === 'number' ? min.toFixed(4) : 'N/A'} / ${typeof max === 'number' ? max.toFixed(4) : 'N/A'}`;
+              Whisker Min: ${whiskerMin.toFixed(4)}<br/>
+              Q1: ${q1.toFixed(4)}<br/>
+              Median: ${median.toFixed(4)} ─<br/>
+              Mean: ${meanText} ═<br/>
+              Q3: ${q3.toFixed(4)}<br/>
+              Whisker Max: ${whiskerMax.toFixed(4)}<br/>
+              Min/Max: ${typeof min === 'number' ? min.toFixed(4) : 'N/A'} / ${typeof max === 'number' ? max.toFixed(4) : 'N/A'}`;
           }
           return params.name;
         },

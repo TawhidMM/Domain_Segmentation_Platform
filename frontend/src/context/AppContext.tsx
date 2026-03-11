@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 import { Dataset, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmissionResponse } from '@/types';
 import { generateMockDatasetSummary } from '@/data/mockData';
 import { uploadGeneExpressionFile } from '@/services/uploadService';
-import { fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
+import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 
 interface JobRedirectInfo {
@@ -202,7 +202,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setExperiments((prev) =>
           prev.map((e) =>
             e.id === exp.id
-              ? { ...e, status: 'queued' as ExperimentStatus, jobId: experimentId, result: null, metrics: null }
+              ? {
+                  ...e,
+                  status: 'queued' as ExperimentStatus,
+                  jobId: experimentId,
+                  accessToken,
+                  result: null,
+                  metrics: null,
+                }
               : e
           )
         );
@@ -223,16 +230,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshExperimentResult = useCallback(
     async (experimentId: string) => {
       const target = experiments.find((e) => e.id === experimentId);
-      if (!target?.jobId) {
-        console.error('No jobId found for experiment');
+      if (!target?.jobId || !target.accessToken) {
+        console.error('No experiment id or access token found for experiment');
         return;
       }
 
       try {
-        const result = await fetchExperimentResult(target.jobId);
+        const experimentDetails = await fetchExperimentDetails(target.jobId, target.accessToken);
+        const finishedRunId = experimentDetails.datasets
+          .flatMap((dataset) => dataset.runs)
+          .find((run) => run.status === 'finished')?.run_id;
+
+        if (!finishedRunId) {
+          console.error(`No finished run found for experiment ${experimentId}`);
+          return;
+        }
+
+        const result = await fetchExperimentResult(finishedRunId, target.accessToken);
         let metrics = null;
         try {
-          metrics = await fetchExperimentMetrics(target.jobId);
+          metrics = await fetchExperimentMetrics(finishedRunId, target.accessToken);
         } catch (metricsError) {
           console.error(`Failed to fetch metrics for experiment ${experimentId}:`, metricsError);
         }

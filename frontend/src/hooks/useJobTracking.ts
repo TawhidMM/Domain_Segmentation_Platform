@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { JobStatus, ExperimentResult, ExperimentMetrics } from '@/types';
-import { fetchJobStatus, fetchExperimentResult, fetchExperimentMetrics } from '@/services/experimentService';
+import {
+  fetchJobStatus,
+  fetchExperimentDetails,
+  fetchExperimentResult,
+  fetchExperimentMetrics,
+} from '@/services/experimentService';
 
 interface UseJobTrackingState {
   status: JobStatus | null;
@@ -24,6 +29,22 @@ export function useJobTracking(jobId: string, accessToken: string | null): UseJo
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+
+  const resolveFinishedRunId = useCallback(async () => {
+    if (!accessToken) {
+      return null;
+    }
+
+    const details = await fetchExperimentDetails(jobId, accessToken);
+    for (const dataset of details.datasets) {
+      const finishedRun = dataset.runs.find((run) => run.status === 'finished');
+      if (finishedRun) {
+        return finishedRun.run_id;
+      }
+    }
+
+    return null;
+  }, [jobId, accessToken]);
 
   // Fetch job status
   const fetchStatus = useCallback(async () => {
@@ -78,10 +99,15 @@ export function useJobTracking(jobId: string, accessToken: string | null): UseJo
     if (!accessToken) return;
 
     try {
+      const runId = await resolveFinishedRunId();
+      if (!runId) {
+        throw new Error('No finished run available for this experiment');
+      }
+
       console.log(`[useJobTracking] Fetching result for job ${jobId}`);
       const [resultData, metricsData] = await Promise.all([
-        fetchExperimentResult(jobId, accessToken),
-        fetchExperimentMetrics(jobId, accessToken).catch(() => null), // Metrics are optional
+        fetchExperimentResult(runId, accessToken),
+        fetchExperimentMetrics(runId, accessToken).catch(() => null), // Metrics are optional
       ]);
 
       if (!isMountedRef.current) return;
@@ -118,7 +144,7 @@ export function useJobTracking(jobId: string, accessToken: string | null): UseJo
         errorCode,
       }));
     }
-  }, [jobId, accessToken]);
+  }, [jobId, accessToken, resolveFinishedRunId]);
 
   // Main polling effect
   useEffect(() => {
