@@ -12,6 +12,7 @@ numpy
 pandas
 pydantic-settings
 matplotlib
+seaborn
 celery
 redis
 psycopg2-binary

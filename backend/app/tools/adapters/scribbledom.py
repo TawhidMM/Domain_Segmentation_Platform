@@ -20,9 +20,10 @@ class ScribbleDomAdapter(ToolAdapter):
     SAMPLE = "sample_001"
 
 
-    def prepare_inputs(self, dataset_id):
-        zip_dir = settings.UPLOAD_DIR / f"upload_{dataset_id}" / UPLOAD_ZIP_FILENAME
-        target_dir = (self.workspace.input_dir /
+    def prepare_inputs(self):
+        dataset_id = self.run_context.dataset_id
+        zip_dir = settings.UPLOAD_ROOT / f"upload_{dataset_id}" / UPLOAD_ZIP_FILENAME
+        target_dir = (self.run_context.dataset_path /
                       self.DATASET / self.SAMPLE)
 
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -37,29 +38,32 @@ class ScribbleDomAdapter(ToolAdapter):
 
         self._normalize_h5_filename(target_dir)
 
-    def build_config(self, user_params: dict):
-        resolved_params = resolve_config(manifest=SCRIBBLEDOM_MANIFEST, user_input=user_params)
+    def build_config(self):
+        resolved_params = resolve_config(manifest=SCRIBBLEDOM_MANIFEST, user_input=self.run_context.params)
+        resolved_params["seed"] = self.run_context.seed
 
+        dataset_dir = self.run_context.dataset_path
+       
         system_config = {
             "preprocessed_data_folder": self.PREPROCESSED_DATA_FOLDER,
             "matrix_represenation_of_ST_data_folder": self.MATRIX_REP_OF_ST_DATA_FOLDER,
             "model_output_folder": self.MODEL_OUTPUT_FOLDER,
             "final_output_folder": self.FINAL_OUTPUT_FOLDER,
 
-            "space_ranger_output_directory": self.workspace.input_dir.name,
+            "space_ranger_output_directory": dataset_dir.name,
             "dataset": self.DATASET,
             "samples": [self.SAMPLE]
         }
 
-        self.workspace.config_dir.mkdir(parents=True, exist_ok=True)
+        self.run_context.config_dir.mkdir(parents=True, exist_ok=True)
 
-        config_path = self.workspace.config_dir / "config.json"
+        config_path = self.run_context.config_dir / "config.json"
         with open(config_path, "w") as f:
             json.dump({**resolved_params, **system_config}, f, indent=4)
 
 
     def _stage_manual_scribble(self, target_dir: Path):
-        staged_dir = self.workspace.root_dir / "staged_inputs"
+        staged_dir = self.run_context.run_root / "staged_inputs"
         staged_dir.mkdir(parents=True, exist_ok=True)
 
         for f in list(target_dir.iterdir()):
@@ -89,9 +93,9 @@ class ScribbleDomAdapter(ToolAdapter):
                                 f"not found in {target_dir.name}")
 
 
-    def build_frontend_output(self, job_id: str, tool_name: str) -> dict:
+    def build_frontend_output(self) -> dict:
         base_dir = (
-                self.workspace.output_dir
+                self.run_context.output_dir
                 / self.FINAL_OUTPUT_FOLDER
                 / self.DATASET
                 / self.SAMPLE
@@ -102,15 +106,18 @@ class ScribbleDomAdapter(ToolAdapter):
             raise FileNotFoundError("No prediction CSV found in ScribbleDom output")
 
         prediction_file = csv_files[0]
+        
+        dataset_base = self.run_context.dataset_path
+        
         coords_file = (
-                self.workspace.input_dir
+                dataset_base
                 / self.DATASET
                 / self.SAMPLE
                 / "spatial"
                 / "tissue_positions_list.csv")
 
         spatial_dir = (
-                self.workspace.input_dir
+                dataset_base
                 / self.DATASET
                 / self.SAMPLE
                 / "spatial")
@@ -126,8 +133,8 @@ class ScribbleDomAdapter(ToolAdapter):
         has_histology = histology_path is not None
 
         return {
-            "jobId": job_id,
-            "toolName": tool_name,
+            "jobId": self.run_context.run_id,
+            "toolName": self.run_context.tool_name,
             "spots": spots,
             "domains": domains,
             "has_histology": has_histology

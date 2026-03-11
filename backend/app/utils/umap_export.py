@@ -4,16 +4,14 @@ UMAP visualization export for spatial transcriptomics embeddings.
 Generates publication-quality SVG plots with deterministic parameters.
 """
 
-import json
-from io import BytesIO
 from datetime import datetime, timezone
 from typing import Dict, Any
-import xml.etree.ElementTree as ET
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_svg import FigureCanvasSVG
 import numpy as np
 import umap
+
+from app.visualization.svg_utils import embed_svg_metadata, save_svg_to_string
 
 
 class UmapPlotExporter:
@@ -34,51 +32,32 @@ class UmapPlotExporter:
 
     def __init__(
         self,
-        job_id: str,
+        run_id: str,
         tool_name: str,
-        parameters: Dict[str, Any],
-        dataset_id: str,
-        created_at: datetime,
-        backend_version: str = "1.0.0"
+        parameters: Dict[str, Any]
     ):
         """
         Initialize UMAP exporter with metadata.
 
         Args:
-            job_id: Experiment identifier
+            run_id: Run identifier
             tool_name: Analysis tool name
             parameters: Tool parameters used
-            dataset_id: Dataset identifier
-            created_at: Experiment creation timestamp
-            backend_version: API backend version
         """
-        self.job_id = job_id
+        self.run_id = run_id
         self.tool_name = tool_name
         self.parameters = parameters
-        self.dataset_id = dataset_id
-        self.created_at = created_at
-        self.backend_version = backend_version
         self.exported_at = datetime.now(timezone.utc).isoformat()
+        self.backend_version = "unknown"
 
     def generate_umap_svg(
         self,
-        embeddings: np.ndarray,
-        barcodes: np.ndarray,
-        domains: Dict[str, Dict[str, str]],
+        embeddings,
+        domains,
+        colors,
         include_metadata: bool = True
     ) -> str:
-        """
-        Generate UMAP visualization as SVG.
 
-        Args:
-            embeddings: Shape (n_spots, n_dims) embedding matrix
-            barcodes: Shape (n_spots,) barcode identifiers
-            domains: Dict mapping barcode → {domain_id, color}
-            include_metadata: Whether to embed metadata in SVG
-
-        Returns:
-            SVG string with optional embedded metadata
-        """
         # Compute UMAP with deterministic parameters
         reducer = umap.UMAP(
             n_neighbors=self.UMAP_N_NEIGHBORS,
@@ -88,15 +67,11 @@ class UmapPlotExporter:
         )
         umap_coords = reducer.fit_transform(embeddings)
 
-        # Extract domain information and sort deterministically
-        domain_ids = np.array([domains[bc].get("domain_id", "unknown") for bc in barcodes])
-        colors = np.array([domains[bc].get("color", "#808080") for bc in barcodes])
 
         # Sort by domain for deterministic layering
-        sort_idx = np.argsort(domain_ids)
+        sort_idx = np.argsort(domains)
         umap_coords = umap_coords[sort_idx]
         colors = colors[sort_idx]
-        domain_ids = domain_ids[sort_idx]
 
         # Create figure with scientific styling
         fig, ax = plt.subplots(
@@ -136,13 +111,7 @@ class UmapPlotExporter:
         # Tight layout
         fig.tight_layout()
 
-        # Render to SVG buffer
-        buffer = BytesIO()
-        canvas = FigureCanvasSVG(fig)
-        canvas.print_svg(buffer)
-        buffer.seek(0)
-
-        svg_string = buffer.read().decode("utf-8")
+        svg_string = save_svg_to_string(fig)
         plt.close(fig)
 
         # Embed metadata if requested
@@ -162,7 +131,7 @@ class UmapPlotExporter:
             SVG with embedded metadata
         """
         metadata = {
-            "job_id": self.job_id,
+            "run_id": self.run_id,
             "plot_type": "umap",
             "tool": self.tool_name,
             "parameters": self.parameters,
@@ -172,30 +141,11 @@ class UmapPlotExporter:
                 "random_state": self.UMAP_RANDOM_STATE
             },
             "generated_from": "embeddings.csv",
-            "created_at": self.created_at.isoformat(),
             "exported_at": self.exported_at,
             "backend_version": self.backend_version
         }
 
-        metadata_json = json.dumps(metadata, ensure_ascii=False)
-
-        # Parse SVG and inject metadata
-        root = ET.fromstring(svg_string)
-
-        # Create or find metadata element
-        ns = {"svg": "http://www.w3.org/2000/svg"}
-        ET.register_namespace("", ns["svg"])
-
-        metadata_elem = root.find("svg:metadata", ns)
-        if metadata_elem is None:
-            metadata_elem = ET.Element("{http://www.w3.org/2000/svg}metadata")
-            root.insert(0, metadata_elem)
-
-        metadata_elem.clear()
-        metadata_text = ET.SubElement(metadata_elem, "data")
-        metadata_text.text = metadata_json
-
-        return ET.tostring(root, encoding="unicode", method="xml")
+        return embed_svg_metadata(svg_string, metadata)
 
 
 

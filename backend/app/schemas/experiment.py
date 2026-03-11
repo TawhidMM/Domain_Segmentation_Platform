@@ -1,20 +1,17 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
 class ExperimentSubmitResponse(BaseModel):
-    """Response from POST /submit endpoint."""
-    job_id: str
+    experiment_id: str
     access_token: str
     status: str
 
 
-class ExperimentStatusResponse(BaseModel):
-    """Response from GET /jobs/{_job_id} endpoint."""
-    job_id: str
+class RunStatusResponse(BaseModel):
+    run_id: str
     status: str
-    tool_name: str
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
 
@@ -22,34 +19,33 @@ class ExperimentStatusResponse(BaseModel):
         from_attributes = True
 
 
-class ExperimentResultResponse(BaseModel):
-    """Response from GET /result/{_job_id} endpoint."""
-    job_id: str
-    status: str
-    result: dict
-    finished_at: Optional[datetime] = None
+class DatasetWithRunsResponse(BaseModel):
+    dataset_id: str
+    runs: List[RunStatusResponse]
 
     class Config:
         from_attributes = True
 
 
-class ExportMetadata(BaseModel):
-    """Metadata embedded in SVG export."""
-    job_id: str
-    tool: str
-    parameters: dict
-    created_at: str
-    exported_at: str
-    dataset: str
-    backend_version: str
-    export_format: str
+class ExperimentStatusResponse(BaseModel):
+    experiment_id: str
+    tool_name: str
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    datasets: List[DatasetWithRunsResponse]
+
+    class Config:
+        from_attributes = True
 
 
-class ExportResponse(BaseModel):
-    """Info about export request (for structured responses)."""
-    job_id: str
-    format: str
-    include_metadata: bool
-    bundle: bool
-    created_at: str
+class CompareBoxplotsDownloadRequest(BaseModel):
+    experiment_ids: List[str]
 
+
+class ConsensusExperimentItem(BaseModel):
+    experiment_id: str
+    token: str
+
+
+class ConsensusRequest(BaseModel):
+    experiments: List[ConsensusExperimentItem]

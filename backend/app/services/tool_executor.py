@@ -1,9 +1,8 @@
 import json
-import os
 from pathlib import Path
 
 from app.core.config import settings
-from app.core.workspace import Workspace
+from app.core.workspace import RunContext
 from app.services.docker_runner import run_docker
 from app.tools.loader import load_adapter
 from app.tools.registry import TOOLS
@@ -11,41 +10,45 @@ from app.utils.metrics import load_and_align, spatial_weights, compute_silhouett
     compute_calinski_harabasz, morans_I, gearys_C
 
 
+def run_tool(run_context: RunContext):
+    tool = TOOLS[run_context.tool_name.lower()]
 
-def run_tool(job_id: str, tool_name: str, user_params: dict, upload_id: str):
-    tool = TOOLS[tool_name.lower()]
-    workspace = Workspace(job_id)
+    adapter = load_adapter(tool["adapter"], run_context)
 
-    adapter = load_adapter(tool["adapter"], workspace)
-
-    adapter.prepare_inputs(upload_id)
+    adapter.prepare_inputs()
     print("input files prepared")
-    adapter.build_config(user_params)
+    adapter.build_config()
     print("config built")
 
     container_workspace = settings.CONTAINER_WORKSPACE_PATH
-    container_config_path = container_workspace / "config" / tool["config_file"]
+
+    experiment_dir_root = run_context.experiment_root
+    config_dir = run_context.config_dir
+    relative_config_dir = config_dir.relative_to(experiment_dir_root)
+
+    container_config_path = (
+            container_workspace
+             / relative_config_dir
+             / tool["config_file"]
+    )
 
     cmd = [
         "docker", "run", "--rm",
         "--gpus", "all",
-        "-v", f"{workspace.root_dir}:{container_workspace}",
+        "-v", f"{run_context.experiment_root}:{container_workspace}",
         tool["image"],
         str(container_config_path)
     ]
 
-    print("Workspace root exists:", workspace.root_dir.exists())
-    print("About to call run_docker")
-
-    run_docker(cmd, workspace.logs_dir)
+    run_docker(cmd, run_context.logs_dir)
 
     print("tool finished")
 
-    result = adapter.build_frontend_output(job_id, tool_name)
+    result = adapter.build_frontend_output()
 
     print("result creation done")
 
-    workspace.result_file.write_text(json.dumps(result, indent=2))
+    run_context.result_file.write_text(json.dumps(result, indent=2))
 
 
 
