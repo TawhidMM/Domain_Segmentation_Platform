@@ -2,7 +2,7 @@ export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'complet
 
 export interface Dataset {
   id: string;
-  uploadId: string | null; // Backend upload_id from file upload
+  uploadId: string | null;
   geneExpressionFile: null | {
     name: string;
     size: number;
@@ -25,7 +25,8 @@ export interface Experiment {
   id: string;
   toolId: string;
   toolName: string;
-  jobId?: string; // Backend job identifier
+  jobId?: string;
+  accessToken?: string;
   parameters: ParameterValue;
   numberOfRuns: number;
   status: ExperimentStatus;
@@ -71,10 +72,17 @@ export interface ConsensusSpot {
   confidence: number;
 }
 
+export interface ExperimentRequest {
+  experiment_id: string;
+  token: string;
+}
+
 export interface ConsensusResponse {
   metadata: {
-    reference_tool: string;
     num_experiments: number;
+    reference_experiment_id: string;
+    reference_run_id: string;
+    num_spots: number;
   };
   spots: ConsensusSpot[];
 }

@@ -1,21 +1,53 @@
 import axios from '@/lib/axios';
-import { ExperimentMetrics, ExperimentResult, JobStatusResponse, ConsensusResponse, ExperimentDetails, RunStatus } from '@/types';
+import {
+  ExperimentMetrics,
+  ExperimentResult,
+  JobStatusResponse,
+  ConsensusResponse,
+  ExperimentDetails,
+  RunStatus,
+  ExperimentRequest,
+} from '@/types';
 
-export async function fetchExperimentResult(runId: string, token?: string): Promise<ExperimentResult> {
-  const params = token ? { token } : {};
-  const res = await axios.get(`/experiments/runs/${runId}/result`, { params });
+function getAggregateExperimentStatus(details: ExperimentDetails): JobStatusResponse {
+  const runStatuses = details.datasets.flatMap((dataset) => dataset.runs.map((run) => run.status));
+
+  if (runStatuses.length === 0) {
+    return { status: 'failed' };
+  }
+
+  if (runStatuses.some((status) => status === 'running')) {
+    return { status: 'running' };
+  }
+
+  if (runStatuses.some((status) => status === 'queued')) {
+    return { status: 'queued' };
+  }
+
+  if (runStatuses.every((status) => status === 'failed')) {
+    return { status: 'failed' };
+  }
+
+  if (runStatuses.some((status) => status === 'finished')) {
+    return { status: 'finished' };
+  }
+
+  return { status: 'failed' };
+}
+
+export async function fetchExperimentResult(runId: string, token: string): Promise<ExperimentResult> {
+  const res = await axios.get(`/runs/${runId}/result`, { params: { token } });
   return res.data as ExperimentResult;
 }
 
-export async function fetchExperimentMetrics(runId: string, token?: string): Promise<ExperimentMetrics> {
-  const params = token ? { token } : {};
-  const res = await axios.get(`/experiments/runs/${runId}/metrics`, { params });
+export async function fetchExperimentMetrics(runId: string, token: string): Promise<ExperimentMetrics> {
+  const res = await axios.get(`/runs/${runId}/metrics`, { params: { token } });
   return res.data as ExperimentMetrics;
 }
 
-export async function fetchJobStatus(jobId: string, token: string): Promise<JobStatusResponse> {
-  const res = await axios.get(`/experiments/jobs/${jobId}`, { params: { token } });
-  return res.data as JobStatusResponse;
+export async function fetchJobStatus(experimentId: string, token: string): Promise<JobStatusResponse> {
+  const details = await fetchExperimentDetails(experimentId, token);
+  return getAggregateExperimentStatus(details);
 }
 
 // New endpoints for experiment details page
@@ -25,24 +57,24 @@ export async function fetchExperimentDetails(experimentId: string, token: string
 }
 
 export async function fetchRunStatus(runId: string, token: string): Promise<RunStatus> {
-  const res = await axios.get(`/experiments/runs/${runId}`, { params: { token } });
+  const res = await axios.get(`/runs/${runId}`, { params: { token } });
   return res.data as RunStatus;
 }
 
-export async function exportExperiment(runId: string, format: 'svg' | 'pdf', token?: string): Promise<Blob> {
-  const params = token ? { token, format } : { format };
-  const res = await axios.get(`/experiments/runs/${runId}/export`, { 
+export async function exportExperiment(runId: string, format: 'svg', token: string): Promise<Blob> {
+  const params = { token, format };
+  const res = await axios.get(`/runs/${runId}/export`, {
     params,
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return res.data as Blob;
 }
 
 export async function exportExperimentUmap(runId: string, token: string): Promise<Blob> {
   const params = { token };
-  const res = await axios.get(`/experiments/runs/${runId}/export/umap`, {
+  const res = await axios.get(`/runs/${runId}/export/umap`, {
     params,
-    responseType: 'blob'
+    responseType: 'blob',
   });
   return res.data as Blob;
 }
@@ -74,9 +106,8 @@ export async function exportComparisonMetricSvg(encodedPayload: string, metricKe
   return res.data as Blob;
 }
 
-export async function fetchConsensusData(encodedPayload: string): Promise<ConsensusResponse> {
-  const params = { c: encodedPayload };
-  const res = await axios.get(`/experiments/compare/consensus`, { params });
+export async function fetchConsensusData(experiments: ExperimentRequest[]): Promise<ConsensusResponse> {
+  const res = await axios.post(`/experiments/compare/consensus`, { experiments });
   return res.data as ConsensusResponse;
 }
 

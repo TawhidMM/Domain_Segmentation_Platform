@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { ConsensusResponse } from '@/types';
 import SpatialConsensusPlot from './SpatialConsensusPlot';
 
 interface Spot {
@@ -7,14 +8,6 @@ interface Spot {
   y: number;
   consensus_domain: string | number;
   confidence: number;
-}
-
-interface ConsensusResponse {
-  metadata: {
-    reference_tool: string;
-    num_experiments: number;
-  };
-  spots: Spot[];
 }
 
 interface SpatialConsensusVisualizationProps {
@@ -40,6 +33,7 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
   );
 
   const spotCount = data?.spots?.length ?? 0;
+  const metadataSpotCount = data?.metadata?.num_spots ?? 0;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -95,7 +89,7 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
         </Box>
 
         <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-          {spotCount.toLocaleString()} spots • Plotly scattergl
+          {(metadataSpotCount || spotCount).toLocaleString()} spots • Plotly scattergl
         </Typography>
       </Paper>
 
