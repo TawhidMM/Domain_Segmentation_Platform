@@ -1,7 +1,14 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Box, Container, Typography, Chip, Button, CircularProgress, Tabs, Tab } from '@mui/material';
-import { GridView, Download as DownloadIcon, BarChart as BarChartIcon, TableChart as TableChartIcon, MapOutlined as MapIcon } from '@mui/icons-material';
+import {
+  GridView,
+  Download as DownloadIcon,
+  BarChart as BarChartIcon,
+  TableChart as TableChartIcon,
+  MapOutlined as MapIcon,
+  CompareArrows as CompareArrowsIcon,
+} from '@mui/icons-material';
 import { useMultiExperimentBestRuns } from '@/hooks/useMultiExperimentBestRuns';
 import { useCompareJobsParams } from '@/hooks/useCompareJobsParams';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
@@ -11,13 +18,14 @@ import SpatialPlot from '@/components/visualization/SpatialPlot';
 import MetricsTable from '@/components/visualization/MetricsTable';
 import MetricsBarCharts from '@/components/visualization/MetricsBarCharts';
 import SpatialConsensusVisualization from '@/components/visualization/SpatialConsensusVisualization';
+import DomainComparisonTab from '@/components/visualization/domainComparison/DomainComparisonTab';
 import { downloadCompareMetricBoxplots, fetchConsensusData } from '@/services/experimentService';
 import { toast } from 'sonner';
 
 const ComparePage: React.FC = () => {
   const [, setSearchParams] = useSearchParams();
   const [isExportingMetrics, setIsExportingMetrics] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plots' | 'metrics' | 'consensus'>('plots');
+  const [activeTab, setActiveTab] = useState<'plots' | 'metrics' | 'consensus' | 'domain-comparison'>('plots');
   const [consensusData, setConsensusData] = useState<any>(null);
   const [consensusLoading, setConsensusLoading] = useState(false);
   const [consensusError, setConsensusError] = useState<string | null>(null);
@@ -139,6 +147,16 @@ const ComparePage: React.FC = () => {
     metricsData: metricsState[expId]?.metricsData || null,
   }));
 
+  const toolSelections = useMemo(
+    () =>
+      experimentIds.map((expId, index) => ({
+        experiment_id: expId,
+        token: tokens[index],
+        tool_name: bestRunState[expId]?.result?.toolName || `Experiment ${index + 1}`,
+      })),
+    [experimentIds, tokens, bestRunState],
+  );
+
   return (
     <Box sx={{ display: 'flex', height: '100vh', flexDirection: 'column' }}>
       {/* Header */}
@@ -211,6 +229,12 @@ const ComparePage: React.FC = () => {
               label="Consensus"
               value="consensus"
               icon={<MapIcon sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+            />
+            <Tab
+              label="Domain Comparison"
+              value="domain-comparison"
+              icon={<CompareArrowsIcon sx={{ fontSize: 18 }} />}
               iconPosition="start"
             />
           </Tabs>
@@ -394,6 +418,13 @@ const ComparePage: React.FC = () => {
                   </Typography>
                 </Box>
               )}
+            </Box>
+          )}
+
+          {/* Domain Comparison Tab */}
+          {activeTab === 'domain-comparison' && (
+            <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
+              <DomainComparisonTab tools={toolSelections} />
             </Box>
           )}
         </Box>
