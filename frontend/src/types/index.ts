@@ -81,7 +81,6 @@ export interface ConsensusResponse {
   metadata: {
     num_experiments: number;
     reference_experiment_id: string;
-    reference_run_id: string;
     num_spots: number;
   };
   spots: ConsensusSpot[];

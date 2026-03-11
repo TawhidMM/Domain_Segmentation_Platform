@@ -8,6 +8,7 @@ import {
   RunStatus,
   ExperimentRequest,
 } from '@/types';
+import { DomainComparisonResponse } from '@/components/visualization/domainComparison/types';
 
 function getAggregateExperimentStatus(details: ExperimentDetails): JobStatusResponse {
   const runStatuses = details.datasets.flatMap((dataset) => dataset.runs.map((run) => run.status));
@@ -109,6 +110,15 @@ export async function exportComparisonMetricSvg(encodedPayload: string, metricKe
 export async function fetchConsensusData(experiments: ExperimentRequest[]): Promise<ConsensusResponse> {
   const res = await axios.post(`/experiments/compare/consensus`, { experiments });
   return res.data as ConsensusResponse;
+}
+
+export async function fetchDomainComparisonData(experiments: {
+  experiment_id: string;
+  dataset_id: string;
+  token: string;
+}[]): Promise<DomainComparisonResponse> {
+  const res = await axios.post(`/experiments/domain-comparison`, { experiments });
+  return res.data as DomainComparisonResponse;
 }
 
 export async function fetchBestRunResult(experimentId: string, token: string): Promise<ExperimentResult> {
