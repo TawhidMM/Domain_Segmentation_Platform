@@ -49,3 +49,13 @@ class ExperimentRequest(BaseModel):
 
 class ConsensusRequest(BaseModel):
     experiments: List[ExperimentRequest]
+
+
+class DomainComparisonItem(BaseModel):
+    experiment_id: str
+    dataset_id: str
+    token: str
+
+
+class DomainComparisonRequest(BaseModel):
+    experiments: List[DomainComparisonItem]

@@ -1,3 +1,4 @@
+import json
 import tempfile
 import zipfile
 from pathlib import Path
@@ -8,7 +9,8 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.schemas.experiment import ExperimentRequest
+from app.core.workspace import ExperimentWorkspace
+from app.schemas.experiment import DomainComparisonRequest, ExperimentRequest
 from app.services.experiment_service import require_experiment_with_access
 from app.services.metrics_service import (
     collect_experiment_metrics,
@@ -379,7 +381,7 @@ def _build_metric_zip(
 def _load_experiment_data(
     db: Session,
     experiment_req: ExperimentRequest
-) -> list[dict]:
+) -> tuple[str, list[dict]]:
 
     require_experiment_with_access(db, experiment_req.experiment_id, experiment_req.token)
     datasets = get_datasets_for_experiment(db, experiment_req.experiment_id)
@@ -403,7 +405,7 @@ def _load_experiment_data(
             "metrics": metrics
         })
 
-    return runs_data
+    return dataset_id, runs_data
 
 
 # def _load_experiments_data(
@@ -431,15 +433,123 @@ def _load_experiment_data(
 
 
 def _save_experiment_consensus_json(
-    experiment_req: ExperimentRequest,
+    experiment_id: str,
+    dataset_id: str,
+    reference_run_id: str,
     consensus_df: pd.DataFrame
 ) -> None:
-    """
-    Placeholder for consensus persistence.
 
-    TODO: implement JSON save flow once storage contract is finalized.
-    """
-    pass
+    workspace = ExperimentWorkspace(experiment_id)
+    consensus_file = workspace.consensus_file(dataset_id)
+    consensus_file.parent.mkdir(parents=True, exist_ok=True)
+
+    payload = {
+        "metadata": {
+            "experiment_id": experiment_id,
+            "dataset_id": dataset_id,
+            "reference_run": reference_run_id,
+            "num_spots": len(consensus_df)
+        },
+        "spots": consensus_df[["barcode", "x", "y", "domain"]].to_dict(orient="records")
+    }
+
+    consensus_file.write_text(json.dumps(payload, indent=2))
+
+
+
+def build_domain_comparison(
+    db: Session,
+    request: DomainComparisonRequest
+) -> dict:
+
+    item_a, item_b = request.experiments
+
+    experiment_a = require_experiment_with_access(db, item_a.experiment_id, item_a.token)
+    experiment_b = require_experiment_with_access(db, item_b.experiment_id, item_b.token)
+
+    dataset_id = item_a.dataset_id
+
+    req_a = ExperimentRequest(experiment_id=item_a.experiment_id, token=item_a.token)
+    req_b = ExperimentRequest(experiment_id=item_b.experiment_id, token=item_b.token)
+
+    _, runs_results_a = _load_experiment_data(db, req_a)
+    _, runs_results_b = _load_experiment_data(db, req_b)
+
+    consensus_df_a = _load_experiment_consensus(req_a, runs_results_a, dataset_id)
+    consensus_df_b = _load_experiment_consensus(req_b, runs_results_b, dataset_id)
+
+    score_a = _compute_mean_metric_score(runs_results_a)
+    score_b = _compute_mean_metric_score(runs_results_b)
+
+    merged_aligned_df = align_domains(consensus_df_a, consensus_df_b, score_a, score_b)
+
+    spots = merged_aligned_df[["barcode", "x", "y", "A", "B"]].to_dict(orient="records")
+    domain_metrics = _compute_domain_metrics(merged_aligned_df)
+
+    return {
+        "experiments": {
+            "A": {"experiment_id": item_a.experiment_id, "tool_name": experiment_a.tool_name},
+            "B": {"experiment_id": item_b.experiment_id, "tool_name": experiment_b.tool_name}
+        },
+        "spots": spots,
+        "domain_metrics": domain_metrics
+    }
+
+
+def align_domains(
+    df_a: pd.DataFrame,
+    df_b: pd.DataFrame,
+    score_a: float,
+    score_b: float
+) -> pd.DataFrame:
+
+    if score_a >= score_b:
+        ref_df, other_df, ref_key, other_key = df_a, df_b, "A", "B"
+    else:
+        ref_df, other_df, ref_key, other_key = df_b, df_a, "B", "A"
+
+    # Merge and Align
+    merged = ref_df.set_index("barcode")[["x", "y", "domain"]].rename(
+        columns={"domain": ref_key}
+    ).join(
+        other_df.set_index("barcode")[["domain"]].rename(columns={"domain": other_key}),
+        how="inner"
+    ).reset_index()
+
+    merged[other_key] = align_tool_labels(
+        merged[ref_key].to_numpy(),
+        merged[other_key].to_numpy()
+    )
+
+    return merged
+
+
+def _compute_domain_metrics(
+        df: pd.DataFrame
+) -> list[dict]:
+
+    domains = sorted(df["A"].unique().tolist())
+
+    records = []
+    for k in domains:
+        a_k = df["A"] == k
+        b_k = df["B"] == k
+
+        intersection = int((a_k & b_k).sum())
+        a_only = int((a_k & ~b_k).sum())
+        b_only = int((~a_k & b_k).sum())
+
+        union = intersection + a_only + b_only
+
+        jaccard = round(intersection / union, 4) if union > 0 else 0.0
+        records.append({
+            "domain": k,
+            "intersection": intersection,
+            "expA_only": a_only,
+            "expB_only": b_only,
+            "jaccard": jaccard
+        })
+    return records
 
 
 def build_consensus_predictions(
@@ -450,9 +560,9 @@ def build_consensus_predictions(
     experiment_consensuses = []
     for exp_item in experiments:
 
-        runs_data = _load_experiment_data(db, exp_item)
+        dataset_id, runs_data = _load_experiment_data(db, exp_item)
 
-        consensus_df = _load_experiment_consensus(db, exp_item, runs_data)
+        consensus_df = _load_experiment_consensus(exp_item, runs_data, dataset_id)
 
         mean_metric_score = _compute_mean_metric_score(runs_data)
 
@@ -481,27 +591,34 @@ def build_consensus_predictions(
 
 
 def _load_experiment_consensus(
-    db: Session,
     experiment_req: ExperimentRequest,
-    runs_data: list[dict]
+    runs_data: list[dict],
+    dataset_id: str
 ) -> pd.DataFrame:
 
+    workspace = ExperimentWorkspace(experiment_req.experiment_id)
+    consensus_file_path = workspace.consensus_file(dataset_id)
 
-    return compute_experiment_consensus(experiment_req, runs_data)
+    if not consensus_file_path.exists():
+        consensus_df = compute_experiment_consensus(experiment_req, runs_data, dataset_id)
+    else:
+        payload = json.loads(consensus_file_path.read_text())
+
+        consensus_df = pd.DataFrame(payload["spots"])[["barcode", "x", "y", "domain"]]
+
+    return consensus_df
 
 
 def compute_experiment_consensus(
     experiment_req: ExperimentRequest,
-    runs_data: list[dict]
+    runs_data: list[dict],
+    dataset_id: str
 ) -> pd.DataFrame:
 
-    # Extract DataFrames with barcode and domain columns
     run_dfs = [run["spots_df"] for run in runs_data]
 
-    # Build label matrix for all runs
     labels_matrix, common_barcodes = build_label_matrix(run_dfs)
 
-    # Select reference run using composite scoring
     reference_idx = _select_reference_run(runs_data)
 
     consensus_labels, _ = _compute_consensus(
@@ -509,7 +626,7 @@ def compute_experiment_consensus(
         reference_idx=reference_idx
     )
 
-    # carry x, y from the reference run
+    # Carry x, y from the reference run
     reference_spots_df = runs_data[reference_idx]["spots_df"].set_index("barcode")
     xy = reference_spots_df.loc[common_barcodes, ["x", "y"]]
 
@@ -520,7 +637,12 @@ def compute_experiment_consensus(
         "domain": consensus_labels
     })
 
-    _save_experiment_consensus_json(experiment_req, experiment_consensus_df)
+    _save_experiment_consensus_json(
+        experiment_id=experiment_req.experiment_id,
+        dataset_id=dataset_id,
+        reference_run_id=runs_data[reference_idx]["run_id"],
+        consensus_df=experiment_consensus_df
+    )
 
     return experiment_consensus_df
 

@@ -13,6 +13,7 @@ from app.repositories import run_repository
 from app.schemas.experiment import (
     CompareBoxplotsDownloadRequest,
     ConsensusRequest,
+    DomainComparisonRequest,
     ExperimentSubmitResponse,
     ExperimentStatusResponse
 )
@@ -239,6 +240,29 @@ def get_consensus_predictions(
         db=db,
         experiments=request.experiments
     )
+
+
+@router.post("/domain-comparison")
+def get_domain_comparison(
+    request: DomainComparisonRequest,
+    db: Session = Depends(get_db)
+):
+    if len(request.experiments) != 2:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Exactly two experiments are required")
+
+    item_a, item_b = request.experiments
+
+    if item_a.dataset_id != item_b.dataset_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Both experiments must use the same dataset_id")
+
+    if item_a.experiment_id == item_b.experiment_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Experiments must be different")
+
+
+    return export_service.build_domain_comparison(db=db, request=request)
 
 
 @router.post("/compare/download-boxplots")

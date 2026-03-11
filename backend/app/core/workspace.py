@@ -6,9 +6,11 @@ from app.core.config import settings
 
 
 class ExperimentWorkspace:
-    
+
     _DATASETS_DIR: str = "datasets"
     _RUNS_DIR: str = "runs"
+    _ARTIFACTS_DIR: str = "artifacts"
+    _CONSENSUS_FILE: str = "experiment_consensus.json"
 
     def __init__(self, experiment_id: str):
         self._experiment_id = experiment_id
@@ -26,11 +28,18 @@ class ExperimentWorkspace:
     def runs_root(self) -> Path:
         return self._root / self._RUNS_DIR
 
+    @property
+    def artifacts_root(self) -> Path:
+        return self._root / self._ARTIFACTS_DIR
+
     def dataset_dir(self, dataset_id: str) -> Path:
         return self.datasets_root / dataset_id
 
     def run_root(self, run_id: str) -> Path:
         return self.runs_root / run_id
+
+    def consensus_file(self, dataset_id: str) -> Path:
+        return self.artifacts_root / dataset_id / "consensus" / self._CONSENSUS_FILE
 
 
 class RunWorkspace:
