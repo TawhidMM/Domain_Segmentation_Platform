@@ -42,10 +42,10 @@ class CompareBoxplotsDownloadRequest(BaseModel):
     experiment_ids: List[str]
 
 
-class ConsensusExperimentItem(BaseModel):
+class ExperimentRequest(BaseModel):
     experiment_id: str
     token: str
 
 
 class ConsensusRequest(BaseModel):
-    experiments: List[ConsensusExperimentItem]
+    experiments: List[ExperimentRequest]
