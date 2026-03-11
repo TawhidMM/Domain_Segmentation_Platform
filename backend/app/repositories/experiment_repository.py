@@ -1,8 +1,8 @@
 from typing import Optional
 
 from sqlalchemy.orm import Session
-
-from app.models.experiment import Experiment, ExperimentStatus
+from sqlalchemy.orm import joinedload
+from app.models.experiment import Experiment
 
 
 def get_experiment_by_id(
@@ -11,6 +11,21 @@ def get_experiment_by_id(
 ) -> Optional[Experiment]:
 
     return db.query(Experiment).filter(Experiment.id == job_id).first()
+
+
+def get_experiment_with_runs(
+    db: Session,
+    experiment_id: str
+) -> Optional[Experiment]:
+
+    experiment = (
+        db.query(Experiment)
+        .filter(Experiment.id == experiment_id)
+        .options(joinedload(Experiment.runs))
+        .first()
+    )
+    
+    return experiment
 
 
 def create_experiment(
@@ -22,27 +37,3 @@ def create_experiment(
     db.commit()
     db.refresh(experiment)
     return experiment
-
-
-def update_status(
-    db: Session,
-    job_id: str,
-    status: ExperimentStatus,
-    started_at=None,
-    finished_at=None
-) -> Optional[Experiment]:
-
-    experiment = get_experiment_by_id(db, job_id)
-    if not experiment:
-        return None
-
-    experiment.status = status
-    if started_at is not None:
-        experiment.started_at = started_at
-    if finished_at is not None:
-        experiment.finished_at = finished_at
-
-    db.commit()
-    db.refresh(experiment)
-    return experiment
-

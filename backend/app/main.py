@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.experiments import router as experiments_router
+from app.api.runs import router as runs_router
 from app.api.datasets import router as datasets_router
 from app.api.tools import router as tools_router
 from app.core.startup import create_directories
@@ -34,6 +35,12 @@ app.include_router(
     experiments_router,
     prefix="/api/experiments",
     tags=["Experiments"]
+)
+
+app.include_router(
+    runs_router,
+    prefix="/api/runs",
+    tags=["Runs"]
 )
 
 app.include_router(

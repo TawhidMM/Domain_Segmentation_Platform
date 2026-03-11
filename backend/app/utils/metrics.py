@@ -8,6 +8,19 @@ from sklearn.metrics import davies_bouldin_score
 from sklearn.metrics import calinski_harabasz_score
 
 
+def min_max_normalize(values: list[float]) -> list[float]:
+    if not values:
+        return []
+
+    min_value = min(values)
+    max_value = max(values)
+    if max_value == min_value:
+        return [0.0 for _ in values]
+
+    denominator = max_value - min_value
+    return [(value - min_value) / denominator for value in values]
+
+
 def load_and_align(
     pred_csv: Path,
     emb_csv: Path,

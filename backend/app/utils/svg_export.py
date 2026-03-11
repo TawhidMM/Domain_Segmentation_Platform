@@ -1,14 +1,11 @@
 import json
-from io import BytesIO
-from datetime import datetime
-from typing import Optional, Dict, Any
-import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from typing import Dict, Any
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.backends.backend_svg import FigureCanvasSVG
 import numpy as np
-import umap
+
+from app.visualization.svg_utils import embed_svg_metadata, save_svg_to_string
 
 
 class SpatialPlotExporter:
@@ -24,21 +21,17 @@ class SpatialPlotExporter:
 
     def __init__(
         self,
-        job_id: str,
+        run_id: str,
         tool_name: str,
         parameters: Dict[str, Any],
-        dataset_id: str,
-        created_at: datetime,
-        backend_version: str = "1.0.0"
+        dataset_id: str
     ):
 
-        self.job_id = job_id
+        self.run_id = run_id
         self.tool_name = tool_name
         self.parameters = parameters
         self.dataset_id = dataset_id
-        self.created_at = created_at
-        self.backend_version = backend_version
-        self.exported_at = datetime.utcnow().isoformat() + "Z"
+        self.exported_at = datetime.now(timezone.utc)
 
     def generate_svg(
         self,
@@ -58,7 +51,7 @@ class SpatialPlotExporter:
         ys = np.array([s["y"] for s in sorted_spots])
         colors = [domain_colors.get(s["domain"], "#808080") for s in sorted_spots]
 
-        # Create figure with scientific styling
+        # Create a figure with scientific styling
         fig, ax = plt.subplots(
             figsize=self.FIGURE_SIZE_INCHES,
             dpi=self.DPI,
@@ -96,13 +89,7 @@ class SpatialPlotExporter:
         # Tight layout for scientific output
         fig.tight_layout()
 
-        # Render to SVG buffer
-        buffer = BytesIO()
-        canvas = FigureCanvasSVG(fig)
-        canvas.print_svg(buffer)
-        buffer.seek(0)
-
-        svg_string = buffer.read().decode("utf-8")
+        svg_string = save_svg_to_string(fig)
         plt.close(fig)
 
         # Embed metadata if requested
@@ -114,51 +101,24 @@ class SpatialPlotExporter:
     def _embed_metadata(self, svg_string: str) -> str:
 
         metadata = {
-            "job_id": self.job_id,
+            "run_id": self.run_id,
             "tool": self.tool_name,
             "parameters": self.parameters,
-            "created_at": self.created_at.isoformat(),
             "exported_at": self.exported_at,
             "dataset": self.dataset_id,
-            "backend_version": self.backend_version,
             "export_format": "svg"
         }
 
-        metadata_json = json.dumps(metadata, ensure_ascii=False)
-
-        # Parse SVG and inject metadata
-        root = ET.fromstring(svg_string)
-
-        # Create or find metadata element
-        ns = {"svg": "http://www.w3.org/2000/svg"}
-        ET.register_namespace("", ns["svg"])
-
-        # Find or create metadata tag
-        metadata_elem = root.find("svg:metadata", ns)
-        if metadata_elem is None:
-            metadata_elem = ET.Element("{http://www.w3.org/2000/svg}metadata")
-            root.insert(0, metadata_elem)
-
-        # Clear existing metadata
-        metadata_elem.clear()
-
-        # Add JSON as CDATA or text content
-        metadata_text = ET.SubElement(metadata_elem, "data")
-        metadata_text.text = metadata_json
-
-        # Convert back to string
-        return ET.tostring(root, encoding="unicode", method="xml")
+        return embed_svg_metadata(svg_string, metadata)
 
     def generate_metadata_json(self) -> Dict[str, Any]:
 
         return {
-            "job_id": self.job_id,
+            "run_id": self.run_id,
             "tool": self.tool_name,
             "parameters": self.parameters,
-            "created_at": self.created_at.isoformat(),
             "exported_at": self.exported_at,
             "dataset": self.dataset_id,
-            "backend_version": self.backend_version,
             "export_format": "svg"
         }
 

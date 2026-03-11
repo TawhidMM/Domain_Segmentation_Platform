@@ -1,21 +1,25 @@
 import base64
 import json
-from typing import Any, List
+from io import BytesIO
+from typing import Any, List, Optional
 from urllib.parse import unquote
+
 from fastapi import APIRouter, Form, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from io import BytesIO
 
 from app.core.database import get_db
+from app.repositories import run_repository
 from app.schemas.experiment import (
+    CompareBoxplotsDownloadRequest,
+    ConsensusRequest,
     ExperimentSubmitResponse,
     ExperimentStatusResponse
 )
 from app.services import experiment_service
-from app.tasks.experiment_tasks import run_experiment_task
-
-
+from app.services import metrics_service
+from app.services import export_service
+from app.tasks.experiment_tasks import run_task
 
 router = APIRouter()
 
@@ -47,15 +51,29 @@ def _extract_compare_items(payload: Any) -> List[dict]:
             jobs = payload.get("jobs") or []
             tokens = payload.get("tokens") or []
             items = [
-                {"job_id": job_id, "token": token}
-                for job_id, token in zip(jobs, tokens)
+                {"experiment_id": experiment_id, "token": token}
+                for experiment_id, token in zip(jobs, tokens)
             ]
-        elif "jobIds" in payload and "tokens" in payload:
-            jobs = payload.get("jobIds") or []
+        elif "experiment_ids" in payload and "tokens" in payload:
+            jobs = payload.get("experiment_ids") or []
             tokens = payload.get("tokens") or []
             items = [
-                {"job_id": job_id, "token": token}
-                for job_id, token in zip(jobs, tokens)
+                {"experiment_id": experiment_id, "token": token}
+                for experiment_id, token in zip(jobs, tokens)
+            ]
+        elif "runs" in payload and "tokens" in payload:
+            runs = payload.get("runs") or []
+            tokens = payload.get("tokens") or []
+            items = [
+                {"run_id": run_id, "token": token}
+                for run_id, token in zip(runs, tokens)
+            ]
+        elif "runIds" in payload and "tokens" in payload:
+            runs = payload.get("runIds") or []
+            tokens = payload.get("tokens") or []
+            items = [
+                {"run_id": run_id, "token": token}
+                for run_id, token in zip(runs, tokens)
             ]
         else:
             items = [payload]
@@ -67,14 +85,28 @@ def _extract_compare_items(payload: Any) -> List[dict]:
         if not isinstance(item, dict):
             raise HTTPException(status_code=400, detail="Invalid experiment item in payload")
 
-        job_id = item.get("job_id") or item.get("jobId") or item.get("id")
+        experiment_id = (
+            item.get("experiment_id")
+            or item.get("experimentId")
+            or item.get("job_id")
+            or item.get("jobId")
+        )
+        run_id = item.get("run_id") or item.get("runId") or item.get("id")
         token = item.get("token") or item.get("access_token")
         label = item.get("label") or item.get("name")
 
-        if not job_id or not token:
-            raise HTTPException(status_code=400, detail="Experiment item missing job_id or token")
+        if (not run_id and not experiment_id) or not token:
+            raise HTTPException(
+                status_code=400,
+                detail="Experiment item missing experiment_id/run_id or token"
+            )
 
-        normalized.append({"job_id": job_id, "token": token, "label": label})
+        normalized.append({
+            "experiment_id": experiment_id,
+            "run_id": run_id,
+            "token": token,
+            "label": label
+        })
 
     return normalized
 
@@ -87,6 +119,8 @@ async def submit_experiment(
     dataset_id: str = Form(...),
     tool_name: str = Form(...),
     params: str = Form(...),
+    number_of_runs: int = Form(1),
+    seed_list: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
 
@@ -95,95 +129,71 @@ async def submit_experiment(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid params JSON")
 
-    job_id, access_token = experiment_service.create_experiment_record(
+    # Parse seed_list if provided
+    parsed_seed_list = None
+    if seed_list:
+        try:
+            parsed_seed_list = json.loads(seed_list)
+            if not isinstance(parsed_seed_list, list):
+                raise HTTPException(status_code=400, detail="seed_list must be a JSON array")
+            if not all(isinstance(s, int) for s in parsed_seed_list):
+                raise HTTPException(status_code=400, detail="All seeds must be integers")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid seed_list JSON")
+
+    experiment_id, access_token = experiment_service.create_experiment_record(
         db=db,
         dataset_id=dataset_id,
         tool_name=tool_name,
-        params_dict=params_dict
+        params_dict=params_dict,
+        number_of_runs=number_of_runs,
+        seed_list=parsed_seed_list
     )
 
-    run_experiment_task.delay(
-        job_id=job_id,
-        tool_name=tool_name,
-        params_dict=params_dict,
-        dataset_id=dataset_id
-    )
+    runs = run_repository.get_runs_by_experiment(db, experiment_id)
+    for run in runs:
+        run_task.delay(run.id)
 
     return ExperimentSubmitResponse(
-        job_id=job_id,
+        experiment_id=experiment_id,
         access_token=access_token,
         status="queued"
     )
 
 
-@router.get("/jobs/{job_id}", response_model=ExperimentStatusResponse)
+@router.get("/{experiment_id}", response_model=ExperimentStatusResponse)
 def get_experiment_status(
-    job_id: str,
+    experiment_id: str,
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
 
-    experiment = (experiment_service.
-                  require_experiment_with_access(db, job_id, token))
+    response_data = experiment_service.build_nested_experiment_response(db, experiment_id, token)
 
-    return ExperimentStatusResponse(
-        job_id=experiment.id,
-        status=experiment.status.value,
-        tool_name=experiment.tool_name,
-        started_at=experiment.started_at,
-        finished_at=experiment.finished_at
-    )
+    return ExperimentStatusResponse(**response_data)
 
 
-@router.get("/result/{job_id}")
-def get_result(
-    job_id: str,
+@router.get("/{experiment_id}/best-run")
+def get_best_run_result(
+    experiment_id: str,
+    token: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    best_run_context = metrics_service.select_best_run_for_experiment(db, experiment_id, token)
+
+    result = json.loads(best_run_context.result_file.read_text())
+
+    return result
+
+
+@router.get("/{experiment_id}/run-metrics")
+def get_experiment_run_metrics(
+    experiment_id: str,
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
 
-    return experiment_service.get_result_json(db, job_id, token)
-
-
-@router.get("/metrics/{job_id}")
-def get_metrics(
-    job_id: str,
-    token: str = Query(...),
-    db: Session = Depends(get_db)
-):
-
-    return experiment_service.get_metrics_json(db, job_id, token)
-
-
-@router.get("/export/{job_id}")
-def export_experiment(
-    job_id: str,
-    token: str = Query(...),
-    format: str = Query("svg"),
-    include_metadata: bool = Query(True),
-    bundle: bool = Query(False),
-    db: Session = Depends(get_db)
-):
-    """Export spatial plot as SVG."""
-    if format != "svg":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported format: {format}. Currently only 'svg' is supported."
-        )
-
-    data, content_type, filename = experiment_service.export_experiment(
-        db=db,
-        job_id=job_id,
-        token=token,
-        include_metadata=include_metadata,
-        bundle=bundle
-    )
-
-    return StreamingResponse(
-        BytesIO(data),
-        media_type=content_type,
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+    return metrics_service.get_experiment_run_metrics(db, experiment_id, token)
 
 
 @router.get("/compare/export/metrics")
@@ -207,7 +217,7 @@ def export_compare_metrics(
             detail="At least two experiments are required for comparison export"
         )
 
-    data, content_type, filename = experiment_service.export_compare_metrics(
+    data, content_type, filename = export_service.export_compare_metrics(
         db=db,
         experiments=items,
         format_type=format
@@ -220,38 +230,25 @@ def export_compare_metrics(
     )
 
 
-@router.get("/compare/consensus")
+@router.post("/compare/consensus")
 def get_consensus_predictions(
-    c: str = Query(...),
+    request: ConsensusRequest,
     db: Session = Depends(get_db)
 ):
-    payload = _decode_compare_payload(c)
-    items = _extract_compare_items(payload)
-
-    return experiment_service.build_consensus_predictions(
+    return export_service.build_consensus_predictions(
         db=db,
-        experiments=items
+        experiments=request.experiments
     )
 
 
-@router.get("/{experiment_id}/export/umap")
-def export_umap(
-    experiment_id: str,
-    token: str = Query(...),
-    format: str = Query("svg"),
+@router.post("/compare/download-boxplots")
+def download_compare_boxplots(
+    request: CompareBoxplotsDownloadRequest,
     db: Session = Depends(get_db)
 ):
-
-    if format != "svg":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported format: {format}. Only 'svg' is supported."
-        )
-
-    data, content_type, filename = experiment_service.export_experiment_umap(
+    data, content_type, filename = export_service.export_metric_boxplots_zip(
         db=db,
-        job_id=experiment_id,
-        token=token
+        experiment_ids=request.experiment_ids
     )
 
     return StreamingResponse(

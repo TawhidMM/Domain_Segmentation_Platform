@@ -2,30 +2,15 @@ import json
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Dict, List
-import xml.etree.ElementTree as ET
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_svg import FigureCanvasSVG
 import numpy as np
+
+from app.visualization.svg_utils import embed_svg_metadata, save_svg_to_string
 
 
 def _embed_metadata(svg_string: str, metadata: Dict[str, object]) -> str:
-    metadata_json = json.dumps(metadata, ensure_ascii=True)
-
-    root = ET.fromstring(svg_string)
-    ns = {"svg": "http://www.w3.org/2000/svg"}
-    ET.register_namespace("", ns["svg"])
-
-    metadata_elem = root.find("svg:metadata", ns)
-    if metadata_elem is None:
-        metadata_elem = ET.Element("{http://www.w3.org/2000/svg}metadata")
-        root.insert(0, metadata_elem)
-
-    metadata_elem.clear()
-    metadata_text = ET.SubElement(metadata_elem, "data")
-    metadata_text.text = metadata_json
-
-    return ET.tostring(root, encoding="unicode", method="xml")
+    return embed_svg_metadata(svg_string, metadata)
 
 
 def generate_metric_svg(
@@ -36,7 +21,6 @@ def generate_metric_svg(
     colors: List[str],
     experiment_ids: List[str],
     generated_at: str,
-    backend_version: str,
     note: str
 ) -> str:
     fig, ax = plt.subplots(figsize=(6, 4), dpi=300, facecolor="white")
@@ -55,20 +39,14 @@ def generate_metric_svg(
 
     fig.tight_layout()
 
-    buffer = BytesIO()
-    canvas = FigureCanvasSVG(fig)
-    canvas.print_svg(buffer)
-    buffer.seek(0)
-
-    svg_string = buffer.read().decode("utf-8")
+    svg_string = save_svg_to_string(fig)
     plt.close(fig)
 
     metadata = {
         "plot_type": "metric_comparison",
         "metric": metric_key,
         "experiment_ids": experiment_ids,
-        "generated_at": generated_at,
-        "backend_version": backend_version
+        "generated_at": generated_at
     }
 
     return _embed_metadata(svg_string, metadata)

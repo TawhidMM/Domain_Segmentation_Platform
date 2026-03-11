@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.workspace import Workspace
+from app.repositories import run_repository
 from app.services.dataset_service import create_dataset
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
@@ -48,21 +48,21 @@ def finalize(
 
 @router.get("/{job_id}/histology", responses={200: {"content": {"image/png": {}}}})
 def get_histology(
-    job_id: str,
+    run_id: str,
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
     print("[][][][][][][][][][][][")
-    experiment = experiment_service.require_experiment_with_access(db, job_id, token)
-    
-    # Get workspace and locate spatial directory
-    workspace = Workspace(job_id)
-    
-    # Try to find spatial directory in common locations
-    spatial_dir = workspace.input_dir / "spatial"
+
+    run = run_repository.get_run_by_id(db, run_id)
+    run_context = experiment_service.build_run_context(db, run)
+
+    dataset_dir = run_context.dataset_path
+
+    spatial_dir = dataset_dir / "spatial"
     if not spatial_dir.exists():
         # For ScribbleDom structure
-        possible_paths = list(workspace.input_dir.rglob("spatial"))
+        possible_paths = list(dataset_dir.rglob("spatial"))
         if possible_paths:
             spatial_dir = possible_paths[0]
         else:

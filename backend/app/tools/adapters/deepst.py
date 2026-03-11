@@ -12,35 +12,45 @@ from app.utils.zip_utils import extract_zip
 
 class DeepStAdapter(ToolAdapter):
 
-    def prepare_inputs(self, dataset_id: str):
+    def prepare_inputs(self):
+        dataset_id = self.run_context.dataset_id
         zip_dir = settings.UPLOAD_ROOT / f"upload_{dataset_id}" / UPLOAD_ZIP_FILENAME
-        target_dir = self.workspace.input_dir
+        target_dir = self.run_context.dataset_path
 
         target_dir.mkdir(parents=True, exist_ok=True)
 
         extract_zip(zip_dir, target_dir)
 
-    def build_config(self, user_params: dict) -> dict:
-        resolved_params = resolve_config(DEEPST_MANIFEST, user_params)
+    def build_config(self):
+        resolved_params = resolve_config(DEEPST_MANIFEST, self.run_context.params)
 
-        self.workspace.config_dir.mkdir(parents=True, exist_ok=True)
+        experiment_root = self.run_context.experiment_root
+        relative_output_dir = self.run_context.output_dir.relative_to(experiment_root)
+        relative_dataset_dir = self.run_context.dataset_path.relative_to(experiment_root)
 
-        config_path = self.workspace.config_dir / "config.json"
+        resolved_params["seed"] = self.run_context.seed
+        resolved_params["input_path"] = str(relative_dataset_dir)
+        resolved_params["output_path"] = str(relative_output_dir)
+
+        self.run_context.config_dir.mkdir(parents=True, exist_ok=True)
+
+        config_path = self.run_context.config_dir / "config.json"
         with open(config_path, "w") as f:
             json.dump(resolved_params, f, sort_keys=False, indent=4)
 
 
-    def build_frontend_output(self, job_id: str, tool_name: str) -> dict:
-        prediction_file = self.workspace.output_dir / "predictions.csv"
-        spatial_dir = self.workspace.input_dir / "spatial"
+    def build_frontend_output(self) -> dict:
+        prediction_file = self.run_context.output_dir / "predictions.csv"
+        
+        spatial_dir = self.run_context.dataset_path / "spatial"
         coords_file = spatial_dir / "tissue_positions_list.csv"
-        embeddings_file = self.workspace.output_dir / "embeddings.csv"
+        embeddings_file = self.run_context.embeddings_file
 
         # Read scale factors for high-resolution coordinate scaling
         scale_factors = read_scale_factors(spatial_dir)
 
         metrics = get_segmentation_metrics(prediction_file, coords_file, embeddings_file)
-        result_path = self.workspace.metrics_file
+        result_path = self.run_context.metrics_file
         with open(result_path, "w") as f:
             json.dump(metrics, f)
 
@@ -52,8 +62,8 @@ class DeepStAdapter(ToolAdapter):
         has_histology = histology_path is not None
 
         return {
-            "jobId": job_id,
-            "toolName": tool_name,
+            "jobId": self.run_context.run_id,
+            "toolName": self.run_context.tool_name,
             "spots": spots,
             "domains": domains,
             "has_histology": has_histology
