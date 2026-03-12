@@ -1,53 +1,76 @@
-import React, { useState } from 'react';
-import { Box, Button, Stepper, Step, StepLabel, Paper } from '@mui/material';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Box, Button, Stepper, Step, StepLabel, Paper, Divider } from '@mui/material';
 import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { ToolSchema } from '@/types';
-import { initializeParameterValues, prepareParametersForSubmission, validateParameterValues } from '@/utils/parameterUtils';
+import { initializeParameterValues, prepareParametersForSubmission } from '@/utils/parameterUtils';
 import ToolSelector from './ToolSelector';
 import ParameterConfig from './ParameterConfig';
 import ExperimentSettings from './ExperimentSettings';
+import DatasetSelectionBar from './DatasetSelectionBar';
 
 const ExperimentBuilder: React.FC = () => {
-  const { createExperiment } = useApp();
+  const {
+    createExperiment,
+    successfulDatasets,
+    selectedDatasetIds,
+    focusDatasetId,
+    setSelectedDatasetIds,
+    setFocusDatasetId,
+    resetParameterDrafts,
+  } = useApp();
   const [activeStep, setActiveStep] = useState(0);
   const [selectedToolSchema, setSelectedToolSchema] = useState<ToolSchema | null>(null);
   const [parameters, setParameters] = useState<Record<string, any>>({});
   const [numberOfRuns, setNumberOfRuns] = useState(1);
 
-  const handleToolSelect = (schema: ToolSchema) => {
+  const handleToolSelect = useCallback((schema: ToolSchema) => {
     setSelectedToolSchema(schema);
     // Initialize parameters with default values from schema
     const defaultParams = initializeParameterValues(schema);
     setParameters(defaultParams);
-  };
+    // Reset parameter drafts and dataset selection when changing tool
+    resetParameterDrafts();
+  }, [resetParameterDrafts]);
 
-  const handleNumberOfRunsChange = (value: number) => {
+  const handleNumberOfRunsChange = useCallback((value: number) => {
     setNumberOfRuns(value);
-  };
+  }, []);
 
-  const handleCreateExperiment = () => {
+  const handleDatasetSelectionChange = useCallback((datasetIds: string[], nextFocusDatasetId: string | null) => {
+    setSelectedDatasetIds(datasetIds);
+    setFocusDatasetId(nextFocusDatasetId);
+  }, [setSelectedDatasetIds, setFocusDatasetId]);
+
+  const handleCreateExperiment = useCallback(() => {
     if (selectedToolSchema) {
-      // Validate parameters
-      // const validation = validateParameterValues(selectedToolSchema, parameters);
-      // if (!validation.valid) {
-      //   console.error('Validation errors:', validation.errors);
-      //   alert(`Please fix the following errors:\n${validation.errors.join('\n')}`);
-      //   return;
-      // }
-
       // Prepare parameters (expand float_range, etc.)
       const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
-      
+
       createExperiment(selectedToolSchema.tool_id, preparedParams, selectedToolSchema.label, numberOfRuns);
     }
-  };
+  }, [selectedToolSchema, parameters, numberOfRuns, createExperiment]);
+
+  // Memoize available datasets for the selection bar
+  const availableDatasets = useMemo(
+    () =>
+      successfulDatasets.map((dataset) => ({
+        id: dataset.datasetId || '',
+        name: dataset.datasetName,
+      })),
+    [successfulDatasets]
+  );
+
+  const focusedDatasetName = useMemo(
+    () => availableDatasets.find((dataset) => dataset.id === focusDatasetId)?.name ?? null,
+    [availableDatasets, focusDatasetId]
+  );
 
   const steps = ['Select Tool', 'Configure Parameters'];
 
-  const handleChangeTool = () => {
+  const handleChangeTool = useCallback(() => {
     setActiveStep(0);
-  };
+  }, []);
 
   return (
     <Box
@@ -74,11 +97,50 @@ const ExperimentBuilder: React.FC = () => {
 
           {activeStep === 1 && selectedToolSchema && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {/* Tool Parameters Section */}
-              <ParameterConfig toolSchema={selectedToolSchema} values={parameters} onChange={setParameters} />
+              {/* Dataset Selection Section */}
+              <Box>
+                <DatasetSelectionBar
+                  availableDatasets={availableDatasets}
+                  selectedDatasetIds={selectedDatasetIds}
+                  focusDatasetId={focusDatasetId}
+                  onSelectionChange={handleDatasetSelectionChange}
+                  disabled={availableDatasets.length === 0}
+                />
+              </Box>
+
+              <Divider />
+
+              {/* Tool Parameters Section - Only render when datasets are selected */}
+              {selectedDatasetIds.length > 0 ? (
+                <ParameterConfig
+                  toolSchema={selectedToolSchema}
+                  values={parameters}
+                  onChange={setParameters}
+                  selectedDatasetIds={selectedDatasetIds}
+                  focusDatasetId={focusDatasetId}
+                  focusDatasetName={focusedDatasetName}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    p: 4,
+                    textAlign: 'center',
+                    backgroundColor: 'action.hover',
+                    borderRadius: 1,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Box sx={{ color: 'text.secondary' }}>
+                    Select at least one dataset above to configure parameters
+                  </Box>
+                </Box>
+              )}
 
               {/* Experiment Settings Card */}
-              <ExperimentSettings numberOfRuns={numberOfRuns} onChange={handleNumberOfRunsChange} />
+              {selectedDatasetIds.length > 0 && (
+                <ExperimentSettings numberOfRuns={numberOfRuns} onChange={handleNumberOfRunsChange} />
+              )}
             </Box>
           )}
         </Paper>
@@ -119,7 +181,7 @@ const ExperimentBuilder: React.FC = () => {
               variant="contained"
               startIcon={<Add />}
               onClick={handleCreateExperiment}
-              disabled={!selectedToolSchema}
+              disabled={!selectedToolSchema || selectedDatasetIds.length === 0}
             >
               Create Experiment
             </Button>

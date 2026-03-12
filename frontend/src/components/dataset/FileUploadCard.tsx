@@ -8,13 +8,16 @@ interface FileUploadCardProps {
   acceptedFormats: string[];
   required?: boolean;
   disabled?: boolean;
-  uploadedFile: {
+  readOnly?: boolean;
+  multiple?: boolean;
+  uploadedFiles: {
+    id: string;
     name: string;
-    size: number;
     uploadProgress: number;
-    status: 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
-  } | null;
-  onFileSelect: (file: File) => void;
+    status: 'PENDING' | 'UPLOADING' | 'SUCCESS' | 'ERROR';
+    error?: string;
+  }[];
+  onFileSelect: (files: File[]) => void;
 }
 
 const FileUploadCard: React.FC<FileUploadCardProps> = ({
@@ -23,62 +26,87 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
   acceptedFormats,
   required = false,
   disabled = false,
-  uploadedFile,
+  readOnly = false,
+  multiple = false,
+  uploadedFiles,
   onFileSelect,
 }) => {
+  const interactive = !disabled && !readOnly;
+  const hasUploads = uploadedFiles.length > 0;
+  const hasError = uploadedFiles.some((file) => file.status === 'ERROR');
+  const totalFiles = uploadedFiles.length;
+  const successfulFiles = uploadedFiles.filter((file) => file.status === 'SUCCESS').length;
+  const failedFiles = uploadedFiles.filter((file) => file.status === 'ERROR').length;
+  const activeUpload = uploadedFiles.find((file) => file.status === 'UPLOADING');
+  const aggregateProgress =
+    totalFiles > 0
+      ? Math.round(
+          uploadedFiles.reduce((sum, file) => {
+            if (file.status === 'SUCCESS') return sum + 100;
+            if (file.status === 'UPLOADING') return sum + file.uploadProgress;
+            return sum;
+          }, 0) / totalFiles
+        )
+      : 0;
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      if (disabled) return;
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        onFileSelect(file);
+      if (!interactive) return;
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      if (droppedFiles.length > 0) {
+        onFileSelect(droppedFiles);
       }
     },
-    [disabled, onFileSelect]
+    [interactive, onFileSelect]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        onFileSelect(file);
+      const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
+      if (selectedFiles.length > 0) {
+        onFileSelect(selectedFiles);
       }
+      e.target.value = '';
     },
     [onFileSelect]
   );
 
-  const isUploaded = !!uploadedFile;
-
   return (
     <Paper
-      component="label"
+      component={interactive ? 'label' : 'div'}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       sx={{
         p: 3,
         border: '2px dashed',
-        borderColor: disabled ? 'divider' : isUploaded ? 'primary.main' : 'divider',
-        backgroundColor: disabled ? 'action.disabledBackground' : isUploaded ? 'rgba(13, 148, 136, 0.05)' : 'white',
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        borderColor: disabled ? 'divider' : hasUploads ? 'primary.main' : 'divider',
+        backgroundColor: disabled ? 'action.disabledBackground' : hasUploads ? 'rgba(13, 148, 136, 0.05)' : 'white',
+        cursor: interactive ? 'pointer' : 'default',
         transition: 'all 0.2s',
-        '&:hover': disabled
-          ? {}
-          : {
+        '&:hover': interactive
+          ? {
               borderColor: 'primary.main',
               backgroundColor: 'rgba(13, 148, 136, 0.05)',
+            }
+          : {
+              borderColor: disabled ? 'divider' : hasUploads ? 'primary.main' : 'divider',
+              backgroundColor: disabled ? 'action.disabledBackground' : hasUploads ? 'rgba(13, 148, 136, 0.05)' : 'white',
             },
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      <input
-        type="file"
-        accept={acceptedFormats.join(',')}
-        onChange={handleFileInput}
-        disabled={disabled}
-        style={{ display: 'none' }}
-      />
+      {interactive && (
+        <input
+          type="file"
+          accept={acceptedFormats.join(',')}
+          multiple={multiple}
+          onChange={handleFileInput}
+          disabled={disabled}
+          style={{ display: 'none' }}
+        />
+      )}
 
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
         <Box
@@ -88,9 +116,9 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
             borderRadius: 2,
             backgroundColor: disabled
               ? 'action.disabledBackground'
-              : uploadedFile?.status === 'error'
+              : hasError
               ? 'error.main'
-              : isUploaded
+              : hasUploads
               ? 'primary.main'
               : 'rgba(13, 148, 136, 0.1)',
             display: 'flex',
@@ -101,9 +129,9 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         >
           {disabled ? (
             <Lock sx={{ fontSize: 24, color: 'text.disabled' }} />
-          ) : uploadedFile?.status === 'error' ? (
+          ) : hasError ? (
             <ErrorIcon sx={{ fontSize: 24, color: 'white' }} />
-          ) : isUploaded ? (
+          ) : hasUploads ? (
             <Check sx={{ fontSize: 24, color: 'white' }} />
           ) : (
             <CloudUpload sx={{ fontSize: 24, color: 'primary.main' }} />
@@ -146,50 +174,27 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
             {description}
           </Typography>
 
-          {isUploaded ? (
+          {hasUploads ? (
             <Box>
-              <Chip
-                label={uploadedFile.name}
-                size="small"
-                onDelete={() => {}} // Placeholder for delete functionality
-                sx={{
-                  maxWidth: '100%',
-                  '& .MuiChip-label': {
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  },
-                }}
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.75 }}>
+                {successfulFiles}/{totalFiles} uploaded
+                {failedFiles > 0 ? ` • ${failedFiles} failed` : ''}
+              </Typography>
+              <LinearProgress
+                variant="determinate"
+                value={aggregateProgress}
+                sx={{ height: 6, borderRadius: 999, mb: 0.75 }}
               />
-              {uploadedFile.status === 'uploading' && (
-                <Box sx={{ mt: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      Uploading...
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
-                      {uploadedFile.uploadProgress}%
-                    </Typography>
-                  </Box>
-                  <LinearProgress variant="determinate" value={uploadedFile.uploadProgress} sx={{ height: 4, borderRadius: 2 }} />
-                </Box>
-              )}
-              {uploadedFile.status === 'processing' && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'primary.main' }}>
-                    Processing...
-                  </Typography>
-                  <LinearProgress sx={{ mt: 0.5, height: 4, borderRadius: 2 }} />
-                </Box>
-              )}
-              {uploadedFile.status === 'error' && (
-                <Typography variant="caption" sx={{ color: 'error.main', mt: 1, display: 'block' }}>
-                  Upload failed. Please try again.
+              {activeUpload && (
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                  Uploading {activeUpload.name} ({activeUpload.uploadProgress}%)
                 </Typography>
               )}
             </Box>
           ) : (
             <Typography variant="caption" sx={{ color: 'text.disabled' }}>
               {acceptedFormats.join(', ')}
+              {multiple ? ' - multiple files supported' : ''}
             </Typography>
           )}
         </Box>
