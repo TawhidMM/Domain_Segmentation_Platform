@@ -14,6 +14,7 @@ from app.schemas.experiment import (
     CompareBoxplotsDownloadRequest,
     ConsensusRequest,
     DomainComparisonRequest,
+    ExperimentRequest,
     ExperimentSubmitResponse,
     ExperimentStatusResponse
 )
@@ -240,6 +241,22 @@ def get_consensus_predictions(
         db=db,
         experiments=request.experiments
     )
+
+
+@router.post("/compare/overlay-domain-map")
+def get_overlay_domain_map(
+    experiments: List[ExperimentRequest],
+    db: Session = Depends(get_db)
+):
+    if len(experiments) < 2:
+        raise HTTPException(status_code=400, detail="At least two experiments are required")
+
+
+    return export_service.build_overlay_domain_map(
+        db=db,
+        experiments=experiments
+    )
+
 
 
 @router.post("/domain-comparison")

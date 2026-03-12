@@ -408,30 +408,6 @@ def _load_experiment_data(
     return dataset_id, runs_data
 
 
-# def _load_experiments_data(
-#     db: Session,
-#     experiments: List[ExperimentRequest]
-# ) -> List[dict]:
-#     """
-#     Load all experiments with runs data converted to DataFrames.
-#
-#     Returns:
-#         List of {
-#             experiment_id: str,
-#             tool_name: str,
-#             runs: [{
-#                 run_id: str,
-#                 spots_df: pd.DataFrame (barcode, x, y, domain),
-#                 metrics: dict
-#             }]
-#         }
-#     """
-#     return [
-#         _load_experiment_data(db, exp_item.experiment_id, exp_item.token)
-#         for exp_item in experiments
-#     ]
-
-
 def _save_experiment_consensus_json(
     experiment_id: str,
     dataset_id: str,
@@ -557,22 +533,7 @@ def build_consensus_predictions(
     experiments: List[ExperimentRequest]
 ) -> dict:
 
-    experiment_consensuses = []
-    for exp_item in experiments:
-
-        dataset_id, runs_data = _load_experiment_data(db, exp_item)
-
-        consensus_df = _load_experiment_consensus(exp_item, runs_data, dataset_id)
-
-        mean_metric_score = _compute_mean_metric_score(runs_data)
-
-        experiment_consensuses.append(
-            {
-                "experiment_id": exp_item.experiment_id,
-                "consensus_df": consensus_df,
-                "mean_metric_score": mean_metric_score
-            }
-        )
+    experiment_consensuses = _load_experiment_consensus_data(db, experiments)
 
     # Compute global consensus across experiments
     final_consensus = _compute_global_consensus(experiment_consensuses)
@@ -588,6 +549,163 @@ def build_consensus_predictions(
         },
         "spots": spots_output
     }
+
+
+def build_overlay_domain_map(
+    db: Session,
+    experiments: List[ExperimentRequest]
+) -> dict:
+
+    experiment_data = _load_experiment_consensus_data(db, experiments)
+
+    common_barcodes = _find_common_barcodes(experiment_data)
+
+    aligned_domains = _align_experiments_to_reference(
+        experiment_data,
+        common_barcodes
+    )
+
+    reference_exp = experiment_data[0]
+    reference_df = (
+        reference_exp["consensus_df"]
+        .set_index("barcode")
+        .loc[common_barcodes]
+    )
+
+    x_values = reference_df["x"].to_numpy()
+    y_values = reference_df["y"].to_numpy()
+
+    spots = []
+
+    for row_idx, barcode in enumerate(common_barcodes):
+        spots.append({
+            "spot_id": barcode,
+            "x": float(x_values[row_idx]),
+            "y": float(y_values[row_idx]),
+            "domains": {
+                exp_id: int(domain_values[row_idx])
+                for exp_id, domain_values in aligned_domains.items()
+            }
+        })
+
+    return {
+        "tools": [exp["tool_name"] for exp in experiment_data],
+        "spots": spots
+    }
+
+
+
+def _load_experiment_consensus_data(
+    db: Session,
+    experiments: List[ExperimentRequest]
+) -> list[dict]:
+
+    experiment_data = []
+
+    for exp_item in experiments:
+
+        experiment = require_experiment_with_access(db, exp_item.experiment_id, exp_item.token)
+
+        dataset_id, runs_data = _load_experiment_data(db, exp_item)
+
+        consensus_df = _load_experiment_consensus(exp_item, runs_data, dataset_id)
+
+        mean_metric_score = _compute_mean_metric_score(runs_data)
+
+        experiment_data.append({
+            "experiment_id": exp_item.experiment_id,
+            "tool_name": experiment.tool_name,
+            "consensus_df": consensus_df,
+            "mean_metric_score": mean_metric_score
+        })
+
+    return experiment_data
+
+
+def _find_common_barcodes(
+    experiment_data: list[dict]
+) -> list[str]:
+
+    barcode_sets = [
+        set(exp["consensus_df"]["barcode"])
+        for exp in experiment_data
+    ]
+
+    return sorted(list(set.intersection(*barcode_sets)))
+
+
+def _align_experiments_to_reference(
+    experiment_data: list[dict],
+    common_barcodes: list[str]
+) -> dict[str, np.ndarray]:
+
+    mean_scores = np.asarray(
+        [exp["mean_metric_score"] for exp in experiment_data],
+        dtype=float
+    )
+
+    reference_idx = int(np.argmax(mean_scores))
+
+    reference_df = (
+        experiment_data[reference_idx]["consensus_df"]
+        .set_index("barcode")
+        .loc[common_barcodes]
+    )
+
+    reference_labels = reference_df["domain"].to_numpy().astype(int)
+
+    aligned_domains = {}
+
+    for idx, exp in enumerate(experiment_data):
+
+        labels = (
+            exp["consensus_df"]
+            .set_index("barcode")
+            .loc[common_barcodes, "domain"]
+            .to_numpy()
+            .astype(int)
+        )
+
+        if idx != reference_idx:
+            labels = align_tool_labels(reference_labels, labels)
+
+        aligned_domains[exp["experiment_id"]] = labels
+
+    return aligned_domains
+
+
+# def _build_spot_overlay_response(
+#     experiment_data: list[dict],
+#     aligned_domains: dict[str, np.ndarray],
+#     common_barcodes: list[str]
+# ) -> list[dict]:
+#
+#     reference_exp = experiment_data[0]
+#     reference_df = (
+#         reference_exp["consensus_df"]
+#         .set_index("barcode")
+#         .loc[common_barcodes]
+#     )
+#
+#     x_values = reference_df["x"].to_numpy()
+#     y_values = reference_df["y"].to_numpy()
+#
+#     spots = []
+#
+#     for row_idx, barcode in enumerate(common_barcodes):
+#
+#         spots.append({
+#             "spot_id": barcode,
+#             "x": float(x_values[row_idx]),
+#             "y": float(y_values[row_idx]),
+#             "domains": {
+#                 exp_id: int(domain_values[row_idx])
+#                 for exp_id, domain_values in aligned_domains.items()
+#             }
+#         })
+#
+#     return spots
+
 
 
 def _load_experiment_consensus(
@@ -674,12 +792,10 @@ def _compute_mean_metric_score(
 
 
 def _compute_global_consensus(
-    experiment_consensuses: list
+    experiment_consensuses: list[dict]
 ) -> dict:
 
-    # Find intersection of barcodes across all experiments
-    barcode_sets = [set(exp["consensus_df"]["barcode"]) for exp in experiment_consensuses]
-    common_barcodes = sorted(list(set.intersection(*barcode_sets)))
+    common_barcodes = _find_common_barcodes(experiment_consensuses)
 
     # Build experiment-level label matrix using pandas
     experiment_labels_matrix = []
