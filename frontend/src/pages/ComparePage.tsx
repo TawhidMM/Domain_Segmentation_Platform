@@ -22,9 +22,10 @@ import SpatialConsensusVisualization from '@/components/visualization/SpatialCon
 import DomainComparisonTab from '@/components/visualization/domainComparison/DomainComparisonTab';
 import OverlayDomainTab from '@/components/compare/overlayDomain/OverlayDomainTab';
 import { downloadCompareMetricBoxplots, fetchConsensusData } from '@/services/experimentService';
+import { ComparisonDatasetProvider, useComparisonDataset } from '@/context/ComparisonDatasetContext';
 import { toast } from 'sonner';
 
-const ComparePage: React.FC = () => {
+const ComparePageContent: React.FC = () => {
   const [, setSearchParams] = useSearchParams();
   const [isExportingMetrics, setIsExportingMetrics] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -33,6 +34,9 @@ const ComparePage: React.FC = () => {
   const [consensusData, setConsensusData] = useState<any>(null);
   const [consensusLoading, setConsensusLoading] = useState(false);
   const [consensusError, setConsensusError] = useState<string | null>(null);
+
+  // Get dataset context
+  const { selectedDataset } = useComparisonDataset();
 
   // Parse and validate URL params
   const { jobIds: experimentIds, tokens, isValid } = useCompareJobsParams();
@@ -62,7 +66,7 @@ const ComparePage: React.FC = () => {
 
   // Fetch consensus data from backend
   useEffect(() => {
-    if (consensusExperiments.length < 2) {
+    if (consensusExperiments.length < 2 || !selectedDataset) {
       setConsensusData(null);
       return;
     }
@@ -71,7 +75,7 @@ const ComparePage: React.FC = () => {
       setConsensusLoading(true);
       setConsensusError(null);
       try {
-        const data = await fetchConsensusData(consensusExperiments);
+        const data = await fetchConsensusData(consensusExperiments, selectedDataset);
         setConsensusData(data);
       } catch (error) {
         console.error('Error fetching consensus data:', error);
@@ -83,20 +87,7 @@ const ComparePage: React.FC = () => {
     };
 
     loadConsensusData();
-  }, [consensusExperiments]);
-
-  if (!isValid) {
-    return (
-      <Container maxWidth="md" sx={{ py: 6 }}>
-        <Box sx={{ textAlign: 'center' }}>
-          <CircularProgress size={48} sx={{ mb: 2 }} />
-          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-            Redirecting...
-          </Typography>
-        </Box>
-      </Container>
-    );
-  }
+  }, [consensusExperiments, selectedDataset]);
 
   const handleDownloadMetrics = useCallback(async () => {
     if (experimentIds.length < 2) {
@@ -447,6 +438,37 @@ const ComparePage: React.FC = () => {
         </Box>
       </Box>
     </Box>
+  );
+};
+
+/**
+ * Wrapper component that provides the ComparisonDatasetProvider context
+ */
+const ComparePage: React.FC = () => {
+  const { jobIds: experimentIds, tokens } = useCompareJobsParams();
+
+  if (experimentIds.length < 2) {
+    return (
+      <Container maxWidth="md" sx={{ py: 6 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress size={48} sx={{ mb: 2 }} />
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+            Redirecting...
+          </Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  const experiments = experimentIds.map((expId, index) => ({
+    experiment_id: expId,
+    token: tokens[index],
+  }));
+
+  return (
+    <ComparisonDatasetProvider experiments={experiments}>
+      <ComparePageContent />
+    </ComparisonDatasetProvider>
   );
 };
 

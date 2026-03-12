@@ -9,6 +9,7 @@ import {
   OverlayDomainToolSelection,
   useOverlayDomainData,
 } from './useOverlayDomainData';
+import { useComparisonDataset } from '@/context/ComparisonDatasetContext';
 
 interface OverlayDomainTabProps {
   tools: OverlayDomainToolSelection[];
@@ -17,7 +18,8 @@ interface OverlayDomainTabProps {
 const OVERLAY_SPOT_RADIUS = 3.7;
 
 const OverlayDomainTab: React.FC<OverlayDomainTabProps> = ({ tools }) => {
-  const { loading, error, spots, domainIds, domainColorMap, orderedExperiments } = useOverlayDomainData(tools);
+  const { selectedDataset } = useComparisonDataset();
+  const { loading, error, spots, domainIds, domainColorMap, orderedExperiments } = useOverlayDomainData(tools, selectedDataset);
   const [hoveredSpot, setHoveredSpot] = useState<OverlayDomainSpot | null>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);

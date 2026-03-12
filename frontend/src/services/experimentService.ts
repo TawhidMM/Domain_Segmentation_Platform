@@ -7,6 +7,7 @@ import {
   ExperimentDetails,
   RunStatus,
   ExperimentRequest,
+  ComparisonDatasetsResponse,
 } from '@/types';
 import { DomainComparisonResponse } from '@/components/visualization/domainComparison/types';
 
@@ -119,24 +120,27 @@ export async function exportComparisonMetricSvg(encodedPayload: string, metricKe
   return res.data as Blob;
 }
 
-export async function fetchConsensusData(experiments: ExperimentRequest[]): Promise<ConsensusResponse> {
-  const res = await axios.post(`/experiments/compare/consensus`, { experiments });
+export async function fetchConsensusData(experiments: ExperimentRequest[], datasetId: string): Promise<ConsensusResponse> {
+  const res = await axios.post(`/experiments/compare/consensus`, { experiments, dataset_id: datasetId });
   return res.data as ConsensusResponse;
 }
 
-export async function fetchDomainComparisonData(experiments: {
-  experiment_id: string;
-  dataset_id: string;
-  token: string;
-}[]): Promise<DomainComparisonResponse> {
-  const res = await axios.post(`/experiments/domain-comparison`, { experiments });
+export async function fetchDomainComparisonData(
+  experiments: Array<{ experiment_id: string; token: string }>,
+  datasetId: string,
+): Promise<DomainComparisonResponse> {
+  const res = await axios.post(`/experiments/domain-comparison`, {
+    dataset_id: datasetId,
+    experiments,
+  });
   return res.data as DomainComparisonResponse;
 }
 
 export async function fetchOverlayDomainMapData(
   experiments: ExperimentRequest[],
+  datasetId: string,
 ): Promise<OverlayDomainMapResponse> {
-  const res = await axios.post(`/experiments/compare/overlay-domain-map`, experiments);
+  const res = await axios.post(`/experiments/compare/overlay-domain-map`, { experiments, dataset_id: datasetId });
   return res.data as OverlayDomainMapResponse;
 }
 
@@ -150,4 +154,9 @@ export async function fetchAllExperimentRunMetrics(experimentId: string, token: 
   const params = { token };
   const res = await axios.get(`/experiments/${experimentId}/run-metrics`, { params });
   return res.data;
+}
+
+export async function fetchComparisonDatasets(experiments: ExperimentRequest[]): Promise<ComparisonDatasetsResponse> {
+  const res = await axios.post(`/experiments/comparison/datasets`, { experiments });
+  return res.data as ComparisonDatasetsResponse;
 }

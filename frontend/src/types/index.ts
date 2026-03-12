@@ -198,3 +198,19 @@ export interface RunStatus {
 }
 
 export type RunStatusValue = 'queued' | 'running' | 'finished' | 'failed';
+
+// Comparison datasets types
+export interface ComparisonDatasetTool {
+  tool_name: string;
+  experiment_id: string;
+  token: string;
+}
+
+export interface ComparisonDataset {
+  dataset_id: string;
+  tools: ComparisonDatasetTool[];
+}
+
+export interface ComparisonDatasetsResponse {
+  datasets: ComparisonDataset[];
+}
