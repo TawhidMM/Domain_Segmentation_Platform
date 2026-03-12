@@ -10,6 +10,18 @@ import {
 } from '@/types';
 import { DomainComparisonResponse } from '@/components/visualization/domainComparison/types';
 
+export interface OverlayDomainMapSpot {
+  spot_id: string;
+  x: number;
+  y: number;
+  domains: Record<string, number>;
+}
+
+export interface OverlayDomainMapResponse {
+  tools: string[];
+  spots: OverlayDomainMapSpot[];
+}
+
 function getAggregateExperimentStatus(details: ExperimentDetails): JobStatusResponse {
   const runStatuses = details.datasets.flatMap((dataset) => dataset.runs.map((run) => run.status));
 
@@ -119,6 +131,13 @@ export async function fetchDomainComparisonData(experiments: {
 }[]): Promise<DomainComparisonResponse> {
   const res = await axios.post(`/experiments/domain-comparison`, { experiments });
   return res.data as DomainComparisonResponse;
+}
+
+export async function fetchOverlayDomainMapData(
+  experiments: ExperimentRequest[],
+): Promise<OverlayDomainMapResponse> {
+  const res = await axios.post(`/experiments/compare/overlay-domain-map`, experiments);
+  return res.data as OverlayDomainMapResponse;
 }
 
 export async function fetchBestRunResult(experimentId: string, token: string): Promise<ExperimentResult> {
