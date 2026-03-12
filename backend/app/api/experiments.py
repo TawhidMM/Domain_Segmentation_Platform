@@ -10,11 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.repositories import run_repository
-from app.schemas.comparison import ComparisonDatasetsRequest, ComparisonDatasetsResponse
+from app.schemas.comparison import ComparisonDatasetsRequest, ComparisonDatasetsResponse, ComparisonRequest
 from app.schemas.experiment import (
-    CompareBoxplotsDownloadRequest,
-    ConsensusRequest,
-    DomainComparisonRequest,
+    DomainComparisonItem,
     ExperimentRequest,
     ExperimentSubmitResponse,
     ExperimentStatusResponse
@@ -165,39 +163,39 @@ async def submit_experiment(
     )
 
 
-@router.get("/{experiment_id}", response_model=ExperimentStatusResponse)
+@router.post("/details", response_model=ExperimentStatusResponse)
 def get_experiment_status(
-    experiment_id: str,
-    token: str = Query(...),
+    request: ExperimentRequest,
     db: Session = Depends(get_db)
 ):
 
-    response_data = experiment_service.build_nested_experiment_response(db, experiment_id, token)
+    response_data = experiment_service.build_nested_experiment_response(
+        db,
+        request.experiment_id,
+        request.token,
+    )
 
     return ExperimentStatusResponse(**response_data)
 
 
-@router.get("/{experiment_id}/best-run")
+@router.post("/best-run")
 def get_best_run_result(
-    experiment_id: str,
-    token: str = Query(...),
+    request: DomainComparisonItem,
     db: Session = Depends(get_db)
 ):
-    best_run_context = metrics_service.select_best_run_for_experiment(db, experiment_id, token)
+    best_run_context = metrics_service.select_best_run_for_experiment(db, request)
 
     result = json.loads(best_run_context.result_file.read_text())
 
     return result
 
 
-@router.get("/{experiment_id}/run-metrics")
+@router.post("/run-metrics")
 def get_experiment_run_metrics(
-    experiment_id: str,
-    token: str = Query(...),
+    request: DomainComparisonItem,
     db: Session = Depends(get_db)
 ):
-
-    return metrics_service.get_experiment_run_metrics(db, experiment_id, token)
+    return metrics_service.get_experiment_run_metrics(db, request)
 
 
 @router.get("/compare/export/metrics")
@@ -236,13 +234,10 @@ def export_compare_metrics(
 
 @router.post("/compare/consensus")
 def get_consensus_predictions(
-    request: ConsensusRequest,
+    request: ComparisonRequest,
     db: Session = Depends(get_db)
 ):
-    return export_service.build_consensus_predictions(
-        db=db,
-        experiments=request.experiments
-    )
+    return export_service.build_consensus_predictions(db=db, request=request)
 
 
 @router.post("/comparison/datasets", response_model=ComparisonDatasetsResponse)
@@ -255,51 +250,39 @@ def discover_comparison_datasets(
 
 @router.post("/compare/overlay-domain-map")
 def get_overlay_domain_map(
-    experiments: List[ExperimentRequest],
+    request: ComparisonRequest,
     db: Session = Depends(get_db)
 ):
-    if len(experiments) < 2:
+    if len(request.experiments) < 2:
         raise HTTPException(status_code=400, detail="At least two experiments are required")
 
-
-    return export_service.build_overlay_domain_map(
-        db=db,
-        experiments=experiments
-    )
+    return export_service.build_overlay_domain_map(db=db, request=request)
 
 
 
 @router.post("/domain-comparison")
 def get_domain_comparison(
-    request: DomainComparisonRequest,
+    request: ComparisonRequest,
     db: Session = Depends(get_db)
 ):
     if len(request.experiments) != 2:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Exactly two experiments are required")
 
     item_a, item_b = request.experiments
-
-    if item_a.dataset_id != item_b.dataset_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="Both experiments must use the same dataset_id")
-
     if item_a.experiment_id == item_b.experiment_id:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Experiments must be different")
-
 
     return export_service.build_domain_comparison(db=db, request=request)
 
 
 @router.post("/compare/download-boxplots")
 def download_compare_boxplots(
-    request: CompareBoxplotsDownloadRequest,
+    request: ComparisonRequest,
     db: Session = Depends(get_db)
 ):
     data, content_type, filename = export_service.export_metric_boxplots_zip(
         db=db,
-        experiment_ids=request.experiment_ids
+        request=request
     )
 
     return StreamingResponse(

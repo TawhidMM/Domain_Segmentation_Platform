@@ -2,7 +2,7 @@ import json
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,14 +10,14 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.core.workspace import ExperimentWorkspace
-from app.schemas.experiment import DomainComparisonRequest, ExperimentRequest
+from app.schemas.comparison import ComparisonRequest, ExperimentContext
 from app.services.experiment_service import require_experiment_with_access
 from app.services.metrics_service import (
     collect_experiment_metrics,
     METRIC_KEYS, calculate_composite_score
 )
 from app.services.run_service import build_run_context, require_run_with_access, check_run_finished, \
-    load_prediction_file, load_embeddings_file, get_datasets_for_experiment, get_runs_for_experiment_and_dataset, \
+    load_prediction_file, load_embeddings_file, get_runs_for_experiment_and_dataset, \
     load_metrics_file
 from app.utils.consensus import (
     align_tool_labels,
@@ -144,10 +144,10 @@ def export_umap(
 
 def export_metric_boxplots_zip(
     db: Session,
-    experiment_ids: List[str]
+    request: ComparisonRequest
 ) -> Tuple[bytes, str, str]:
 
-    experiment_metrics = collect_experiment_metrics(db, experiment_ids)
+    experiment_metrics = collect_experiment_metrics(db, request)
 
     metrics_df = _build_metrics_dataframe(experiment_metrics)
 
@@ -380,14 +380,11 @@ def _build_metric_zip(
 
 def _load_experiment_data(
     db: Session,
-    experiment_req: ExperimentRequest
-) -> tuple[str, list[dict]]:
+    experiment_context: ExperimentContext,
+) -> list[dict]:
 
-    require_experiment_with_access(db, experiment_req.experiment_id, experiment_req.token)
-    datasets = get_datasets_for_experiment(db, experiment_req.experiment_id)
-    dataset_id = datasets[0]
-
-    runs = get_runs_for_experiment_and_dataset(db, experiment_req.experiment_id, dataset_id)
+    # The caller already verifies auth before building ExperimentContext
+    runs = get_runs_for_experiment_and_dataset(db, experiment_context.experiment_id, experiment_context.dataset_id)
 
     runs_data = []
     for run in runs:
@@ -405,7 +402,7 @@ def _load_experiment_data(
             "metrics": metrics
         })
 
-    return dataset_id, runs_data
+    return runs_data
 
 
 def _save_experiment_consensus_json(
@@ -435,7 +432,7 @@ def _save_experiment_consensus_json(
 
 def build_domain_comparison(
     db: Session,
-    request: DomainComparisonRequest
+    request: ComparisonRequest
 ) -> dict:
 
     item_a, item_b = request.experiments
@@ -443,16 +440,18 @@ def build_domain_comparison(
     experiment_a = require_experiment_with_access(db, item_a.experiment_id, item_a.token)
     experiment_b = require_experiment_with_access(db, item_b.experiment_id, item_b.token)
 
-    dataset_id = item_a.dataset_id
+    experiment_a_context = ExperimentContext(
+        experiment_id=item_a.experiment_id, dataset_id=request.dataset_id, token=item_a.token
+    )
+    experiment_b_context = ExperimentContext(
+        experiment_id=item_b.experiment_id, dataset_id=request.dataset_id, token=item_b.token
+    )
 
-    req_a = ExperimentRequest(experiment_id=item_a.experiment_id, token=item_a.token)
-    req_b = ExperimentRequest(experiment_id=item_b.experiment_id, token=item_b.token)
+    runs_results_a = _load_experiment_data(db, experiment_a_context)
+    runs_results_b = _load_experiment_data(db, experiment_b_context)
 
-    _, runs_results_a = _load_experiment_data(db, req_a)
-    _, runs_results_b = _load_experiment_data(db, req_b)
-
-    consensus_df_a = _load_experiment_consensus(req_a, runs_results_a, dataset_id)
-    consensus_df_b = _load_experiment_consensus(req_b, runs_results_b, dataset_id)
+    consensus_df_a = _load_experiment_consensus(experiment_a_context, runs_results_a)
+    consensus_df_b = _load_experiment_consensus(experiment_b_context, runs_results_b)
 
     score_a = _compute_mean_metric_score(runs_results_a)
     score_b = _compute_mean_metric_score(runs_results_b)
@@ -530,10 +529,10 @@ def _compute_domain_metrics(
 
 def build_consensus_predictions(
     db: Session,
-    experiments: List[ExperimentRequest]
+    request: ComparisonRequest
 ) -> dict:
 
-    experiment_consensuses = _load_experiment_consensus_data(db, experiments)
+    experiment_consensuses = _load_experiment_consensus_data(db, request)
 
     # Compute global consensus across experiments
     final_consensus = _compute_global_consensus(experiment_consensuses)
@@ -553,10 +552,10 @@ def build_consensus_predictions(
 
 def build_overlay_domain_map(
     db: Session,
-    experiments: List[ExperimentRequest]
+    request: ComparisonRequest
 ) -> dict:
 
-    experiment_data = _load_experiment_consensus_data(db, experiments)
+    experiment_data = _load_experiment_consensus_data(db, request)
 
     common_barcodes = _find_common_barcodes(experiment_data)
 
@@ -597,18 +596,23 @@ def build_overlay_domain_map(
 
 def _load_experiment_consensus_data(
     db: Session,
-    experiments: List[ExperimentRequest]
+    request: ComparisonRequest
 ) -> list[dict]:
 
     experiment_data = []
 
-    for exp_item in experiments:
-
+    for exp_item in request.experiments:
         experiment = require_experiment_with_access(db, exp_item.experiment_id, exp_item.token)
 
-        dataset_id, runs_data = _load_experiment_data(db, exp_item)
+        experiment_context = ExperimentContext(
+            experiment_id=exp_item.experiment_id,
+            dataset_id=request.dataset_id,
+            token=exp_item.token,
+        )
 
-        consensus_df = _load_experiment_consensus(exp_item, runs_data, dataset_id)
+        runs_data = _load_experiment_data(db, experiment_context)
+
+        consensus_df = _load_experiment_consensus(experiment_context, runs_data)
 
         mean_metric_score = _compute_mean_metric_score(runs_data)
 
@@ -709,16 +713,15 @@ def _align_experiments_to_reference(
 
 
 def _load_experiment_consensus(
-    experiment_req: ExperimentRequest,
+    experiment_context: ExperimentContext,
     runs_data: list[dict],
-    dataset_id: str
 ) -> pd.DataFrame:
 
-    workspace = ExperimentWorkspace(experiment_req.experiment_id)
-    consensus_file_path = workspace.consensus_file(dataset_id)
+    workspace = ExperimentWorkspace(experiment_context.experiment_id)
+    consensus_file_path = workspace.consensus_file(experiment_context.dataset_id)
 
     if not consensus_file_path.exists():
-        consensus_df = compute_experiment_consensus(experiment_req, runs_data, dataset_id)
+        consensus_df = compute_experiment_consensus(experiment_context, runs_data)
     else:
         payload = json.loads(consensus_file_path.read_text())
 
@@ -728,9 +731,8 @@ def _load_experiment_consensus(
 
 
 def compute_experiment_consensus(
-    experiment_req: ExperimentRequest,
+    experiment_context: ExperimentContext,
     runs_data: list[dict],
-    dataset_id: str
 ) -> pd.DataFrame:
 
     run_dfs = [run["spots_df"] for run in runs_data]
@@ -756,8 +758,8 @@ def compute_experiment_consensus(
     })
 
     _save_experiment_consensus_json(
-        experiment_id=experiment_req.experiment_id,
-        dataset_id=dataset_id,
+        experiment_id=experiment_context.experiment_id,
+        dataset_id=experiment_context.dataset_id,
         reference_run_id=runs_data[reference_idx]["run_id"],
         consensus_df=experiment_consensus_df
     )

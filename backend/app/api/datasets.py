@@ -52,7 +52,6 @@ def get_histology(
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
-    print("[][][][][][][][][][][][")
 
     run = run_repository.get_run_by_id(db, run_id)
     run_context = experiment_service.build_run_context(db, run)
