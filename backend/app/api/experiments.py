@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.repositories import run_repository
+from app.schemas.comparison import ComparisonDatasetsRequest, ComparisonDatasetsResponse
 from app.schemas.experiment import (
     CompareBoxplotsDownloadRequest,
     ConsensusRequest,
@@ -21,6 +22,7 @@ from app.schemas.experiment import (
 from app.services import experiment_service
 from app.services import metrics_service
 from app.services import export_service
+from app.services import comparison_service
 from app.tasks.experiment_tasks import run_task
 
 router = APIRouter()
@@ -241,6 +243,14 @@ def get_consensus_predictions(
         db=db,
         experiments=request.experiments
     )
+
+
+@router.post("/comparison/datasets", response_model=ComparisonDatasetsResponse)
+def discover_comparison_datasets(
+    request: ComparisonDatasetsRequest,
+    db: Session = Depends(get_db)
+):
+    return comparison_service.discover_datasets_for_comparison(db=db, request=request)
 
 
 @router.post("/compare/overlay-domain-map")
