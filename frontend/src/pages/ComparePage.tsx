@@ -8,6 +8,7 @@ import {
   TableChart as TableChartIcon,
   MapOutlined as MapIcon,
   CompareArrows as CompareArrowsIcon,
+  DonutSmall as DonutSmallIcon,
 } from '@mui/icons-material';
 import { useMultiExperimentBestRuns } from '@/hooks/useMultiExperimentBestRuns';
 import { useCompareJobsParams } from '@/hooks/useCompareJobsParams';
@@ -19,13 +20,16 @@ import MetricsTable from '@/components/visualization/MetricsTable';
 import MetricsBarCharts from '@/components/visualization/MetricsBarCharts';
 import SpatialConsensusVisualization from '@/components/visualization/SpatialConsensusVisualization';
 import DomainComparisonTab from '@/components/visualization/domainComparison/DomainComparisonTab';
+import OverlayDomainTab from '@/components/compare/overlayDomain/OverlayDomainTab';
 import { downloadCompareMetricBoxplots, fetchConsensusData } from '@/services/experimentService';
 import { toast } from 'sonner';
 
 const ComparePage: React.FC = () => {
   const [, setSearchParams] = useSearchParams();
   const [isExportingMetrics, setIsExportingMetrics] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plots' | 'metrics' | 'consensus' | 'domain-comparison'>('plots');
+  const [activeTab, setActiveTab] = useState<
+    'plots' | 'metrics' | 'consensus' | 'domain-comparison' | 'overlay-domain-map'
+  >('plots');
   const [consensusData, setConsensusData] = useState<any>(null);
   const [consensusLoading, setConsensusLoading] = useState(false);
   const [consensusError, setConsensusError] = useState<string | null>(null);
@@ -237,6 +241,12 @@ const ComparePage: React.FC = () => {
               icon={<CompareArrowsIcon sx={{ fontSize: 18 }} />}
               iconPosition="start"
             />
+            <Tab
+              label="Overlay Domain Map"
+              value="overlay-domain-map"
+              icon={<DonutSmallIcon sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+            />
           </Tabs>
         </Box>
       </Box>
@@ -425,6 +435,13 @@ const ComparePage: React.FC = () => {
           {activeTab === 'domain-comparison' && (
             <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
               <DomainComparisonTab tools={toolSelections} />
+            </Box>
+          )}
+
+          {/* Overlay Domain Map Tab */}
+          {activeTab === 'overlay-domain-map' && (
+            <Box sx={{ p: 4, flex: 1, overflow: 'auto' }}>
+              <OverlayDomainTab tools={toolSelections} />
             </Box>
           )}
         </Box>
