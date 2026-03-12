@@ -98,14 +98,14 @@ function buildExperimentOrder(
   }));
 }
 
-export function useOverlayDomainData(tools: OverlayDomainToolSelection[]): UseOverlayDomainDataResult {
+export function useOverlayDomainData(tools: OverlayDomainToolSelection[], selectedDataset?: string | null): UseOverlayDomainDataResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [spots, setSpots] = useState<OverlayDomainSpot[]>([]);
   const [orderedExperiments, setOrderedExperiments] = useState<OverlayDomainExperiment[]>([]);
 
   useEffect(() => {
-    if (tools.length < 2) {
+    if (tools.length < 2 || !selectedDataset) {
       setLoading(false);
       setError(null);
       setSpots([]);
@@ -125,7 +125,7 @@ export function useOverlayDomainData(tools: OverlayDomainToolSelection[]): UseOv
           token: tool.token,
         }));
 
-        const response = await fetchOverlayDomainMapData(requestPayload);
+        const response = await fetchOverlayDomainMapData(requestPayload, selectedDataset);
 
         if (!isActive) {
           return;
@@ -156,7 +156,7 @@ export function useOverlayDomainData(tools: OverlayDomainToolSelection[]): UseOv
     return () => {
       isActive = false;
     };
-  }, [tools]);
+  }, [tools, selectedDataset]);
 
   const domainIds = useMemo(() => extractDomainIds(spots), [spots]);
   const domainColorMap = useMemo(() => buildDomainColorMap(domainIds), [domainIds]);

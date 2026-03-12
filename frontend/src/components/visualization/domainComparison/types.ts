@@ -1,6 +1,5 @@
 export interface DomainComparisonRequestItem {
   experiment_id: string;
-  dataset_id: string;
   token: string;
 }
 

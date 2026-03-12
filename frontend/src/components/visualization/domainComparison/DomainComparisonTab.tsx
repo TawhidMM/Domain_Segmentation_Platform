@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -18,37 +18,21 @@ import {
 } from './types';
 import DomainComparisonPlot from './DomainComparisonPlot';
 import DomainMetricsTable from './DomainMetricsTable';
-import { fetchDomainComparisonData, fetchExperimentDetails } from '@/services/experimentService';
+import { fetchDomainComparisonData } from '@/services/experimentService';
+import { useComparisonDataset } from '@/context/ComparisonDatasetContext';
 
 interface DomainComparisonTabProps {
   tools: CompareToolSelection[];
 }
 
 const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
+  const { selectedDataset } = useComparisonDataset();
   const [selectedToolA, setSelectedToolA] = useState<CompareToolSelection | null>(null);
   const [selectedToolB, setSelectedToolB] = useState<CompareToolSelection | null>(null);
   const [comparisonData, setComparisonData] = useState<DomainComparisonResponse | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const datasetIdCacheRef = useRef<Record<string, string>>({});
-
-  const getDatasetIdForTool = useCallback(async (tool: CompareToolSelection) => {
-    const cachedDatasetId = datasetIdCacheRef.current[tool.experiment_id];
-    if (cachedDatasetId) {
-      return cachedDatasetId;
-    }
-
-    const details = await fetchExperimentDetails(tool.experiment_id, tool.token);
-    const datasetId = details.datasets[0]?.dataset_id;
-
-    if (!datasetId) {
-      throw new Error(`Missing dataset_id for experiment ${tool.experiment_id}.`);
-    }
-
-    datasetIdCacheRef.current[tool.experiment_id] = datasetId;
-    return datasetId;
-  }, []);
 
   useEffect(() => {
     if (tools.length < 2) {
@@ -88,6 +72,13 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
       return;
     }
 
+    if (!selectedDataset) {
+      setComparisonData(null);
+      setSelectedDomain(null);
+      setError('No dataset selected.');
+      return;
+    }
+
     let isActive = true;
 
     const loadDomainComparison = async () => {
@@ -95,29 +86,18 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
       setError(null);
 
       try {
-        const [datasetIdA, datasetIdB] = await Promise.all([
-          getDatasetIdForTool(selectedToolA),
-          getDatasetIdForTool(selectedToolB),
-        ]);
-
-        if (datasetIdA !== datasetIdB) {
-          throw new Error('Selected tools do not share the same dataset.');
-        }
-
         const requestBody: DomainComparisonRequestItem[] = [
           {
             experiment_id: selectedToolA.experiment_id,
-            dataset_id: datasetIdA,
             token: selectedToolA.token,
           },
           {
             experiment_id: selectedToolB.experiment_id,
-            dataset_id: datasetIdA,
             token: selectedToolB.token,
           },
         ];
 
-        const data = await fetchDomainComparisonData(requestBody);
+        const data = await fetchDomainComparisonData(requestBody, selectedDataset);
 
         if (!isActive) {
           return;
@@ -147,7 +127,7 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
     return () => {
       isActive = false;
     };
-  }, [getDatasetIdForTool, selectedToolA, selectedToolB]);
+  }, [selectedToolA, selectedToolB, selectedDataset]);
 
   const selectedToolNames = useMemo(
     () => ({
