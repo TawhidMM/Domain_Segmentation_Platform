@@ -38,11 +38,31 @@ export const ComparisonDatasetProvider: React.FC<ComparisonDatasetProviderProps>
       setIsLoading(true);
       setError(null);
       try {
+        const tokenByExperimentId = new Map(
+          experiments.map((experiment) => [experiment.experiment_id, experiment.token]),
+        );
         const response = await fetchComparisonDatasets(experiments);
-        setDatasets(response.datasets);
+        const resolvedDatasets = response.datasets.map((dataset) => ({
+          dataset_id: dataset.dataset_id,
+          tools: dataset.tools
+            .map((tool) => {
+              const token = tokenByExperimentId.get(tool.experiment_id);
+              if (!token) {
+                return null;
+              }
+
+              return {
+                ...tool,
+                token,
+              };
+            })
+            .filter((tool): tool is ComparisonDataset['tools'][number] => tool !== null),
+        }));
+
+        setDatasets(resolvedDatasets);
         // Auto-select first dataset
-        if (response.datasets.length > 0) {
-          setSelectedDataset(response.datasets[0].dataset_id);
+        if (resolvedDatasets.length > 0) {
+          setSelectedDataset(resolvedDatasets[0].dataset_id);
         }
       } catch (err) {
         console.error('Error fetching comparison datasets:', err);

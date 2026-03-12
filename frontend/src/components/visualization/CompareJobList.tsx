@@ -27,6 +27,10 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ experiments, onRemoveEx
   );
 
   const handleViewIndividually = (experimentId: string, token: string) => {
+    if (!token || token === 'undefined') {
+      return;
+    }
+
     navigate(`/experiment/${experimentId}?t=${token}`);
   };
 
@@ -189,6 +193,7 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ experiments, onRemoveEx
                     <Stack spacing={0.75}>
                       {dataset.tools.map((tool) => {
                         const expObj = experiments.find((e) => e.id === tool.experiment_id);
+                        const navigationToken = expObj?.token || tool.token;
 
                         return (
                           <Box
@@ -209,16 +214,17 @@ const CompareJobList: React.FC<CompareJobListProps> = ({ experiments, onRemoveEx
                             {/* Tool Name */}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
                               <Box
-                                onClick={() => handleViewIndividually(tool.experiment_id, tool.token)}
+                                onClick={() => handleViewIndividually(tool.experiment_id, navigationToken)}
                                 sx={{
                                   flex: 1,
                                   minWidth: 0,
-                                  cursor: 'pointer',
+                                  cursor: navigationToken ? 'pointer' : 'not-allowed',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 0.5,
-                                  '&:hover': { color: '#0EA5E9' },
+                                  '&:hover': { color: navigationToken ? '#0EA5E9' : 'inherit' },
                                   transition: 'color 0.2s',
+                                  opacity: navigationToken ? 1 : 0.6,
                                 }}
                               >
                                 <Typography
