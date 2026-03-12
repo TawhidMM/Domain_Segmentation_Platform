@@ -49,7 +49,7 @@ const ComparePageContent: React.FC = () => {
   const { handleReorderJobs, handleRemoveJob: handleRemoveExperiment } = useJobReordering({ jobIds: experimentIds, tokens, setSearchParams });
 
   // Fetch best-run results and all metrics for experiments
-  const { bestRunState, metricsState } = useMultiExperimentBestRuns(experimentIds, tokens);
+  const { bestRunState, metricsState } = useMultiExperimentBestRuns(experimentIds, tokens, selectedDataset);
 
   const consensusExperiments = useMemo(() => {
     if (experimentIds.length < 2) {

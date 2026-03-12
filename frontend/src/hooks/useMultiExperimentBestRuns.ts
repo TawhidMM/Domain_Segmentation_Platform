@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { ExperimentResult } from '@/types';
-import axios from '@/lib/axios';
+import { fetchAllExperimentRunMetrics, fetchBestRunResult } from '@/services/experimentService';
 
 export interface ExperimentBestRunData {
   experimentId: string;
@@ -35,7 +35,11 @@ export interface ExperimentMetricsData {
   errorCode?: number;
 }
 
-export function useMultiExperimentBestRuns(experimentIds: string[], tokens: string[]) {
+export function useMultiExperimentBestRuns(
+  experimentIds: string[],
+  tokens: string[],
+  datasetId: string | null,
+) {
   const [bestRunState, setBestRunState] = useState<{ [expId: string]: ExperimentBestRunData }>({});
   const [metricsState, setMetricsState] = useState<{ [expId: string]: ExperimentMetricsData }>({});
   const isMountedRef = useRef(true);
@@ -46,29 +50,25 @@ export function useMultiExperimentBestRuns(experimentIds: string[], tokens: stri
     const initialMetricsState: { [expId: string]: ExperimentMetricsData } = {};
 
     experimentIds.forEach((expId) => {
-      if (!initialBestRunState[expId]) {
-        initialBestRunState[expId] = {
-          experimentId: expId,
-          result: null,
-          bestRunId: null,
-          totalRuns: 0,
-          isLoading: true,
-          error: null,
-        };
-      }
-      if (!initialMetricsState[expId]) {
-        initialMetricsState[expId] = {
-          experimentId: expId,
-          metricsData: null,
-          isLoading: true,
-          error: null,
-        };
-      }
+      initialBestRunState[expId] = {
+        experimentId: expId,
+        result: null,
+        bestRunId: null,
+        totalRuns: 0,
+        isLoading: true,
+        error: null,
+      };
+      initialMetricsState[expId] = {
+        experimentId: expId,
+        metricsData: null,
+        isLoading: true,
+        error: null,
+      };
     });
 
     setBestRunState(initialBestRunState);
     setMetricsState(initialMetricsState);
-  }, [experimentIds.length]);
+  }, [experimentIds.join(',')]);
 
   // Fetch best run result and all run metrics for a single experiment
   const fetchExperimentData = useCallback(
@@ -99,17 +99,17 @@ export function useMultiExperimentBestRuns(experimentIds: string[], tokens: stri
         return;
       }
 
+      if (!datasetId) {
+        return;
+      }
+
       try {
-        // Fetch best run result and all metrics in parallel
-        const [bestRunResult, metricsData] = await Promise.all([
-          axios.get(`/experiments/${experimentId}/best-run`, { params: { token } }),
-          axios.get(`/experiments/${experimentId}/run-metrics`, { params: { token } }),
+        const [result, metrics] = await Promise.all([
+          fetchBestRunResult(experimentId, datasetId, token),
+          fetchAllExperimentRunMetrics(experimentId, datasetId, token),
         ]);
 
         if (!isMountedRef.current) return;
-
-        const result = bestRunResult.data as ExperimentResult;
-        const metrics = metricsData.data as AllExperimentRunMetrics;
 
         const bestRunId = result?.jobId || null;
         const totalRuns = metrics?.runs?.length || 0;
@@ -138,14 +138,14 @@ export function useMultiExperimentBestRuns(experimentIds: string[], tokens: stri
       } catch (err) {
         if (!isMountedRef.current) return;
 
-        const error = err as { response?: { status?: number }; message?: string };
+        const error = err as { response?: { status?: number } };
         const errorCode = error.response?.status;
         const errorMsg =
           errorCode === 403
             ? 'Unauthorized access'
             : errorCode === 404
-            ? 'Experiment not found'
-            : 'Failed to fetch experiment data';
+              ? 'Experiment not found'
+              : 'Failed to fetch experiment data';
 
         console.error(`[useMultiExperimentBestRuns] Failed for ${experimentId}:`, err);
 
@@ -174,12 +174,17 @@ export function useMultiExperimentBestRuns(experimentIds: string[], tokens: stri
         }));
       }
     },
-    []
+    [datasetId],
   );
 
-  // Fetch data for all experiments on mount
   useEffect(() => {
     isMountedRef.current = true;
+
+    if (!datasetId) {
+      return () => {
+        isMountedRef.current = false;
+      };
+    }
 
     experimentIds.forEach((expId, idx) => {
       const token = tokens[idx];
@@ -189,7 +194,7 @@ export function useMultiExperimentBestRuns(experimentIds: string[], tokens: stri
     return () => {
       isMountedRef.current = false;
     };
-  }, [experimentIds.join(','), tokens.join(','), fetchExperimentData]);
+  }, [datasetId, experimentIds.join(','), tokens.join(','), fetchExperimentData]);
 
   return {
     bestRunState,

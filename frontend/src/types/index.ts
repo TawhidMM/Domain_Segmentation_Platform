@@ -206,11 +206,21 @@ export interface ComparisonDatasetTool {
   token: string;
 }
 
+export interface ComparisonDatasetToolResponse {
+  tool_name: string;
+  experiment_id: string;
+}
+
+export interface ComparisonDatasetResponse {
+  dataset_id: string;
+  tools: ComparisonDatasetToolResponse[];
+}
+
 export interface ComparisonDataset {
   dataset_id: string;
   tools: ComparisonDatasetTool[];
 }
 
 export interface ComparisonDatasetsResponse {
-  datasets: ComparisonDataset[];
+  datasets: ComparisonDatasetResponse[];
 }

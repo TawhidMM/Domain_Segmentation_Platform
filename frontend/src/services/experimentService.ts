@@ -66,7 +66,14 @@ export async function fetchJobStatus(experimentId: string, token: string): Promi
 
 // New endpoints for experiment details page
 export async function fetchExperimentDetails(experimentId: string, token: string): Promise<ExperimentDetails> {
-  const res = await axios.get(`/experiments/${experimentId}`, { params: { token } });
+  if (!token) {
+    throw new Error(`Missing token for experiment ${experimentId}`);
+  }
+
+  const res = await axios.post(`/experiments/details`, {
+    experiment_id: experimentId,
+    token,
+  });
   return res.data as ExperimentDetails;
 }
 
@@ -144,15 +151,29 @@ export async function fetchOverlayDomainMapData(
   return res.data as OverlayDomainMapResponse;
 }
 
-export async function fetchBestRunResult(experimentId: string, token: string): Promise<ExperimentResult> {
-  const params = { token };
-  const res = await axios.get(`/experiments/${experimentId}/best-run`, { params });
+export async function fetchBestRunResult(
+  experimentId: string,
+  datasetId: string,
+  token: string,
+): Promise<ExperimentResult> {
+  const res = await axios.post(`/experiments/best-run`, {
+    experiment_id: experimentId,
+    dataset_id: datasetId,
+    token,
+  });
   return res.data as ExperimentResult;
 }
 
-export async function fetchAllExperimentRunMetrics(experimentId: string, token: string): Promise<any> {
-  const params = { token };
-  const res = await axios.get(`/experiments/${experimentId}/run-metrics`, { params });
+export async function fetchAllExperimentRunMetrics(
+  experimentId: string,
+  datasetId: string,
+  token: string,
+): Promise<any> {
+  const res = await axios.post(`/experiments/run-metrics`, {
+    experiment_id: experimentId,
+    dataset_id: datasetId,
+    token,
+  });
   return res.data;
 }
 
