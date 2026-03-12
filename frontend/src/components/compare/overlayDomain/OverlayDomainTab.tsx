@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Box, CircularProgress, Paper, Typography } from '@mui/material';
 import { useMotionValue } from 'framer-motion';
-import OverlayDomainCanvas from './OverlayDomainCanvas';
+import DeckGLPieCanvas from './DeckGLPieCanvas';
 import HoverPieOverlay from './HoverPieOverlay';
 import OverlayLegend from './OverlayLegend';
 import {
@@ -14,7 +14,7 @@ interface OverlayDomainTabProps {
   tools: OverlayDomainToolSelection[];
 }
 
-const OVERLAY_SPOT_RADIUS = 8;
+const OVERLAY_SPOT_RADIUS = 3.7;
 
 const OverlayDomainTab: React.FC<OverlayDomainTabProps> = ({ tools }) => {
   const { loading, error, spots, domainIds, domainColorMap, orderedExperiments } = useOverlayDomainData(tools);
@@ -22,10 +22,11 @@ const OverlayDomainTab: React.FC<OverlayDomainTabProps> = ({ tools }) => {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  const handleMousePositionChange = useCallback(
-    (position: { x: number; y: number }) => {
-      mouseX.set(position.x);
-      mouseY.set(position.y);
+  const handleHover = useCallback(
+    (hover: { spot: OverlayDomainSpot | null; x: number; y: number }) => {
+      setHoveredSpot(hover.spot);
+      mouseX.set(hover.x);
+      mouseY.set(hover.y);
     },
     [mouseX, mouseY],
   );
@@ -82,12 +83,11 @@ const OverlayDomainTab: React.FC<OverlayDomainTabProps> = ({ tools }) => {
           }}
         >
           <Box sx={{ position: 'relative', minHeight: 520 }}>
-            <OverlayDomainCanvas
+            <DeckGLPieCanvas
               spots={spots}
               domainColorMap={domainColorMap}
               spotRadius={OVERLAY_SPOT_RADIUS}
-              onHoveredSpotChange={setHoveredSpot}
-              onMousePositionChange={handleMousePositionChange}
+              onHover={handleHover}
             />
             <HoverPieOverlay
               hoveredSpot={hoveredSpot}
