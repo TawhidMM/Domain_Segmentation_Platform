@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -17,11 +17,16 @@ import {
 import { Info, Add, Close, Tune } from '@mui/icons-material';
 import { ToolSchema, ToolParameterSchema, DependsOnCondition, FloatRangeDefault } from '@/types';
 import { applyDependentDefaults } from '@/utils/parameterUtils';
+import { useParameterDrafts } from '@/hooks/useParameterDrafts';
+import { useApp } from '@/context/AppContext';
 
 interface ParameterConfigProps {
   toolSchema: ToolSchema;
   values: Record<string, any>;
   onChange: (values: Record<string, any>) => void;
+  selectedDatasetIds?: string[];
+  focusDatasetId?: string | null;
+  focusDatasetName?: string | null;
 }
 
 // Helper function to check if a parameter should be visible based on depends_on
@@ -37,13 +42,46 @@ const shouldShowParameter = (
   });
 };
 
+const EMPTY_FLOAT_RANGE: FloatRangeDefault = { min: 0, max: 0, step: 0 };
+
+const useSyncedNumberInput = (value: number, isMultipleValues: boolean) => {
+  const [localValue, setLocalValue] = useState<string>(
+    isMultipleValues ? '' : String(value ?? '')
+  );
+
+  useEffect(() => {
+    setLocalValue(isMultipleValues ? '' : String(value ?? ''));
+  }, [value, isMultipleValues]);
+
+  return [localValue, setLocalValue] as const;
+};
+
+
+
 // Integer parameter input
 const IntegerInput: React.FC<{
-  paramKey: string;
   param: ToolParameterSchema;
   value: number;
   onChange: (value: number) => void;
-}> = ({ paramKey, param, value, onChange }) => {
+  onBlur?: (value: number) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
+  const [localValue, setLocalValue] = useSyncedNumberInput(value, isMultipleValues);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setLocalValue(newVal);
+    if (newVal && !isNaN(Number(newVal))) {
+      onChange(Number(newVal));
+    }
+  };
+
+  const handleBlur = () => {
+    if (localValue && !isNaN(Number(localValue))) {
+      onBlur?.(Number(localValue));
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
@@ -56,14 +94,26 @@ const IntegerInput: React.FC<{
       </Box>
       <TextField
         type="number"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
         size="small"
         fullWidth
-        inputProps={{ 
-          min: param.min, 
+        placeholder={isMultipleValues ? 'Multiple values' : undefined}
+        inputProps={{
+          min: param.min,
           max: param.max,
-          step: 1
+          step: 1,
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            color: isMultipleValues ? 'warning.main' : 'inherit',
+            fontWeight: isMultipleValues ? 500 : 400,
+          },
+          '& .MuiOutlinedInput-input::placeholder': {
+            color: 'warning.main',
+            opacity: 1,
+          },
         }}
       />
     </Box>
@@ -72,11 +122,28 @@ const IntegerInput: React.FC<{
 
 // Float parameter input
 const FloatInput: React.FC<{
-  paramKey: string;
   param: ToolParameterSchema;
   value: number;
   onChange: (value: number) => void;
-}> = ({ paramKey, param, value, onChange }) => {
+  onBlur?: (value: number) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
+  const [localValue, setLocalValue] = useSyncedNumberInput(value, isMultipleValues);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setLocalValue(newVal);
+    if (newVal && !isNaN(Number(newVal))) {
+      onChange(Number(newVal));
+    }
+  };
+
+  const handleBlur = () => {
+    if (localValue && !isNaN(Number(localValue))) {
+      onBlur?.(Number(localValue));
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
@@ -89,14 +156,26 @@ const FloatInput: React.FC<{
       </Box>
       <TextField
         type="number"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
         size="small"
         fullWidth
-        inputProps={{ 
-          min: param.min, 
+        placeholder={isMultipleValues ? 'Multiple values' : undefined}
+        inputProps={{
+          min: param.min,
           max: param.max,
-          step: 0.01
+          step: 0.01,
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            color: isMultipleValues ? 'warning.main' : 'inherit',
+            fontWeight: isMultipleValues ? 500 : 400,
+          },
+          '& .MuiOutlinedInput-input::placeholder': {
+            color: 'warning.main',
+            opacity: 1,
+          },
         }}
       />
     </Box>
@@ -105,11 +184,12 @@ const FloatInput: React.FC<{
 
 // Enum parameter (dropdown)
 const EnumInput: React.FC<{
-  paramKey: string;
   param: ToolParameterSchema;
   value: string;
   onChange: (value: string) => void;
-}> = ({ paramKey, param, value, onChange }) => {
+  onBlur?: (value: string) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
   return (
     <FormControl fullWidth size="small">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
@@ -120,7 +200,26 @@ const EnumInput: React.FC<{
           <Info sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }} />
         </Tooltip>
       </Box>
-      <Select value={value} onChange={(e) => onChange(e.target.value as string)}>
+      <Select
+        value={isMultipleValues ? '' : value}
+        onChange={(e) => {
+          const newVal = e.target.value as string;
+          onChange(newVal);
+          onBlur?.(newVal);
+        }}
+        displayEmpty={isMultipleValues}
+        sx={{
+          color: isMultipleValues ? 'warning.main' : 'inherit',
+          fontWeight: isMultipleValues ? 500 : 400,
+        }}
+      >
+        {isMultipleValues && (
+          <MenuItem value="" disabled>
+            <Typography sx={{ color: 'warning.main', fontStyle: 'italic' }}>
+              Multiple values
+            </Typography>
+          </MenuItem>
+        )}
         {param.options?.map((option) => (
           <MenuItem key={option} value={option}>
             {option}
@@ -133,19 +232,31 @@ const EnumInput: React.FC<{
 
 // Boolean parameter (checkbox)
 const BoolInput: React.FC<{
-  paramKey: string;
   param: ToolParameterSchema;
   value: boolean;
   onChange: (value: boolean) => void;
-}> = ({ paramKey, param, value, onChange }) => {
+  onBlur?: (value: boolean) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
   return (
     <FormControlLabel
       control={
-        <Checkbox checked={value} onChange={(e) => onChange(e.target.checked)} color="primary" />
+        <Checkbox
+          checked={isMultipleValues ? false : value}
+          onChange={(e) => {
+            const newVal = e.target.checked;
+            onChange(newVal);
+            onBlur?.(newVal);
+          }}
+          color="primary"
+          indeterminate={isMultipleValues}
+        />
       }
       label={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography variant="body2">{param.label}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: isMultipleValues ? 'warning.main' : 'inherit' }}>
+          <Typography variant="body2">
+            {isMultipleValues ? 'Multiple values' : param.label}
+          </Typography>
           <Tooltip title={`Type: ${param.type}`} arrow>
             <Info sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }} />
           </Tooltip>
@@ -157,11 +268,31 @@ const BoolInput: React.FC<{
 
 // Float range input (min, max, step)
 const FloatRangeInput: React.FC<{
-  paramKey: string;
   param: ToolParameterSchema;
   value: FloatRangeDefault;
   onChange: (value: FloatRangeDefault) => void;
-}> = ({ paramKey, param, value, onChange }) => {
+  onBlur?: (value: FloatRangeDefault) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
+  const [localValue, setLocalValue] = useState<FloatRangeDefault>(
+    isMultipleValues ? EMPTY_FLOAT_RANGE : value
+  );
+
+  // Sync local state when prop value changes
+  useEffect(() => {
+    setLocalValue(isMultipleValues ? EMPTY_FLOAT_RANGE : value);
+  }, [value, isMultipleValues]);
+
+  const handleChange = (field: 'min' | 'max' | 'step', newVal: number) => {
+    const updated = { ...localValue, [field]: newVal };
+    setLocalValue(updated);
+    onChange(updated);
+  };
+
+  const handleBlur = () => {
+    onBlur?.(localValue);
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
@@ -176,8 +307,9 @@ const FloatRangeInput: React.FC<{
         <TextField
           label="Min"
           type="number"
-          value={value.min}
-          onChange={(e) => onChange({ ...value, min: Number(e.target.value) })}
+          value={localValue.min}
+          onChange={(e) => handleChange('min', Number(e.target.value))}
+          onBlur={handleBlur}
           size="small"
           inputProps={{ step: 0.01 }}
           sx={{ flex: 1 }}
@@ -185,8 +317,9 @@ const FloatRangeInput: React.FC<{
         <TextField
           label="Max"
           type="number"
-          value={value.max}
-          onChange={(e) => onChange({ ...value, max: Number(e.target.value) })}
+          value={localValue.max}
+          onChange={(e) => handleChange('max', Number(e.target.value))}
+          onBlur={handleBlur}
           size="small"
           inputProps={{ step: 0.01 }}
           sx={{ flex: 1 }}
@@ -194,8 +327,9 @@ const FloatRangeInput: React.FC<{
         <TextField
           label="Step"
           type="number"
-          value={value.step}
-          onChange={(e) => onChange({ ...value, step: Number(e.target.value) })}
+          value={localValue.step}
+          onChange={(e) => handleChange('step', Number(e.target.value))}
+          onBlur={handleBlur}
           size="small"
           inputProps={{ step: 0.01 }}
           sx={{ flex: 1 }}
@@ -205,28 +339,40 @@ const FloatRangeInput: React.FC<{
   );
 };
 
-// Integer list input (tag-style)
-const IntListInput: React.FC<{
-  paramKey: string;
+const NumberListInput: React.FC<{
   param: ToolParameterSchema;
   value: number[];
   onChange: (value: number[]) => void;
-}> = ({ paramKey, param, value, onChange }) => {
+  onBlur?: (value: number[]) => void;
+  isMultipleValues?: boolean;
+  step?: number;
+  tooltipDescription: string;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false, step, tooltipDescription }) => {
+  const displayValue = isMultipleValues ? [] : value;
   const [inputValue, setInputValue] = useState('');
+
+  // Reset input field when prop changes
+  useEffect(() => {
+    setInputValue('');
+  }, [value, isMultipleValues]);
 
   const handleAdd = () => {
     const num = Number(inputValue);
-    if (inputValue && !isNaN(num) && !value.includes(num)) {
-      onChange([...value, num]);
+    if (inputValue && !isNaN(num) && !displayValue.includes(num)) {
+      const updated = [...displayValue, num];
+      onChange(updated);
+      onBlur?.(updated);
       setInputValue('');
     }
   };
 
   const handleDelete = (numToDelete: number) => {
-    onChange(value.filter((num) => num !== numToDelete));
+    const updated = displayValue.filter((num) => num !== numToDelete);
+    onChange(updated);
+    onBlur?.(updated);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAdd();
@@ -239,7 +385,7 @@ const IntListInput: React.FC<{
         <Typography variant="body2" fontWeight={500}>
           {param.label}
         </Typography>
-        <Tooltip title={`Type: ${param.type} - Add multiple integer values`} arrow>
+        <Tooltip title={`Type: ${param.type} - ${tooltipDescription}`} arrow>
           <Info sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }} />
         </Tooltip>
       </Box>
@@ -248,17 +394,18 @@ const IntListInput: React.FC<{
           type="number"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
           size="small"
-          placeholder="Enter value and press Enter"
+          placeholder={isMultipleValues ? 'Multiple values - Enter new value' : 'Enter value and press Enter'}
           fullWidth
+          inputProps={step ? { step } : undefined}
         />
         <IconButton size="small" onClick={handleAdd} color="primary">
           <Add />
         </IconButton>
       </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {value.map((num) => (
+        {displayValue.map((num) => (
           <Chip
             key={num}
             label={num}
@@ -269,111 +416,169 @@ const IntListInput: React.FC<{
         ))}
       </Box>
     </Box>
+  );
+};
+
+// Integer list input (tag-style)
+const IntListInput: React.FC<{
+  param: ToolParameterSchema;
+  value: number[];
+  onChange: (value: number[]) => void;
+  onBlur?: (value: number[]) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
+  return (
+    <NumberListInput
+      param={param}
+      value={value}
+      onChange={onChange}
+      onBlur={onBlur}
+      isMultipleValues={isMultipleValues}
+      tooltipDescription="Add multiple integer values"
+    />
   );
 };
 
 // Float list input (tag-style)
 const FloatListInput: React.FC<{
-  paramKey: string;
   param: ToolParameterSchema;
   value: number[];
   onChange: (value: number[]) => void;
-}> = ({ paramKey, param, value, onChange }) => {
-  const [inputValue, setInputValue] = useState('');
-
-  const handleAdd = () => {
-    const num = Number(inputValue);
-    if (inputValue && !isNaN(num) && !value.includes(num)) {
-      onChange([...value, num]);
-      setInputValue('');
-    }
-  };
-
-  const handleDelete = (numToDelete: number) => {
-    onChange(value.filter((num) => num !== numToDelete));
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAdd();
-    }
-  };
-
+  onBlur?: (value: number[]) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-        <Typography variant="body2" fontWeight={500}>
-          {param.label}
-        </Typography>
-        <Tooltip title={`Type: ${param.type} - Add multiple float values`} arrow>
-          <Info sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }} />
-        </Tooltip>
-      </Box>
-      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-        <TextField
-          type="number"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={handleKeyPress}
-          size="small"
-          placeholder="Enter value and press Enter"
-          fullWidth
-          inputProps={{ step: 0.01 }}
-        />
-        <IconButton size="small" onClick={handleAdd} color="primary">
-          <Add />
-        </IconButton>
-      </Box>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {value.map((num) => (
-          <Chip
-            key={num}
-            label={num}
-            onDelete={() => handleDelete(num)}
-            size="small"
-            deleteIcon={<Close />}
-          />
-        ))}
-      </Box>
-    </Box>
+    <NumberListInput
+      param={param}
+      value={value}
+      onChange={onChange}
+      onBlur={onBlur}
+      isMultipleValues={isMultipleValues}
+      step={0.01}
+      tooltipDescription="Add multiple float values"
+    />
   );
 };
 
 // Main parameter input renderer
 const ParameterInput: React.FC<{
-  paramKey: string;
   param: ToolParameterSchema;
   value: any;
   onChange: (value: any) => void;
-}> = ({ paramKey, param, value, onChange }) => {
+  onBlur?: (value: any) => void;
+  isMultipleValues?: boolean;
+}> = ({ param, value, onChange, onBlur, isMultipleValues = false }) => {
   switch (param.type) {
     case 'int':
-      return <IntegerInput paramKey={paramKey} param={param} value={value} onChange={onChange} />;
+      return (
+        <IntegerInput
+          param={param}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          isMultipleValues={isMultipleValues}
+        />
+      );
     case 'float':
-      return <FloatInput paramKey={paramKey} param={param} value={value} onChange={onChange} />;
+      return (
+        <FloatInput
+          param={param}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          isMultipleValues={isMultipleValues}
+        />
+      );
     case 'enum':
-      return <EnumInput paramKey={paramKey} param={param} value={value} onChange={onChange} />;
+      return (
+        <EnumInput
+          param={param}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          isMultipleValues={isMultipleValues}
+        />
+      );
     case 'bool':
-      return <BoolInput paramKey={paramKey} param={param} value={value} onChange={onChange} />;
+      return (
+        <BoolInput
+          param={param}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          isMultipleValues={isMultipleValues}
+        />
+      );
     case 'float_range':
-      return <FloatRangeInput paramKey={paramKey} param={param} value={value} onChange={onChange} />;
+      return (
+        <FloatRangeInput
+          param={param}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          isMultipleValues={isMultipleValues}
+        />
+      );
     case 'int_list':
-      return <IntListInput paramKey={paramKey} param={param} value={value} onChange={onChange} />;
+      return (
+        <IntListInput
+          param={param}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          isMultipleValues={isMultipleValues}
+        />
+      );
     case 'float_list':
-      return <FloatListInput paramKey={paramKey} param={param} value={value} onChange={onChange} />;
+      return (
+        <FloatListInput
+          param={param}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          isMultipleValues={isMultipleValues}
+        />
+      );
     default:
       return null;
   }
 };
 
-const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, values, onChange }) => {
+const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({
+  toolSchema,
+  values,
+  onChange,
+  selectedDatasetIds = [],
+  focusDatasetId = null,
+  focusDatasetName = null,
+}) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [focusPulse, setFocusPulse] = useState(false);
+  const { resolveParameterValue } = useParameterDrafts();
+  const { updateParameterDraft } = useApp();
+
+  useEffect(() => {
+    if (!focusDatasetId) return;
+
+    setFocusPulse(true);
+    const timer = window.setTimeout(() => setFocusPulse(false), 320);
+    return () => window.clearTimeout(timer);
+  }, [focusDatasetId]);
 
   const handleParamChange = (paramKey: string, value: any) => {
     const nextValues = { ...values, [paramKey]: value };
     const updatedValues = applyDependentDefaults(toolSchema, values, nextValues, paramKey);
     onChange(updatedValues);
+
+    if (selectedDatasetIds.length > 0) {
+      const changedKeys = Object.keys(updatedValues).filter(
+        (key) => JSON.stringify(updatedValues[key]) !== JSON.stringify(values[key])
+      );
+
+      changedKeys.forEach((key) => {
+        updateParameterDraft(selectedDatasetIds, key, updatedValues[key]);
+      });
+    }
   };
 
   // Separate parameters into basic and advanced
@@ -384,12 +589,65 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
     ([_, param]) => param.ui_group === 'advanced'
   );
   const hasAdvanced = advancedParams.length > 0;
+  const isMultiDatasetMode = selectedDatasetIds.length > 0;
+
+  const renderParameterInputs = (params: Array<[string, ToolParameterSchema]>) =>
+    params.map(([paramKey, param]) => {
+      if (!shouldShowParameter(param.depends_on, values)) {
+        return null;
+      }
+
+      let displayValue = values[paramKey];
+
+      if (isMultiDatasetMode) {
+        const resolvedDraftValue = resolveParameterValue(paramKey);
+        // Keep schema defaults visible when drafts are not initialized yet.
+        displayValue = resolvedDraftValue !== undefined ? resolvedDraftValue : values[paramKey];
+      }
+
+      return (
+        <ParameterInput
+          key={paramKey}
+          param={param}
+          value={displayValue}
+          onChange={(value) => handleParamChange(paramKey, value)}
+          isMultipleValues={false}
+        />
+      );
+    });
 
   return (
-    <Box>
+    <Box
+      sx={{
+        animation: focusPulse ? 'focusPulseFade 320ms ease-in-out' : 'none',
+        '@keyframes focusPulseFade': {
+          '0%': {
+            backgroundColor: 'rgba(25, 118, 210, 0.10)',
+          },
+          '100%': {
+            backgroundColor: 'transparent',
+          },
+        },
+      }}
+    >
+      {isMultiDatasetMode && focusDatasetId && (
+        <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+          Configuring {selectedDatasetIds.length} slice{selectedDatasetIds.length !== 1 ? 's' : ''} (Viewing:{' '}
+          <Box component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>
+            {focusDatasetName ?? focusDatasetId}
+          </Box>
+          )
+        </Typography>
+      )}
+
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Configure Parameters
+          {isMultiDatasetMode && (
+            <Typography variant="caption" sx={{ ml: 1, color: 'info.main' }}>
+              ({selectedDatasetIds.length} dataset{selectedDatasetIds.length !== 1 ? 's' : ''})
+            </Typography>
+          )}
         </Typography>
 
         {hasAdvanced && (
@@ -405,7 +663,9 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
         )}
       </Box>
       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-        Adjust the analysis parameters to optimize results for your data
+        {isMultiDatasetMode
+          ? `Adjust parameters for ${selectedDatasetIds.length} selected dataset${selectedDatasetIds.length !== 1 ? 's' : ''}. Changes will apply to all.`
+          : 'Adjust the analysis parameters to optimize results for your data'}
       </Typography>
 
       {/* Side-by-side layout for basic and advanced parameters */}
@@ -416,26 +676,11 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
             Basic Settings
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {basicParams.map(([paramKey, param]) => {
-              // Check if parameter should be visible based on depends_on
-              if (!shouldShowParameter(param.depends_on, values)) {
-                return null;
-              }
-
-              return (
-                <ParameterInput
-                  key={paramKey}
-                  paramKey={paramKey}
-                  param={param}
-                  value={values[paramKey]}
-                  onChange={(value) => handleParamChange(paramKey, value)}
-                />
-              );
-            })}
+            {renderParameterInputs(basicParams)}
           </Box>
         </Box>
 
-        {/* Advanced Parameters Section - Always rendered */}
+        {/* Advanced Parameters Section */}
         {hasAdvanced && (
           <Paper
             elevation={0}
@@ -456,18 +701,18 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
             }}
             onClick={!showAdvanced ? () => setShowAdvanced(true) : undefined}
           >
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontWeight: 600, 
-                mb: 2, 
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 600,
+                mb: 2,
                 color: showAdvanced ? 'warning.main' : 'text.disabled',
                 transition: 'color 0.3s ease-in-out',
               }}
             >
               Advanced Settings
             </Typography>
-            
+
             {!showAdvanced && (
               <Box
                 sx={{
@@ -486,10 +731,10 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
               </Box>
             )}
 
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
                 gap: 3,
                 opacity: showAdvanced ? 1 : 0,
                 transform: showAdvanced ? 'translateY(0)' : 'translateY(-10px)',
@@ -497,22 +742,7 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({ toolSchema, 
                 pointerEvents: showAdvanced ? 'auto' : 'none',
               }}
             >
-              {advancedParams.map(([paramKey, param]) => {
-                // Check if parameter should be visible based on depends_on
-                if (!shouldShowParameter(param.depends_on, values)) {
-                  return null;
-                }
-
-                return (
-                  <ParameterInput
-                    key={paramKey}
-                    paramKey={paramKey}
-                    param={param}
-                    value={values[paramKey]}
-                    onChange={(value) => handleParamChange(paramKey, value)}
-                  />
-                );
-              })}
+              {renderParameterInputs(advancedParams)}
             </Box>
           </Paper>
         )}

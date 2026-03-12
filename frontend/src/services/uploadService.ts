@@ -14,7 +14,7 @@ const validateSpaceRangerZip = (file: File) => {
 export async function uploadGeneExpressionFile(
   file: File,
   onProgress: (pct: number) => void
-): Promise<string> { // Return upload_id
+): Promise<string> {
   // Validate file format
   validateSpaceRangerZip(file);
 
@@ -49,9 +49,9 @@ export async function uploadGeneExpressionFile(
   const finalizeFormData = new FormData();
   finalizeFormData.append('upload_id', upload_id);
   
-  await axios.post('/datasets/finalize-upload', finalizeFormData, {
+  const finalizeRes = await axios.post('/datasets/finalize-upload', finalizeFormData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-  return upload_id; // Return for storage in context
+  return finalizeRes.data.dataset_id;
 }

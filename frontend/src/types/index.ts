@@ -1,14 +1,34 @@
 export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'completed';
 
+export type DatasetUploadStatus = 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
+
+export type DatasetQueueStatus = 'PENDING' | 'UPLOADING' | 'SUCCESS' | 'ERROR';
+
+export interface DatasetUploadEntry {
+  id: string;
+  datasetId: string | null;
+  name: string;
+  size: number;
+  uploadProgress: number;
+  status: DatasetUploadStatus;
+}
+
+export interface DatasetUploadQueueItem {
+  id: string;
+  file: File;
+  fileName: string;
+  datasetName: string;
+  datasetId: string | null;
+  size: number;
+  uploadProgress: number;
+  status: DatasetQueueStatus;
+  error?: string;
+}
+
 export interface Dataset {
   id: string;
   uploadId: string | null;
-  geneExpressionFile: null | {
-    name: string;
-    size: number;
-    uploadProgress: number;
-    status: 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
-  };
+  datasetUploadQueue: DatasetUploadQueueItem[];
   spatialCoordinatesFile: File | null;
   tissueImageFile: File | null;
   summary: {
