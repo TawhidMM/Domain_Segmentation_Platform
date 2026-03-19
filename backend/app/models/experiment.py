@@ -27,7 +27,6 @@ class Experiment(Base):
     id = Column(String, primary_key=True)
 
     tool_name = Column(String, nullable=False)
-    params_json = Column(JSON, nullable=False)
 
     workspace_path = Column(String, nullable=False)
 
@@ -41,8 +40,8 @@ class Experiment(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
-    runs = relationship(
-        "Run",
+    run_configs = relationship(
+        "RunConfig",
         backref="experiment",
         cascade="all, delete-orphan"
     )

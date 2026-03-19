@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any, List, Optional
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Form, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.schemas.comparison import ComparisonDatasetsRequest, ComparisonDatasets
 from app.schemas.experiment import (
     DomainComparisonItem,
     ExperimentRequest,
+    ExperimentSubmitRequest,
     ExperimentSubmitResponse,
     ExperimentStatusResponse
 )
@@ -118,38 +119,15 @@ def _extract_compare_items(payload: Any) -> List[dict]:
 
 @router.post("/submit", response_model=ExperimentSubmitResponse)
 async def submit_experiment(
-    dataset_id: str = Form(...),
-    tool_name: str = Form(...),
-    params: str = Form(...),
-    number_of_runs: int = Form(1),
-    seed_list: Optional[str] = Form(None),
+    request: ExperimentSubmitRequest,
     db: Session = Depends(get_db)
 ):
-
-    try:
-        params_dict = json.loads(params)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid params JSON")
-
-    # Parse seed_list if provided
-    parsed_seed_list = None
-    if seed_list:
-        try:
-            parsed_seed_list = json.loads(seed_list)
-            if not isinstance(parsed_seed_list, list):
-                raise HTTPException(status_code=400, detail="seed_list must be a JSON array")
-            if not all(isinstance(s, int) for s in parsed_seed_list):
-                raise HTTPException(status_code=400, detail="All seeds must be integers")
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid seed_list JSON")
-
     experiment_id, access_token = experiment_service.create_experiment_record(
         db=db,
-        dataset_id=dataset_id,
-        tool_name=tool_name,
-        params_dict=params_dict,
-        number_of_runs=number_of_runs,
-        seed_list=parsed_seed_list
+        dataset_param_configs=request.dataset_configs,
+        tool_name=request.tool_name,
+        number_of_runs=request.number_of_runs,
+        seed_list=request.seed_list
     )
 
     runs = run_repository.get_runs_by_experiment(db, experiment_id)

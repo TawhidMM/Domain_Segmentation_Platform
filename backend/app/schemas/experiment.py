@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
@@ -7,6 +7,18 @@ class ExperimentSubmitResponse(BaseModel):
     experiment_id: str
     access_token: str
     status: str
+
+
+class DatasetConfigRequest(BaseModel):
+    dataset_id: str
+    params: Dict[str, Any]
+
+
+class ExperimentSubmitRequest(BaseModel):
+    dataset_configs: List[DatasetConfigRequest] = Field(min_length=1)
+    tool_name: str
+    number_of_runs: int = Field(default=1, ge=1)
+    seed_list: Optional[List[int]] = None
 
 
 class RunStatusResponse(BaseModel):

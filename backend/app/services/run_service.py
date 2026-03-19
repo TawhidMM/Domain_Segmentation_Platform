@@ -10,7 +10,7 @@ from app.core.workspace import RunContext
 from app.models.experiment import ExperimentStatus, VALID_EXPERIMENT_TRANSITIONS
 from app.services.experiment_service import require_experiment_with_access
 from app.models.run import Run
-from app.repositories import experiment_repository, run_repository
+from app.repositories import run_config_repository, run_repository
 
 
 def require_run_with_access(
@@ -23,7 +23,7 @@ def require_run_with_access(
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    require_experiment_with_access(db, run.experiment_id, token)
+    require_experiment_with_access(db, run.run_config.experiment_id, token)
 
     return run
 
@@ -32,7 +32,7 @@ def get_datasets_for_experiment(
     experiment_id
 ) -> list[str]:
 
-    dataset_ids = run_repository.get_dataset_ids_by_experiment(db, experiment_id)
+    dataset_ids = run_config_repository.get_dataset_ids_by_experiment(db, experiment_id)
     if not dataset_ids:
         raise HTTPException(status_code=404, detail=f"No datasets found for experiment {experiment_id}")
 
@@ -62,14 +62,16 @@ def build_run_context(
     run: Run
 ) -> RunContext:
 
-    experiment = experiment_repository.get_experiment_by_id(db, run.experiment_id)
+    # Get experiment through run_config relationship
+    run_config = run.run_config
+    experiment = run_config.experiment
 
     context = RunContext.create(
         experiment_id=experiment.id,
         run_id=run.id,
-        dataset_id=run.dataset_id,
+        dataset_id=run_config.dataset_id,
         tool_name=experiment.tool_name,
-        params=experiment.params_json,
+        params=run_config.params_json,
         seed=run.seed
     )
     return context
