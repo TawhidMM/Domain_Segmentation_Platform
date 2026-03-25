@@ -16,6 +16,15 @@ class ComparisonRequest(BaseModel):
     experiments: List[ExperimentRequestItem] = Field(min_length=1)
 
 
+class ComparisonMetricsRequest(BaseModel):
+    experiments: List[ExperimentRequestItem] = Field(min_length=1)
+
+
+class ExperimentMetricsRequest(BaseModel):
+    experiment_id: str
+    token: str
+
+
 # ── /comparison/datasets specific models ────────────────────────────────────
 
 class ComparisonDatasetsRequest(BaseModel):

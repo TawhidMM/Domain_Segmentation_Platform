@@ -1,15 +1,17 @@
 from typing import Any, Dict, List
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.metrics_schema import METRICS
-from app.repositories.experiment_repository import get_experiment_by_id
-from app.schemas.comparison import ComparisonRequest
+from app.models.run import Run
+from app.schemas.comparison import ComparisonMetricsRequest, ExperimentMetricsRequest
 from app.schemas.experiment import DomainComparisonItem
 from app.services.experiment_service import require_experiment_with_access
-from app.services.run_service import build_run_context, load_metrics_file, get_datasets_for_experiment, \
-    get_runs_for_experiment_and_dataset
+from app.services.run_service import (
+    build_run_context,
+    get_runs_for_experiment_and_dataset,
+    load_metrics_file, get_runs_for_experiment,
+)
 
 METRIC_KEYS = list(METRICS.keys())
 
@@ -40,18 +42,18 @@ def calculate_composite_score(
     return scored_metrics
 
 
-def _all_runs_metrics_for_experiment(
+def _collect_metrics_from_runs(
     db: Session,
-    request: DomainComparisonItem
+    runs: List[Run]
 ) -> List[Dict[str, Any]]:
-
-    runs = get_runs_for_experiment_and_dataset(db, request.experiment_id, request.dataset_id)
 
     run_data = []
     for run in runs:
         run_context = build_run_context(db, run)
         metrics = load_metrics_file(run_context)
         run_data.append({
+            "run_id": run.id,
+            "dataset_id": run_context.dataset_id,
             "run_context": run_context,
             "metrics": metrics
         })
@@ -61,18 +63,17 @@ def _all_runs_metrics_for_experiment(
 
 def collect_experiment_metrics(
     db: Session,
-    comparison_request: ComparisonRequest
+    request: ComparisonMetricsRequest
 ) -> Dict[str, Dict[str, Any]]:
 
     result = {}
-    for experiment in comparison_request.experiments:
+    for experiment in request.experiments:
 
-        result[experiment] = get_experiment_run_metrics(
+        result[experiment.experiment_id] = get_experiment_run_metrics(
             db,
-            DomainComparisonItem(
+            ExperimentMetricsRequest(
                 experiment_id=experiment.experiment_id,
-                token=experiment.token,
-                dataset_id=comparison_request.dataset_id
+                token=experiment.token
             )
         )
 
@@ -85,7 +86,13 @@ def select_best_run_for_experiment(
 ):
     require_experiment_with_access(db, request.experiment_id, request.token)
 
-    candidate_runs_metrics = _all_runs_metrics_for_experiment(db, request)
+    runs = get_runs_for_experiment_and_dataset(
+        db,
+        request.experiment_id,
+        request.dataset_id,
+        include_experiment=True,
+    )
+    candidate_runs_metrics = _collect_metrics_from_runs(db, runs)
 
     for run in candidate_runs_metrics:
         run["metrics"] = calculate_composite_score(run["metrics"])
@@ -104,15 +111,20 @@ def _get_composite_score(
 
 def get_experiment_run_metrics(
     db: Session,
-    request: DomainComparisonItem
+    request: ExperimentMetricsRequest
 ) -> dict:
 
     experiment = require_experiment_with_access(db, request.experiment_id, request.token)
 
-    run_metrics = _all_runs_metrics_for_experiment(db, request)
+    runs = get_runs_for_experiment(
+        db,
+        request.experiment_id,
+        include_experiment=True,
+    )
+    run_metrics = _collect_metrics_from_runs(db, runs)
+
 
     for run in run_metrics:
-        run["run_id"] = run["run_context"].run_id
         run.pop("run_context")
 
     return {

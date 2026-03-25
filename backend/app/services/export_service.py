@@ -10,7 +10,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.core.workspace import ExperimentWorkspace
-from app.schemas.comparison import ComparisonRequest, ExperimentContext
+from app.schemas.comparison import ComparisonMetricsRequest, ComparisonRequest, ExperimentContext
 from app.services.experiment_service import require_experiment_with_access
 from app.services.metrics_service import (
     collect_experiment_metrics,
@@ -144,7 +144,7 @@ def export_umap(
 
 def export_metric_boxplots_zip(
     db: Session,
-    request: ComparisonRequest
+    request: ComparisonMetricsRequest
 ) -> Tuple[bytes, str, str]:
 
     experiment_metrics = collect_experiment_metrics(db, request)
@@ -175,6 +175,7 @@ def _build_metrics_dataframe(
                     "experiment_id": experiment_id,
                     "tool_name": exp_info["tool_name"],
                     "run_id": run["run_id"],
+                    "dataset_id": run["dataset_id"],
                     "metric": metric_key,
                     "value": metric_value
                 })
@@ -384,7 +385,12 @@ def _load_experiment_data(
 ) -> list[dict]:
 
     # The caller already verifies auth before building ExperimentContext
-    runs = get_runs_for_experiment_and_dataset(db, experiment_context.experiment_id, experiment_context.dataset_id)
+    runs = get_runs_for_experiment_and_dataset(
+        db,
+        experiment_context.experiment_id,
+        experiment_context.dataset_id,
+        include_experiment=True,
+    )
 
     runs_data = []
     for run in runs:

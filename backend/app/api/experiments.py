@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.repositories import run_repository
-from app.schemas.comparison import ComparisonDatasetsRequest, ComparisonDatasetsResponse, ComparisonRequest
+from app.schemas.comparison import (
+    ComparisonDatasetsRequest,
+    ComparisonDatasetsResponse,
+    ComparisonMetricsRequest,
+    ComparisonRequest,
+    ExperimentMetricsRequest,
+)
 from app.schemas.experiment import (
     DomainComparisonItem,
     ExperimentRequest,
@@ -170,7 +176,7 @@ def get_best_run_result(
 
 @router.post("/run-metrics")
 def get_experiment_run_metrics(
-    request: DomainComparisonItem,
+    request: ExperimentMetricsRequest,
     db: Session = Depends(get_db)
 ):
     return metrics_service.get_experiment_run_metrics(db, request)
@@ -255,7 +261,7 @@ def get_domain_comparison(
 
 @router.post("/compare/download-boxplots")
 def download_compare_boxplots(
-    request: ComparisonRequest,
+    request: ComparisonMetricsRequest,
     db: Session = Depends(get_db)
 ):
     data, content_type, filename = export_service.export_metric_boxplots_zip(

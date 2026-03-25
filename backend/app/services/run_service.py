@@ -39,18 +39,37 @@ def get_datasets_for_experiment(
     return dataset_ids
 
 
-# def get_experiment_runs(
-#     db,
-#     experiment_id
-# ) -> list[str]:
+def get_runs_for_experiment(
+    db,
+    experiment_id,
+    include_experiment: bool = False,
+) -> list[Run]:
+
+    runs = run_repository.get_runs_by_experiment(
+        db,
+        experiment_id,
+        include_experiment=include_experiment,
+    )
+    if not runs:
+        raise HTTPException(status_code=404,
+                detail=f"No runs found for experiment {experiment_id}")
+
+    return runs
+
 
 def get_runs_for_experiment_and_dataset(
     db,
     experiment_id,
-    dataset_id
+    dataset_id,
+    include_experiment: bool = False,
 ) -> list[Run]:
 
-    runs = run_repository.get_runs_by_experiment_and_dataset(db, experiment_id, dataset_id)
+    runs = run_repository.get_runs_by_experiment_and_dataset(
+        db,
+        experiment_id,
+        dataset_id,
+        include_experiment=include_experiment,
+    )
     if not runs:
         raise HTTPException(status_code=404, detail=f"No runs found for experiment {experiment_id} and dataset {dataset_id}")
 
