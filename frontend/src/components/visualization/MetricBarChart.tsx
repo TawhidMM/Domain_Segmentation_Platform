@@ -115,14 +115,18 @@ const CustomBar: React.FC<CustomBarProps> = ({
   const strokeWidth = isBest ? 2 : 0;
   const opacity = isBest ? 1 : 0.82;
 
+
+  const normalizedHeight = Math.abs(height);
+  const normalizedY = height < 0 ? y + height : y;
+
   return (
     <g>
       {/* Main bar with colorful fill preserved */}
       <rect
         x={x}
-        y={y}
+        y={normalizedY}
         width={width}
-        height={height}
+        height={normalizedHeight}
         fill={fill}
         stroke={strokeColor}
         strokeWidth={strokeWidth}
@@ -212,6 +216,7 @@ const MetricBarChart: React.FC<MetricBarChartProps> = ({
               <Bar
                 dataKey="value"
                 radius={[3, 3, 0, 0]}
+                isAnimationActive={false}
                 shape={<CustomBar bestJobIds={bestJobIds} colorByJobId={colorByJobId} />}
               />
             </BarChart>

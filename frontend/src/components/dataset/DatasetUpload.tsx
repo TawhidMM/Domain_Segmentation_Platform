@@ -17,7 +17,15 @@ const DatasetUpload: React.FC = () => {
   const isUploadInProgress = dataset.datasetUploadQueue.some((item) => item.status === 'UPLOADING');
 
   return (
-    <Box sx={{ p: 4, maxWidth: 900, mx: 'auto', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        p: 4,
+        maxWidth: 900,
+        mx: 'auto',
+        minHeight: '100vh',
+        overflowY: 'auto',
+      }}
+    >
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
           Upload Your Dataset
@@ -27,7 +35,7 @@ const DatasetUpload: React.FC = () => {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <FileUploadCard
           title="Gene Expression Matrix"
           description="Upload your gene expression count matrix. Each row should represent a spot/cell and each column a gene."
@@ -57,73 +65,6 @@ const DatasetUpload: React.FC = () => {
         <Typography variant="caption" sx={{ mt: 1, color: 'text.secondary', display: 'block' }}>
           Uploads are processed sequentially to protect backend capacity.
         </Typography>
-      )}
-
-      {dataset.summary && (
-        <>
-          <Divider sx={{ my: 4 }} />
-          <Paper
-            sx={{
-              p: 3,
-              background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)',
-              border: '1px solid',
-              borderColor: 'primary.light',
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-              Dataset Summary
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 2,
-                    bgcolor: 'primary.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <GridOn sx={{ color: 'white' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                    {dataset.summary.spotCount.toLocaleString()}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    Spots / Cells
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 2,
-                    bgcolor: 'secondary.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Storage sx={{ color: 'white' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'secondary.main' }}>
-                    {dataset.summary.geneCount.toLocaleString()}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    Genes
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          </Paper>
-        </>
       )}
     </Box>
   );

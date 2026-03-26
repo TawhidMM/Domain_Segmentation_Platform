@@ -106,7 +106,7 @@ export function useMultiExperimentBestRuns(
       try {
         const [result, metrics] = await Promise.all([
           fetchBestRunResult(experimentId, datasetId, token),
-          fetchAllExperimentRunMetrics(experimentId, datasetId, token),
+          fetchAllExperimentRunMetrics(experimentId, token),
         ]);
 
         if (!isMountedRef.current) return;

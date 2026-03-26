@@ -26,6 +26,8 @@ interface DeckViewState {
 }
 
 const DEFAULT_SPOT_RADIUS = 8;
+const MIN_ZOOM_SCALE = 0.25;
+const MAX_ZOOM_SCALE = 16;
 
 function computeBounds(spots: OverlayDomainSpot[]) {
   const xs = spots.map((spot) => spot.x);
@@ -66,6 +68,7 @@ const DeckGLPieCanvas: React.FC<DeckGLPieCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [viewState, setViewState] = useState<DeckViewState | null>(null);
+  const [baseZoom, setBaseZoom] = useState<number | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -102,8 +105,27 @@ const DeckGLPieCanvas: React.FC<DeckGLPieCanvasProps> = ({
       return;
     }
 
-    setViewState((prev) => prev ?? buildFitViewState(spots, containerSize.width, containerSize.height));
+    setViewState((prev) => {
+      if (prev) {
+        return prev;
+      }
+
+      const fitted = buildFitViewState(spots, containerSize.width, containerSize.height);
+      setBaseZoom(fitted.zoom);
+      return fitted;
+    });
   }, [containerSize.height, containerSize.width, spots]);
+
+  const zoomScaledSpotRadius = useMemo(() => {
+    if (!viewState || baseZoom === null) {
+      return spotRadius;
+    }
+
+    const zoomScale = Math.pow(2, viewState.zoom - baseZoom);
+    const clampedScale = Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, zoomScale));
+
+    return spotRadius * clampedScale;
+  }, [baseZoom, spotRadius, viewState]);
 
   const deckSpots = useMemo<DeckGLPieDatum[]>(
     () =>
@@ -121,7 +143,7 @@ const DeckGLPieCanvas: React.FC<DeckGLPieCanvasProps> = ({
         id: 'overlay-domain-pie-layer',
         data: deckSpots,
         domainColorMap,
-        spotRadius,
+        spotRadius: zoomScaledSpotRadius,
         onHover: (info: PickingInfo<DeckGLPieDatum>) => {
           onHover({
             spot: info.object ?? null,
@@ -130,7 +152,7 @@ const DeckGLPieCanvas: React.FC<DeckGLPieCanvasProps> = ({
           });
         },
       }),
-    [deckSpots, domainColorMap, onHover, spotRadius],
+    [deckSpots, domainColorMap, onHover, zoomScaledSpotRadius],
   );
 
   return (
