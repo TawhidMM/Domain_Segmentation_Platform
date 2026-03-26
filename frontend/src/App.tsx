@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import FocusPage from "./pages/FocusPage";
 import ComparePage from "./pages/ComparePage";
+import AnnotationPage from "./pages/AnnotationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/experiment/:experimentId" element={<FocusPage />} />
           <Route path="/compare" element={<ComparePage />} />
+          <Route path="/annotation-workspace" element={<AnnotationPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

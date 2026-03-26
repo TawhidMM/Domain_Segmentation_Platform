@@ -95,10 +95,22 @@ const ComparePageContent: React.FC = () => {
       return;
     }
 
+    const experiments = experimentIds
+      .map((experimentId, index) => ({
+        experiment_id: experimentId,
+        token: tokens[index],
+      }))
+      .filter((item) => item.token);
+
+    if (experiments.length < 2) {
+      toast.error('Missing access tokens for selected experiments');
+      return;
+    }
+
     setIsExportingMetrics(true);
     try {
       // const blob = await exportComparisonMetrics(comparisonPayload);
-      const blob = await downloadCompareMetricBoxplots(experimentIds);
+      const blob = await downloadCompareMetricBoxplots(experiments);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -115,7 +127,7 @@ const ComparePageContent: React.FC = () => {
     } finally {
       setIsExportingMetrics(false);
     }
-  }, [experimentIds]);
+  }, [experimentIds, tokens]);
 
   // Build experiment list for comparison sidebar
   const comparisonExperiments = experimentIds.map((expId, index) => ({
@@ -176,19 +188,6 @@ const ComparePageContent: React.FC = () => {
               sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 600 }}
             />
           </Box>
-
-          {/* Download Metrics Button */}
-          {experimentIds.length >= 2 && (
-            <Button
-              startIcon={<DownloadIcon />}
-              variant="outlined"
-              onClick={handleDownloadMetrics}
-              disabled={isExportingMetrics}
-              sx={{ textTransform: 'none' }}
-            >
-              {isExportingMetrics ? 'Exporting...' : 'Download Metrics'}
-            </Button>
-          )}
         </Box>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Compare {experimentIds.length} experiments side by side

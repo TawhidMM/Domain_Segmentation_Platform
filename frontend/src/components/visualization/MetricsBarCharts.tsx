@@ -26,7 +26,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
 }) => {
   // Check if any experiment has multiple runs
   const hasMultipleRuns = useMemo(() => {
-    return experimentMetrics.some((exp) => (exp.totalRuns ?? 0) > 1);
+    return experimentMetrics.some((exp) => (exp.metricsData?.runs?.length ?? 0) > 1);
   }, [experimentMetrics]);
 
   // Build bar chart data (using average for multi-run experiments)
@@ -76,7 +76,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
       data[metric.key] = experimentIds
         .map((expId) => {
           const exp = experimentMetrics.find((m) => m.experimentId === expId);
-          if (!exp?.metricsData?.runs || (exp.totalRuns ?? 0) <= 1) {
+          if (!exp?.metricsData?.runs || exp.metricsData.runs.length <= 1) {
             return null;
           }
 

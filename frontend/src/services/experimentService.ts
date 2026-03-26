@@ -109,10 +109,10 @@ export async function exportComparisonMetrics(encodedPayload: string): Promise<B
   return res.data as Blob;
 }
 
-export async function downloadCompareMetricBoxplots(experimentIds: string[]): Promise<Blob> {
+export async function downloadCompareMetricBoxplots(experiments: ExperimentRequest[]): Promise<Blob> {
   const res = await axios.post(
     `/experiments/compare/download-boxplots`,
-    { experiment_ids: experimentIds },
+    { experiments },
     { responseType: 'blob' }
   );
   return res.data as Blob;
@@ -166,12 +166,10 @@ export async function fetchBestRunResult(
 
 export async function fetchAllExperimentRunMetrics(
   experimentId: string,
-  datasetId: string,
   token: string,
 ): Promise<any> {
   const res = await axios.post(`/experiments/run-metrics`, {
     experiment_id: experimentId,
-    dataset_id: datasetId,
     token,
   });
   return res.data;
