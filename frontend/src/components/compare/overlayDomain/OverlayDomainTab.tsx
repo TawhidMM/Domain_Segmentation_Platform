@@ -15,7 +15,7 @@ interface OverlayDomainTabProps {
   tools: OverlayDomainToolSelection[];
 }
 
-const OVERLAY_SPOT_RADIUS = 3.7;
+const OVERLAY_SPOT_RADIUS = 8;
 
 const OverlayDomainTab: React.FC<OverlayDomainTabProps> = ({ tools }) => {
   const { selectedDataset } = useComparisonDataset();
