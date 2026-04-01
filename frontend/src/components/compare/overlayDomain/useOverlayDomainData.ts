@@ -4,6 +4,7 @@ import {
   OverlayDomainMapResponse,
   OverlayDomainMapSpot,
 } from '@/services/experimentService';
+import { normalizeSpotDomains } from './PieLayerUtils';
 
 export interface OverlayDomainToolSelection {
   experiment_id: string;
@@ -22,6 +23,8 @@ export interface OverlayDomainSpot {
   y: number;
   domainsByExperiment: Record<string, number>;
   domainsInOrder: number[];
+  packedDomains: number[];
+  sliceCount: number;
 }
 
 interface UseOverlayDomainDataResult {
@@ -54,7 +57,7 @@ function normalizeSpots(
   apiSpots: OverlayDomainMapSpot[],
   orderedExperiments: OverlayDomainExperiment[],
 ): OverlayDomainSpot[] {
-  return apiSpots.map((spot) => {
+  const spots = apiSpots.map((spot) => {
     const domainsByExperiment = spot.domains ?? {};
 
     return {
@@ -65,6 +68,11 @@ function normalizeSpots(
       domainsInOrder: orderedExperiments.map((experiment) => domainsByExperiment[experiment.experimentId] ?? -1),
     };
   });
+
+  return normalizeSpotDomains(spots).map((spot) => ({
+    ...spot,
+    packedDomains: [...spot.domainsInOrder],
+  }));
 }
 
 function extractDomainIds(spots: OverlayDomainSpot[]): number[] {
