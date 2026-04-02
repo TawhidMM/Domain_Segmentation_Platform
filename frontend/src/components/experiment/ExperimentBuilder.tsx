@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Box, Button, Stepper, Step, StepLabel, Paper, Divider } from '@mui/material';
 import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { ToolSchema } from '@/types';
 import { initializeParameterValues, prepareParametersForSubmission } from '@/utils/parameterUtils';
@@ -8,6 +9,15 @@ import ToolSelector from './ToolSelector';
 import ParameterConfig from './ParameterConfig';
 import ExperimentSettings from './ExperimentSettings';
 import DatasetSelectionBar from './DatasetSelectionBar';
+
+const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
+
+interface PersistedBuilderState {
+  activeStep: number;
+  selectedToolSchema: ToolSchema | null;
+  parameters: Record<string, any>;
+  numberOfRuns: number;
+}
 
 const ExperimentBuilder: React.FC = () => {
   const {
@@ -19,10 +29,51 @@ const ExperimentBuilder: React.FC = () => {
     setFocusDatasetId,
     resetParameterDrafts,
   } = useApp();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeStep, setActiveStep] = useState(0);
   const [selectedToolSchema, setSelectedToolSchema] = useState<ToolSchema | null>(null);
   const [parameters, setParameters] = useState<Record<string, any>>({});
   const [numberOfRuns, setNumberOfRuns] = useState(1);
+
+  useEffect(() => {
+    const savedState = window.sessionStorage.getItem(BUILDER_STATE_STORAGE_KEY);
+    if (!savedState) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedState) as PersistedBuilderState;
+      setActiveStep(parsed.activeStep ?? 0);
+      setSelectedToolSchema(parsed.selectedToolSchema ?? null);
+      setParameters(parsed.parameters ?? {});
+      setNumberOfRuns(parsed.numberOfRuns ?? 1);
+    } catch {
+      window.sessionStorage.removeItem(BUILDER_STATE_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const toPersist: PersistedBuilderState = {
+      activeStep,
+      selectedToolSchema,
+      parameters,
+      numberOfRuns,
+    };
+
+    window.sessionStorage.setItem(BUILDER_STATE_STORAGE_KEY, JSON.stringify(toPersist));
+  }, [activeStep, selectedToolSchema, parameters, numberOfRuns]);
+
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const annotationId = query.get('annotation_id');
+    const datasetId = query.get('dataset_id');
+
+    if (!annotationId || !datasetId) {
+      return;
+    }
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, location.search, navigate]);
 
   const handleToolSelect = useCallback((schema: ToolSchema) => {
     setSelectedToolSchema(schema);
@@ -47,17 +98,26 @@ const ExperimentBuilder: React.FC = () => {
       // Prepare parameters (expand float_range, etc.)
       const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
 
-      createExperiment(selectedToolSchema.tool_id, preparedParams, selectedToolSchema.label, numberOfRuns);
+      createExperiment(
+        selectedToolSchema.tool_id,
+        preparedParams,
+        selectedToolSchema.label,
+        numberOfRuns,
+        selectedDatasetIds,
+        selectedToolSchema.requirements,
+      );
     }
-  }, [selectedToolSchema, parameters, numberOfRuns, createExperiment]);
+  }, [selectedDatasetIds, selectedToolSchema, parameters, numberOfRuns, createExperiment]);
 
   // Memoize available datasets for the selection bar
   const availableDatasets = useMemo(
     () =>
-      successfulDatasets.map((dataset) => ({
-        id: dataset.datasetId || '',
-        name: dataset.datasetName,
-      })),
+      successfulDatasets
+        .filter((dataset) => Boolean(dataset.datasetId))
+        .map((dataset) => ({
+          id: dataset.datasetId as string,
+          name: dataset.datasetName,
+        })),
     [successfulDatasets]
   );
 
@@ -67,10 +127,6 @@ const ExperimentBuilder: React.FC = () => {
   );
 
   const steps = ['Select Tool', 'Configure Parameters'];
-
-  const handleChangeTool = useCallback(() => {
-    setActiveStep(0);
-  }, []);
 
   return (
     <Box
@@ -112,14 +168,16 @@ const ExperimentBuilder: React.FC = () => {
 
               {/* Tool Parameters Section - Only render when datasets are selected */}
               {selectedDatasetIds.length > 0 ? (
-                <ParameterConfig
-                  toolSchema={selectedToolSchema}
-                  values={parameters}
-                  onChange={setParameters}
-                  selectedDatasetIds={selectedDatasetIds}
-                  focusDatasetId={focusDatasetId}
-                  focusDatasetName={focusedDatasetName}
-                />
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <ParameterConfig
+                    toolSchema={selectedToolSchema}
+                    values={parameters}
+                    onChange={setParameters}
+                    selectedDatasetIds={selectedDatasetIds}
+                    focusDatasetId={focusDatasetId}
+                    focusDatasetName={focusedDatasetName}
+                  />
+                </Box>
               ) : (
                 <Box
                   sx={{

@@ -17,6 +17,7 @@ import {
 import { Info, Add, Close, Tune } from '@mui/icons-material';
 import { ToolSchema, ToolParameterSchema, DependsOnCondition, FloatRangeDefault } from '@/types';
 import { applyDependentDefaults } from '@/utils/parameterUtils';
+import { checkDependsOn } from '@/utils/dependsOn';
 import { useParameterDrafts } from '@/hooks/useParameterDrafts';
 import { useApp } from '@/context/AppContext';
 
@@ -34,12 +35,7 @@ const shouldShowParameter = (
   depends_on: DependsOnCondition | undefined,
   currentValues: Record<string, any>
 ): boolean => {
-  if (!depends_on) return true;
-
-  return Object.entries(depends_on).every(([paramKey, allowedValues]) => {
-    const currentValue = currentValues[paramKey];
-    return allowedValues.includes(String(currentValue));
-  });
+  return checkDependsOn(depends_on, currentValues);
 };
 
 const EMPTY_FLOAT_RANGE: FloatRangeDefault = { min: 0, max: 0, step: 0 };

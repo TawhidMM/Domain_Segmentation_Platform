@@ -1,17 +1,30 @@
-import React, { useState } from 'react';
-import { Box, Typography, ToggleButtonGroup, ToggleButton, Button, Chip, Paper, Divider, IconButton, Tooltip } from '@mui/material';
+import React, { useMemo, useState } from 'react';
+import { Box, Typography, ToggleButtonGroup, ToggleButton, Button, Chip, Paper, Divider, IconButton, Tooltip, Alert } from '@mui/material';
 import { Download, GridView, CenterFocusWeak, Schedule, PlayArrow, Check, Refresh, RotateRight, FlipToFront, Flip } from '@mui/icons-material';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { Experiment } from '@/types';
 import SpatialPlot from './SpatialPlot';
 import SubmitModal from '../modals/SubmitModal';
+import DatasetAnnotationTable from '../experiment/DatasetAnnotationTable';
+import { checkDependsOn } from '@/utils/dependsOn';
 
 interface FocusViewProps {
   experiment: Experiment;
 }
 
 const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
-  const { setWorkspaceMode, experiments, comparisonExperimentIds, toggleComparisonExperiment, refreshExperimentResult } = useApp();
+  const {
+    setWorkspaceMode,
+    experiments,
+    comparisonExperimentIds,
+    toggleComparisonExperiment,
+    refreshExperimentResult,
+    successfulDatasets,
+    datasetAnnotationMap,
+  } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
@@ -20,6 +33,48 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
 
   const completedExperiments = experiments.filter((e) => e.status === 'completed');
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
+
+  const annotationRequirement = experiment.requirements?.manual_annotation;
+  const shouldRequireAnnotation = Boolean(
+    annotationRequirement?.is_required && checkDependsOn(annotationRequirement.depends_on, experiment.parameters)
+  );
+
+  const allRequiredDatasetsAnnotated = useMemo(() => {
+    if (!shouldRequireAnnotation) {
+      return true;
+    }
+
+    if (experiment.datasetIds.length === 0) {
+      return false;
+    }
+
+    return experiment.datasetIds.every((datasetId) => Boolean(datasetAnnotationMap[datasetId]));
+  }, [datasetAnnotationMap, experiment.datasetIds, shouldRequireAnnotation]);
+
+  const annotationDatasetItems = useMemo(
+    () =>
+      experiment.datasetIds.map((datasetId) => ({
+        id: datasetId,
+        name: successfulDatasets.find((dataset) => dataset.datasetId === datasetId)?.datasetName ?? datasetId,
+        annotationId: datasetAnnotationMap[datasetId],
+      })),
+    [datasetAnnotationMap, experiment.datasetIds, successfulDatasets]
+  );
+
+  const handleAnnotateDataset = (datasetId: string, annotationId?: string) => {
+    const queryParams: Record<string, string> = {
+      dataset_id: datasetId,
+      return_to: `${location.pathname}${location.search}`,
+    };
+
+    if (annotationId) {
+      queryParams.annotation_id = annotationId;
+    }
+
+    const query = new URLSearchParams(queryParams);
+
+    navigate(`/annotation-workspace?${query.toString()}`);
+  };
 
   const handleDownloadCSV = () => {
     if (!experiment.result || !experiment.result.spots) return;
@@ -155,7 +210,7 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
           )}
 
           {unsubmittedCount > 0 && (
-            <Button variant="contained" onClick={() => setSubmitModalOpen(true)} size="small">
+            <Button variant="contained" onClick={() => setSubmitModalOpen(true)} size="small" disabled={!allRequiredDatasetsAnnotated}>
               Submit ({unsubmittedCount})
             </Button>
           )}
@@ -164,6 +219,15 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
 
       {/* Main Content */}
       <Box sx={{ flex: 1, p: 3, overflow: 'auto' }} className="workspace-scroll">
+        {shouldRequireAnnotation && (
+          <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Alert severity="warning">
+              This experiment requires manual annotation before submission. Annotate every dataset below, then submit.
+            </Alert>
+            <DatasetAnnotationTable items={annotationDatasetItems} onAnnotate={handleAnnotateDataset} />
+          </Box>
+        )}
+
         {experiment.status === 'completed' && experiment.result ? (
           <SpatialPlot
             result={experiment.result}

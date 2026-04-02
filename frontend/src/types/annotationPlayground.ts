@@ -18,6 +18,18 @@ export interface AnnotationLabel {
   color: [number, number, number];
 }
 
+export interface AnnotationJsonRow {
+  barcode: string;
+  label_id: number | null;
+  label_name: string | null;
+}
+
+export interface AnnotationFileResponse {
+  annotation_id: string;
+  dataset_id: string;
+  labels: AnnotationJsonRow[];
+}
+
 export interface AnnotationDataResponse {
   experiment_id: string;
   dataset_id: string;

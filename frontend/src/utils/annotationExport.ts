@@ -8,6 +8,12 @@ export interface AnnotationCsvRow {
   y: number;
 }
 
+export interface AnnotationJsonRow {
+  barcode: string;
+  label_id: number | null;
+  label_name: string | null;
+}
+
 function escapeCsvCell(value: string) {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
     return `"${value.replace(/"/g, '""')}"`;
@@ -37,6 +43,29 @@ export function buildAnnotationCsvRows(
       label_name: labelName,
       x: spot.x,
       y: spot.y,
+    };
+  });
+}
+
+export function buildAnnotationJsonRows(
+  spots: AnnotationSpatialSpot[],
+  annotationBuffer: Uint8Array,
+  labels: AnnotationLabel[],
+): AnnotationJsonRow[] {
+  const labelNameById = new Map<number, string>();
+  for (const label of labels) {
+    labelNameById.set(label.id, label.name);
+  }
+
+  return spots.map((spot, index) => {
+    const rawLabelId = annotationBuffer[index] ?? 0;
+    const labelId = rawLabelId === 0 ? null : rawLabelId;
+    const labelName = rawLabelId === 0 ? null : (labelNameById.get(rawLabelId) ?? `Label ${rawLabelId}`);
+
+    return {
+      barcode: spot.barcode,
+      label_id: labelId,
+      label_name: labelName,
     };
   });
 }

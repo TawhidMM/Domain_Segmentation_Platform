@@ -45,6 +45,8 @@ export interface Experiment {
   id: string;
   toolId: string;
   toolName: string;
+  datasetIds: string[];
+  requirements?: ToolRequirements;
   jobId?: string;
   accessToken?: string;
   parameters: ParameterValue;
@@ -139,7 +141,16 @@ export interface FloatRangeDefault {
 }
 
 export interface DependsOnCondition {
-  [paramKey: string]: string[];
+  [paramKey: string]: Array<string | number | boolean>;
+}
+
+export interface ManualAnnotationRequirement {
+  is_required: boolean;
+  depends_on?: DependsOnCondition;
+}
+
+export interface ToolRequirements {
+  manual_annotation?: ManualAnnotationRequirement;
 }
 
 export interface ToolParameterSchema {
@@ -165,6 +176,7 @@ export interface ToolSchema {
   tool_id: string;
   label: string;
   description: string;
+  requirements?: ToolRequirements;
   parameters: {
     [key: string]: ToolParameterSchema;
   };
