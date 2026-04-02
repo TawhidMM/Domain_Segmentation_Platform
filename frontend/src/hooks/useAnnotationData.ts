@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { fetchAnnotationData } from '@/services/annotationService';
+import { fetchSpatialData } from '@/services/annotationService';
 import {
   AnnotationDataResponse,
   AnnotationSpatialSpot,
@@ -39,7 +39,7 @@ function normalizeImage(payload: AnnotationDataResponse): SpatialImageMetadata |
   };
 }
 
-export function useAnnotationData() {
+export function useAnnotationData(datasetId: string | null) {
   const [spots, setSpots] = useState<AnnotationSpatialSpot[]>([]);
   const [coordinateBuffer, setCoordinateBuffer] = useState<Float32Array>(new Float32Array(0));
   const [imageMetadata, setImageMetadata] = useState<SpatialImageMetadata | null>(null);
@@ -55,7 +55,11 @@ export function useAnnotationData() {
       setError(null);
 
       try {
-        const payload = await fetchAnnotationData();
+        if (!datasetId) {
+          throw new Error('Missing dataset_id for annotation workspace');
+        }
+
+        const payload = await fetchSpatialData(datasetId);
         if (!mounted) {
           return;
         }
@@ -77,7 +81,15 @@ export function useAnnotationData() {
           return;
         }
 
-        const message = err instanceof Error ? err.message : 'Failed to load annotation data';
+        const messageFromResponse =
+          typeof err === 'object' &&
+          err !== null &&
+          'response' in err &&
+          typeof (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail === 'string'
+            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+            : null;
+
+        const message = messageFromResponse ?? (err instanceof Error ? err.message : 'Failed to load annotation data');
         setError(message);
       } finally {
         if (mounted) {
@@ -91,7 +103,7 @@ export function useAnnotationData() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [datasetId]);
 
   return {
     spots,

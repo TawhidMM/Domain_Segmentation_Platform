@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import KDBush from 'kdbush';
 
 import { AnnotationMode, AnnotationSpatialSpot } from '@/types/annotationPlayground';
@@ -70,6 +70,7 @@ export function useAnnotationBrush({
   const [currentPoint, setCurrentPoint] = useState<BrushWorldPoint | null>(null);
   const [previousPoint, setPreviousPoint] = useState<BrushWorldPoint | null>(null);
   const [currentStrokeChanges, setCurrentStrokeChanges] = useState<Map<number, number>>(new Map());
+  const currentStrokeChangesRef = useRef<Map<number, number>>(new Map());
 
   const shouldPaint = enabled && (mode === 'draw' || mode === 'erase');
 
@@ -130,6 +131,8 @@ export function useAnnotationBrush({
           onAnnotationMutated();
         }
 
+        currentStrokeChangesRef.current = nextChanges;
+
         return nextChanges;
       });
     },
@@ -163,7 +166,11 @@ export function useAnnotationBrush({
       setIsDrawing(true);
       setCurrentPoint(worldPoint);
       setPreviousPoint(worldPoint);
-      setCurrentStrokeChanges(new Map());
+      setCurrentStrokeChanges(() => {
+        const nextChanges = new Map<number, number>();
+        currentStrokeChangesRef.current = nextChanges;
+        return nextChanges;
+      });
       applyBrushSegment(worldPoint, worldPoint);
     },
     [applyBrushSegment, buildWorldPoint, shouldPaint],
@@ -196,12 +203,21 @@ export function useAnnotationBrush({
     setPreviousPoint(null);
 
     // Record the stroke changes to history
-    if (onStrokeComplete && currentStrokeChanges.size > 0) {
-      onStrokeComplete(currentStrokeChanges);
+    const strokeChanges = currentStrokeChangesRef.current;
+    if (onStrokeComplete && strokeChanges.size > 0) {
+      onStrokeComplete(strokeChanges);
     }
 
-    setCurrentStrokeChanges(new Map());
-  }, [onStrokeComplete, currentStrokeChanges]);
+    setCurrentStrokeChanges((prevChanges) => {
+      if (prevChanges.size === 0) {
+        return prevChanges;
+      }
+
+      const nextChanges = new Map<number, number>();
+      currentStrokeChangesRef.current = nextChanges;
+      return nextChanges;
+    });
+  }, [onStrokeComplete]);
 
   useEffect(() => {
     if (!shouldPaint) {

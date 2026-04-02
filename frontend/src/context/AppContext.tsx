@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo, ReactNode } from 'react';
-import { Dataset, DatasetUploadQueueItem, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmissionResponse } from '@/types';
+import { Dataset, DatasetUploadQueueItem, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmissionResponse, ToolRequirements } from '@/types';
 import { generateMockDatasetSummary } from '@/data/mockData';
 import { uploadGeneExpressionFile } from '@/services/uploadService';
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
@@ -22,10 +22,13 @@ interface AppContextType {
   parameterDrafts: Record<string, Record<string, any>>;
   selectedDatasetIds: string[];
   focusDatasetId: string | null;
+  datasetAnnotationMap: Record<string, string>;
   updateParameterDraft: (datasetIds: string[], paramKey: string, value: any) => void;
   setSelectedDatasetIds: (ids: string[]) => void;
   setFocusDatasetId: (id: string | null) => void;
   resetParameterDrafts: () => void;
+  setDatasetAnnotation: (datasetId: string, annotationId: string) => void;
+  clearDatasetAnnotation: (datasetId: string) => void;
   
   // Dataset actions
   uploadGeneExpression: (files: File[]) => void;
@@ -35,7 +38,7 @@ interface AppContextType {
   isDatasetReady: () => boolean;
   
   // Experiment actions
-  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number) => void;
+  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number, datasetIds?: string[], requirements?: ToolRequirements) => void;
   setActiveExperiment: (id: string | null) => void;
   submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
   refreshExperimentResult: (experimentId: string) => Promise<void>;
@@ -77,6 +80,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [parameterDrafts, setParameterDrafts] = useState<Record<string, Record<string, any>>>({});
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
   const [focusDatasetId, setFocusDatasetId] = useState<string | null>(null);
+  const [datasetAnnotationMap, setDatasetAnnotationMap] = useState<Record<string, string>>({});
 
   React.useEffect(() => {
     uploadQueueRef.current = dataset.datasetUploadQueue;
@@ -255,6 +259,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const idsToRemove = removedDatasetIds.length > 0 ? removedDatasetIds : [idOrDatasetId];
       return prev.filter((id) => !idsToRemove.includes(id));
     });
+
+    setDatasetAnnotationMap((prev) => {
+      const copy = { ...prev };
+      const idsToRemove = removedDatasetIds.length > 0 ? removedDatasetIds : [idOrDatasetId];
+      idsToRemove.forEach((datasetId) => {
+        delete copy[datasetId];
+      });
+      return copy;
+    });
   }, []);
 
   React.useEffect(() => {
@@ -274,11 +287,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return successfulDatasets.length > 0;
   }, [successfulDatasets]);
 
-  const createExperiment = useCallback((toolId: string, parameters: ParameterValue, toolLabel: string, numberOfRuns: number = 1) => {
+  const createExperiment = useCallback((
+    toolId: string,
+    parameters: ParameterValue,
+    toolLabel: string,
+    numberOfRuns: number = 1,
+    datasetIds: string[] = [],
+    requirements?: ToolRequirements,
+  ) => {
     const experiment: Experiment = {
       id: crypto.randomUUID(),
       toolId,
       toolName: toolLabel,
+      datasetIds,
+      requirements,
       parameters,
       numberOfRuns,
       status: 'not-submitted',
@@ -321,11 +343,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     let firstJobRedirect: JobRedirectInfo | null = null;
-    const datasetIds = successfulDatasets.map((item) => item.datasetId!).filter(Boolean);
 
     // Submit each experiment to backend
     for (const exp of unsubmittedExperiments) {
       try {
+        const datasetIds = exp.datasetIds.length > 0
+          ? exp.datasetIds
+          : successfulDatasets.map((item) => item.datasetId!).filter(Boolean);
+
         // Build per-dataset configs: use draft config if available, otherwise fall back to global
         const datasetConfigs = datasetIds.map((datasetId) => ({
           dataset_id: datasetId,
@@ -462,6 +487,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setParameterDrafts({});
     setSelectedDatasetIds([]);
     setFocusDatasetId(null);
+    setDatasetAnnotationMap({});
+  }, []);
+
+  const setDatasetAnnotation = useCallback((datasetId: string, annotationId: string) => {
+    if (!datasetId || !annotationId) {
+      return;
+    }
+
+    setDatasetAnnotationMap((prev) => ({
+      ...prev,
+      [datasetId]: annotationId,
+    }));
+  }, []);
+
+  const clearDatasetAnnotation = useCallback((datasetId: string) => {
+    if (!datasetId) {
+      return;
+    }
+
+    setDatasetAnnotationMap((prev) => {
+      if (!prev[datasetId]) {
+        return prev;
+      }
+
+      const copy = { ...prev };
+      delete copy[datasetId];
+      return copy;
+    });
   }, []);
 
   return (
@@ -476,6 +529,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         parameterDrafts,
         selectedDatasetIds,
         focusDatasetId,
+        datasetAnnotationMap,
         uploadGeneExpression,
         retryUploadQueueItem,
         updateDatasetName,
@@ -495,6 +549,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setSelectedDatasetIds,
         setFocusDatasetId,
         resetParameterDrafts,
+        setDatasetAnnotation,
+        clearDatasetAnnotation,
       }}
     >
       {children}
