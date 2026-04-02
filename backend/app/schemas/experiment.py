@@ -8,6 +8,8 @@ class ExperimentSubmitResponse(BaseModel):
     access_token: str
     status: str
 
+class DataSetRequest(BaseModel):
+    dataset_id: str
 
 class DatasetConfigRequest(BaseModel):
     dataset_id: str

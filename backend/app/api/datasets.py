@@ -1,15 +1,18 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.repositories import run_repository
+from app.schemas.experiment import DataSetRequest
 from app.services.dataset_service import create_dataset
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
 )
-from app.services import experiment_service
+from app.services import experiment_service, spatial_data_service
 from app.utils.visium import get_histology_image_path
+from app.utils.zip_utils import extract_zip
 
 router = APIRouter()
 
@@ -43,6 +46,9 @@ def finalize(
         upload_id=upload_id,
         zip_path=zip_path
     )
+
+    extraction_path = settings.UPLOAD_ROOT / f"upload_{upload_id}" / "extracted"
+    extract_zip(zip_path=zip_path, target_dir=extraction_path)
 
     return {"dataset_id": dataset_id}
 
@@ -86,4 +92,14 @@ def get_histology(
             "Cache-Control": "public, max-age=31536000, immutable",
             "Content-Type": "image/png"
         }
+    )
+
+@router.post("/spatial-data")
+def get_spatial_data(
+    dataset_request: DataSetRequest,
+    http_request: Request
+):
+    return spatial_data_service.build_spatial_data_response_from_dataset(
+        dataset_id=dataset_request.dataset_id,
+        http_request=http_request,
     )

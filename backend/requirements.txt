@@ -18,3 +18,4 @@ redis
 psycopg2-binary
 umap-learn
 scipy
+pillow

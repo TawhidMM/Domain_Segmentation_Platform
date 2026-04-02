@@ -6,6 +6,7 @@ def generate_frontend_schema(tool_definition: dict) -> dict:
         "tool_id": tool_definition.get("tool_id"),
         "label": tool_definition.get("label"),
         "description": tool_definition.get("description"),
+        "requirements": tool_definition.get("requirements", {}),
         "parameters": tool_definition.get("parameters", {}),
         "profiles": {}
     }

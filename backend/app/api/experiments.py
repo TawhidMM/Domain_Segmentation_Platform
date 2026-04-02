@@ -1,10 +1,10 @@
 import base64
 import json
 from io import BytesIO
-from typing import Any, List, Optional
+from typing import Any, List
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -24,10 +24,11 @@ from app.schemas.experiment import (
     ExperimentSubmitResponse,
     ExperimentStatusResponse
 )
-from app.services import experiment_service
-from app.services import metrics_service
-from app.services import export_service
 from app.services import comparison_service
+from app.services import experiment_service
+from app.services import export_service
+from app.services import metrics_service
+from app.services import spatial_data_service
 from app.tasks.experiment_tasks import run_task
 
 router = APIRouter()
@@ -273,6 +274,17 @@ def download_compare_boxplots(
         BytesIO(data),
         media_type=content_type,
         headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.post("/spatial-data")
+def get_spatial_data(
+    payload: DomainComparisonItem,
+    http_request: Request
+):
+    return spatial_data_service.build_spatial_data_response(
+        request_payload=payload,
+        http_request=http_request,
     )
 
 
