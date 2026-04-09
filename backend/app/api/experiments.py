@@ -36,7 +36,7 @@ router = APIRouter()
 
 def _decode_compare_payload(encoded: str) -> Any:
     if not encoded:
-        raise HTTPException(status_code=400, detail="Missing comparison payload")
+        raise HTTPException(status_code=400, detail="Missing comparison create_request")
 
     try:
         padded = encoded + "=" * (-len(encoded) % 4)
@@ -46,7 +46,7 @@ def _decode_compare_payload(encoded: str) -> Any:
         try:
             return json.loads(unquote(encoded))
         except Exception as exc:
-            raise HTTPException(status_code=400, detail="Invalid comparison payload") from exc
+            raise HTTPException(status_code=400, detail="Invalid comparison create_request") from exc
 
 
 def _extract_compare_items(payload: Any) -> List[dict]:
@@ -88,12 +88,12 @@ def _extract_compare_items(payload: Any) -> List[dict]:
         else:
             items = [payload]
     else:
-        raise HTTPException(status_code=400, detail="Invalid comparison payload format")
+        raise HTTPException(status_code=400, detail="Invalid comparison create_request format")
 
     normalized = []
     for item in items:
         if not isinstance(item, dict):
-            raise HTTPException(status_code=400, detail="Invalid experiment item in payload")
+            raise HTTPException(status_code=400, detail="Invalid experiment item in create_request")
 
         experiment_id = (
             item.get("experiment_id")
