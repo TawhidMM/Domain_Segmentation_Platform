@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.repositories import run_repository
 from app.schemas.experiment import DataSetRequest
 from app.services.dataset_service import create_dataset
+from app.services.run_service import require_run_with_access, build_run_context
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
 )
@@ -52,15 +53,14 @@ def finalize(
 
     return {"dataset_id": dataset_id}
 
-@router.get("/{job_id}/histology", responses={200: {"content": {"image/png": {}}}})
+@router.get("/{run_id}/histology", responses={200: {"content": {"image/png": {}}}})
 def get_histology(
     run_id: str,
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
-
-    run = run_repository.get_run_by_id(db, run_id)
-    run_context = experiment_service.build_run_context(db, run)
+    run = require_run_with_access(db, run_id, token)
+    run_context = build_run_context(db, run)
 
     dataset_dir = run_context.dataset_path
 
