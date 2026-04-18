@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -10,7 +10,9 @@ from app.core.workspace import ExperimentWorkspace
 from app.models import Dataset
 from app.models.experiment import Experiment, ExperimentStatus
 from app.models.run import Run
-from app.repositories import dataset_repository, experiment_repository, run_repository
+from app.models.run_config import RunConfig
+from app.repositories import dataset_repository, experiment_repository, run_config_repository, run_repository
+from app.schemas.experiment import DatasetConfigRequest
 from app.utils.security import generate_token_pair, verify_token
 
 
@@ -51,10 +53,24 @@ def _validate_and_prepare_seeds(
     return [random.randint(0, 2**31 - 1) for _ in range(number_of_runs)]
 
 
+def _create_run_config_entity(
+    run_config_id: str,
+    experiment_id: str,
+    dataset_id: str,
+    params_dict: dict
+) -> RunConfig:
+    """Create a RunConfig that stores dataset-specific params."""
+    return RunConfig(
+        id=run_config_id,
+        experiment_id=experiment_id,
+        dataset_id=dataset_id,
+        params_json=params_dict
+    )
+
+
 def _create_experiment_entity(
     experiment_id: str,
     tool_name: str,
-    params_dict: dict,
     workspace_path: str,
     total_runs: int,
     token_hash: str
@@ -63,7 +79,6 @@ def _create_experiment_entity(
     return Experiment(
         id=experiment_id,
         tool_name=tool_name,
-        params_json=params_dict,
         workspace_path=workspace_path,
         total_runs=total_runs,
         completed_runs=0,
@@ -76,16 +91,14 @@ def _create_experiment_entity(
 
 def _create_run_entity(
     run_id: str,
-    experiment_id: str,
-    dataset_id: str,
+    run_config_id: str,
     seed: int,
     output_path: str
 ) -> Run:
-
+    """Create a Run that points to a RunConfig for dataset and params."""
     return Run(
         id=run_id,
-        experiment_id=experiment_id,
-        dataset_id=dataset_id,
+        run_config_id=run_config_id,
         seed=seed,
         status=ExperimentStatus.QUEUED,
         output_path=output_path,
@@ -105,72 +118,111 @@ def _create_run_folders(
         run_root.mkdir(parents=True, exist_ok=True)
 
 
-def _prepare_runs(
+def _prepare_run_configs(
     experiment_id: str,
-    dataset_id: str,
-    exp_workspace: ExperimentWorkspace,
-    number_of_runs: int,
-    seed_list: List[int]
-) -> List[Run]:
+    dataset_param_map: Dict[str, dict],
+) -> List[RunConfig]:
+    """Create one RunConfig entity per dataset."""
+    run_configs = []
 
-    runs = []
-    run_ids = []
-    
-    for i in range(number_of_runs):
-        run_id = str(uuid.uuid4())
-        run_ids.append(run_id)
-        
-        run_path = str(exp_workspace.run_root(run_id))
-        
-        run = _create_run_entity(
-            run_id=run_id,
+    for dataset_id, params_dict in dataset_param_map.items():
+        run_config_id = str(uuid.uuid4())
+        run_config = _create_run_config_entity(
+            run_config_id=run_config_id,
             experiment_id=experiment_id,
             dataset_id=dataset_id,
-            seed=seed_list[i],
-            output_path=run_path
+            params_dict=params_dict
         )
-        runs.append(run)
+        run_configs.append(run_config)
+
+    return run_configs
+
+
+def _prepare_runs_for_configs(
+    run_configs: List[RunConfig],
+    exp_workspace: ExperimentWorkspace,
+    number_of_runs: int,
+    seed_list: List[int],
+) -> List[Run]:
+    """Create Run entities for the provided RunConfig entities."""
+    runs = []
+    run_ids = []
+
+    for run_config in run_configs:
+        for i in range(number_of_runs):
+            run_id = str(uuid.uuid4())
+            run_ids.append(run_id)
+
+            run_path = str(exp_workspace.run_root(run_id))
+
+            run = _create_run_entity(
+                run_id=run_id,
+                run_config_id=run_config.id,
+                seed=seed_list[i],
+                output_path=run_path
+            )
+            runs.append(run)
 
     _create_run_folders(exp_workspace, run_ids)
-    
+
     return runs
 
 
 def create_experiment_record(
     db: Session,
-    dataset_id: str,
+    dataset_param_configs: List[DatasetConfigRequest],
     tool_name: str,
-    params_dict: dict,
     number_of_runs: int = 1,
     seed_list: Optional[List[int]] = None
 ) -> Tuple[str, str]:
 
-    require_dataset(db, dataset_id)
+    if not dataset_param_configs:
+        raise HTTPException(status_code=400, detail="At least one dataset config is required")
+
+    dataset_param_map: Dict[str, dict] = {}
+    for item in dataset_param_configs:
+        dataset_id = item.dataset_id
+        params_dict = item.params
+        if not dataset_id:
+            raise HTTPException(status_code=400, detail="dataset_id cannot be empty")
+        dataset_param_map[dataset_id] = params_dict
+
+    unique_dataset_ids = list(dataset_param_map.keys())
+    for dataset_id in unique_dataset_ids:
+        require_dataset(db, dataset_id)
 
     validated_seeds = _validate_and_prepare_seeds(number_of_runs, seed_list)
+    total_runs = len(unique_dataset_ids) * number_of_runs
 
     experiment_id = str(uuid.uuid4())
     access_token, token_hash = generate_token_pair()
 
     exp_workspace = ExperimentWorkspace(experiment_id)
 
+    # Create Experiment: high-level metadata only
     experiment = _create_experiment_entity(
         experiment_id=experiment_id,
         tool_name=tool_name,
-        params_dict=params_dict,
         workspace_path=str(exp_workspace.workspace_root),
-        total_runs=number_of_runs,
+        total_runs=total_runs,
         token_hash=token_hash
     )
 
     experiment_repository.create_experiment(db, experiment)
 
-    runs = _prepare_runs(
+    # Prepare entries in separate steps.
+    run_configs = _prepare_run_configs(
         experiment_id=experiment_id,
-        dataset_id=dataset_id,
+        dataset_param_map=dataset_param_map,
+    )
+
+    run_config_repository.create_run_configs_batch(db, run_configs)
+
+    runs = _prepare_runs_for_configs(
+        run_configs=run_configs,
         exp_workspace=exp_workspace,
         number_of_runs=number_of_runs,
-        seed_list=validated_seeds
+        seed_list=validated_seeds,
     )
 
     run_repository.create_runs_batch(db, runs)
@@ -200,24 +252,23 @@ def build_nested_experiment_response(
     token: str
 ) -> dict:
 
-
-
     # Validate access first
     require_experiment_with_access(db, experiment_id, token)
 
-    # Fetch experiment with runs eagerly loaded (optimized)
-    experiment = experiment_repository.get_experiment_with_runs(db, experiment_id)
+    # Fetch experiment with run_configs eagerly loaded (optimized)
+    experiment = experiment_repository.get_experiment_with_run_configs(db, experiment_id)
 
-    # Group runs by dataset_id
+    # Group runs by dataset through run_configs
     runs_by_dataset = defaultdict(list)
     
-    for run in experiment.runs:
-        runs_by_dataset[run.dataset_id].append({
-            "run_id": run.id,
-            "status": run.status.value,
-            "started_at": run.started_at,
-            "finished_at": run.finished_at
-        })
+    for run_config in experiment.run_configs:
+        for run in run_config.runs:
+            runs_by_dataset[run_config.dataset_id].append({
+                "run_id": run.id,
+                "status": run.status.value,
+                "started_at": run.started_at,
+                "finished_at": run.finished_at
+            })
     
     # Build datasets list
     datasets = [

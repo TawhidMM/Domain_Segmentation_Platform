@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
@@ -7,6 +7,20 @@ class ExperimentSubmitResponse(BaseModel):
     experiment_id: str
     access_token: str
     status: str
+
+class DataSetRequest(BaseModel):
+    dataset_id: str
+
+class DatasetConfigRequest(BaseModel):
+    dataset_id: str
+    params: Dict[str, Any]
+
+
+class ExperimentSubmitRequest(BaseModel):
+    dataset_configs: List[DatasetConfigRequest] = Field(min_length=1)
+    tool_name: str
+    number_of_runs: int = Field(default=1, ge=1)
+    seed_list: Optional[List[int]] = None
 
 
 class RunStatusResponse(BaseModel):
@@ -42,10 +56,20 @@ class CompareBoxplotsDownloadRequest(BaseModel):
     experiment_ids: List[str]
 
 
-class ConsensusExperimentItem(BaseModel):
+class ExperimentRequest(BaseModel):
     experiment_id: str
     token: str
 
 
 class ConsensusRequest(BaseModel):
-    experiments: List[ConsensusExperimentItem]
+    experiments: List[ExperimentRequest]
+
+
+class DomainComparisonItem(BaseModel):
+    experiment_id: str
+    dataset_id: str
+    token: str
+
+
+class DomainComparisonRequest(BaseModel):
+    experiments: List[DomainComparisonItem]

@@ -1,15 +1,19 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.repositories import run_repository
+from app.schemas.experiment import DataSetRequest
 from app.services.dataset_service import create_dataset
+from app.services.run_service import require_run_with_access, build_run_context
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
 )
-from app.services import experiment_service
+from app.services import experiment_service, spatial_data_service
 from app.utils.visium import get_histology_image_path
+from app.utils.zip_utils import extract_zip
 
 router = APIRouter()
 
@@ -44,18 +48,19 @@ def finalize(
         zip_path=zip_path
     )
 
+    extraction_path = settings.UPLOAD_ROOT / f"upload_{upload_id}" / "extracted"
+    extract_zip(zip_path=zip_path, target_dir=extraction_path)
+
     return {"dataset_id": dataset_id}
 
-@router.get("/{job_id}/histology", responses={200: {"content": {"image/png": {}}}})
+@router.get("/{run_id}/histology", responses={200: {"content": {"image/png": {}}}})
 def get_histology(
     run_id: str,
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
-    print("[][][][][][][][][][][][")
-
-    run = run_repository.get_run_by_id(db, run_id)
-    run_context = experiment_service.build_run_context(db, run)
+    run = require_run_with_access(db, run_id, token)
+    run_context = build_run_context(db, run)
 
     dataset_dir = run_context.dataset_path
 
@@ -87,4 +92,14 @@ def get_histology(
             "Cache-Control": "public, max-age=31536000, immutable",
             "Content-Type": "image/png"
         }
+    )
+
+@router.post("/spatial-data")
+def get_spatial_data(
+    dataset_request: DataSetRequest,
+    http_request: Request
+):
+    return spatial_data_service.build_spatial_data_response_from_dataset(
+        dataset_id=dataset_request.dataset_id,
+        http_request=http_request,
     )

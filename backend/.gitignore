@@ -1,13 +1,13 @@
 .env
 __pycache__/
 *.pyc
-alembic.ini
 .venv/
 experiments/
 uploads/
 .idea/
 .vscode/
 .DS_Store
-cmd.txt
+*.txt
+!requirements.txt
 use_cases.txt
 promts.txt

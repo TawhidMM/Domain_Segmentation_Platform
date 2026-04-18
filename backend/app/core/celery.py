@@ -10,6 +10,7 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
+    broker_connection_retry_on_startup=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
 

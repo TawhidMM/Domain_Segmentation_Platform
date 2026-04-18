@@ -24,7 +24,9 @@ def run_task(
         if not run:
             return
 
-        dataset = dataset_repository.get_dataset_by_id(db, run.dataset_id)
+        # Get dataset_id and params from run_config
+        dataset_id = run.run_config.dataset_id
+        dataset = dataset_repository.get_dataset_by_id(db, dataset_id)
         if not dataset:
             mark_failed(db, run)
             return

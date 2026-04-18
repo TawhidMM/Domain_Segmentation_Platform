@@ -3,9 +3,15 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from app.core.metrics_schema import METRICS
+from app.models.run import Run
+from app.schemas.comparison import ComparisonMetricsRequest, ExperimentMetricsRequest
+from app.schemas.experiment import DomainComparisonItem
 from app.services.experiment_service import require_experiment_with_access
-from app.services.run_service import build_run_context, load_metrics_file, get_datasets_for_experiment, \
-    get_runs_for_experiment_and_dataset
+from app.services.run_service import (
+    build_run_context,
+    get_runs_for_experiment_and_dataset,
+    load_metrics_file, get_runs_for_experiment,
+)
 
 METRIC_KEYS = list(METRICS.keys())
 
@@ -36,25 +42,18 @@ def calculate_composite_score(
     return scored_metrics
 
 
-def _all_runs_metrics_for_experiment(
+def _collect_metrics_from_runs(
     db: Session,
-    experiment_id: str,
-    token: str | None = None
+    runs: List[Run]
 ) -> List[Dict[str, Any]]:
-
-    if token:
-        require_experiment_with_access(db, experiment_id, token)
-
-    dataset_ids = get_datasets_for_experiment(db, experiment_id)
-    dataset_id = dataset_ids[0]
-
-    runs = get_runs_for_experiment_and_dataset(db, experiment_id, dataset_id)
 
     run_data = []
     for run in runs:
         run_context = build_run_context(db, run)
         metrics = load_metrics_file(run_context)
         run_data.append({
+            "run_id": run.id,
+            "dataset_id": run_context.dataset_id,
             "run_context": run_context,
             "metrics": metrics
         })
@@ -64,22 +63,36 @@ def _all_runs_metrics_for_experiment(
 
 def collect_experiment_metrics(
     db: Session,
-    experiment_ids: List[str]
+    request: ComparisonMetricsRequest
 ) -> Dict[str, Dict[str, Any]]:
 
     result = {}
-    for experiment_id in experiment_ids:
-        result[experiment_id] = get_experiment_run_metrics(db, experiment_id, token=None)
+    for experiment in request.experiments:
+
+        result[experiment.experiment_id] = get_experiment_run_metrics(
+            db,
+            ExperimentMetricsRequest(
+                experiment_id=experiment.experiment_id,
+                token=experiment.token
+            )
+        )
 
     return result
 
 
 def select_best_run_for_experiment(
     db: Session,
-    experiment_id: str,
-    token: str
+    request: DomainComparisonItem,
 ):
-    candidate_runs_metrics = _all_runs_metrics_for_experiment(db, experiment_id, token)
+    require_experiment_with_access(db, request.experiment_id, request.token)
+
+    runs = get_runs_for_experiment_and_dataset(
+        db,
+        request.experiment_id,
+        request.dataset_id,
+        include_experiment=True,
+    )
+    candidate_runs_metrics = _collect_metrics_from_runs(db, runs)
 
     for run in candidate_runs_metrics:
         run["metrics"] = calculate_composite_score(run["metrics"])
@@ -98,25 +111,24 @@ def _get_composite_score(
 
 def get_experiment_run_metrics(
     db: Session,
-    experiment_id: str,
-    token: str | None = None
+    request: ExperimentMetricsRequest
 ) -> dict:
 
-    if token:
-        experiment = require_experiment_with_access(db, experiment_id, token)
-    # else:
-    #     experiment = get_experiment(db, experiment_id)
-    #     if not experiment:
-    #         raise HTTPException(status_code=404, detail=f"Experiment not found: {experiment_id}")
+    experiment = require_experiment_with_access(db, request.experiment_id, request.token)
 
-    run_metrics = _all_runs_metrics_for_experiment(db, experiment_id, token)
+    runs = get_runs_for_experiment(
+        db,
+        request.experiment_id,
+        include_experiment=True,
+    )
+    run_metrics = _collect_metrics_from_runs(db, runs)
+
 
     for run in run_metrics:
-        run["run_id"] = run["run_context"].run_id
         run.pop("run_context")
 
     return {
-        "experiment_id": experiment_id,
+        "experiment_id": request.experiment_id,
         "tool_name": experiment.tool_name,
         "runs": run_metrics
     }

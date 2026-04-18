@@ -1,24 +1,34 @@
 import base64
 import json
 from io import BytesIO
-from typing import Any, List, Optional
+from typing import Any, List
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Form, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.repositories import run_repository
+from app.schemas.comparison import (
+    ComparisonDatasetsRequest,
+    ComparisonDatasetsResponse,
+    ComparisonMetricsRequest,
+    ComparisonRequest,
+    ExperimentMetricsRequest,
+)
 from app.schemas.experiment import (
-    CompareBoxplotsDownloadRequest,
-    ConsensusRequest,
+    DomainComparisonItem,
+    ExperimentRequest,
+    ExperimentSubmitRequest,
     ExperimentSubmitResponse,
     ExperimentStatusResponse
 )
+from app.services import comparison_service
 from app.services import experiment_service
-from app.services import metrics_service
 from app.services import export_service
+from app.services import metrics_service
+from app.services import spatial_data_service
 from app.tasks.experiment_tasks import run_task
 
 router = APIRouter()
@@ -26,7 +36,7 @@ router = APIRouter()
 
 def _decode_compare_payload(encoded: str) -> Any:
     if not encoded:
-        raise HTTPException(status_code=400, detail="Missing comparison payload")
+        raise HTTPException(status_code=400, detail="Missing comparison create_request")
 
     try:
         padded = encoded + "=" * (-len(encoded) % 4)
@@ -36,7 +46,7 @@ def _decode_compare_payload(encoded: str) -> Any:
         try:
             return json.loads(unquote(encoded))
         except Exception as exc:
-            raise HTTPException(status_code=400, detail="Invalid comparison payload") from exc
+            raise HTTPException(status_code=400, detail="Invalid comparison create_request") from exc
 
 
 def _extract_compare_items(payload: Any) -> List[dict]:
@@ -78,12 +88,12 @@ def _extract_compare_items(payload: Any) -> List[dict]:
         else:
             items = [payload]
     else:
-        raise HTTPException(status_code=400, detail="Invalid comparison payload format")
+        raise HTTPException(status_code=400, detail="Invalid comparison create_request format")
 
     normalized = []
     for item in items:
         if not isinstance(item, dict):
-            raise HTTPException(status_code=400, detail="Invalid experiment item in payload")
+            raise HTTPException(status_code=400, detail="Invalid experiment item in create_request")
 
         experiment_id = (
             item.get("experiment_id")
@@ -116,38 +126,15 @@ def _extract_compare_items(payload: Any) -> List[dict]:
 
 @router.post("/submit", response_model=ExperimentSubmitResponse)
 async def submit_experiment(
-    dataset_id: str = Form(...),
-    tool_name: str = Form(...),
-    params: str = Form(...),
-    number_of_runs: int = Form(1),
-    seed_list: Optional[str] = Form(None),
+    request: ExperimentSubmitRequest,
     db: Session = Depends(get_db)
 ):
-
-    try:
-        params_dict = json.loads(params)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid params JSON")
-
-    # Parse seed_list if provided
-    parsed_seed_list = None
-    if seed_list:
-        try:
-            parsed_seed_list = json.loads(seed_list)
-            if not isinstance(parsed_seed_list, list):
-                raise HTTPException(status_code=400, detail="seed_list must be a JSON array")
-            if not all(isinstance(s, int) for s in parsed_seed_list):
-                raise HTTPException(status_code=400, detail="All seeds must be integers")
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid seed_list JSON")
-
     experiment_id, access_token = experiment_service.create_experiment_record(
         db=db,
-        dataset_id=dataset_id,
-        tool_name=tool_name,
-        params_dict=params_dict,
-        number_of_runs=number_of_runs,
-        seed_list=parsed_seed_list
+        dataset_param_configs=request.dataset_configs,
+        tool_name=request.tool_name,
+        number_of_runs=request.number_of_runs,
+        seed_list=request.seed_list
     )
 
     runs = run_repository.get_runs_by_experiment(db, experiment_id)
@@ -161,39 +148,39 @@ async def submit_experiment(
     )
 
 
-@router.get("/{experiment_id}", response_model=ExperimentStatusResponse)
+@router.post("/details", response_model=ExperimentStatusResponse)
 def get_experiment_status(
-    experiment_id: str,
-    token: str = Query(...),
+    request: ExperimentRequest,
     db: Session = Depends(get_db)
 ):
 
-    response_data = experiment_service.build_nested_experiment_response(db, experiment_id, token)
+    response_data = experiment_service.build_nested_experiment_response(
+        db,
+        request.experiment_id,
+        request.token,
+    )
 
     return ExperimentStatusResponse(**response_data)
 
 
-@router.get("/{experiment_id}/best-run")
+@router.post("/best-run")
 def get_best_run_result(
-    experiment_id: str,
-    token: str = Query(...),
+    request: DomainComparisonItem,
     db: Session = Depends(get_db)
 ):
-    best_run_context = metrics_service.select_best_run_for_experiment(db, experiment_id, token)
+    best_run_context = metrics_service.select_best_run_for_experiment(db, request)
 
     result = json.loads(best_run_context.result_file.read_text())
 
     return result
 
 
-@router.get("/{experiment_id}/run-metrics")
+@router.post("/run-metrics")
 def get_experiment_run_metrics(
-    experiment_id: str,
-    token: str = Query(...),
+    request: ExperimentMetricsRequest,
     db: Session = Depends(get_db)
 ):
-
-    return metrics_service.get_experiment_run_metrics(db, experiment_id, token)
+    return metrics_service.get_experiment_run_metrics(db, request)
 
 
 @router.get("/compare/export/metrics")
@@ -232,29 +219,72 @@ def export_compare_metrics(
 
 @router.post("/compare/consensus")
 def get_consensus_predictions(
-    request: ConsensusRequest,
+    request: ComparisonRequest,
     db: Session = Depends(get_db)
 ):
-    return export_service.build_consensus_predictions(
-        db=db,
-        experiments=request.experiments
-    )
+    return export_service.build_consensus_predictions(db=db, request=request)
+
+
+@router.post("/comparison/datasets", response_model=ComparisonDatasetsResponse)
+def discover_comparison_datasets(
+    request: ComparisonDatasetsRequest,
+    db: Session = Depends(get_db)
+):
+    return comparison_service.discover_datasets_for_comparison(db=db, request=request)
+
+
+@router.post("/compare/overlay-domain-map")
+def get_overlay_domain_map(
+    request: ComparisonRequest,
+    db: Session = Depends(get_db)
+):
+    if len(request.experiments) < 2:
+        raise HTTPException(status_code=400, detail="At least two experiments are required")
+
+    return export_service.build_overlay_domain_map(db=db, request=request)
+
+
+
+@router.post("/domain-comparison")
+def get_domain_comparison(
+    request: ComparisonRequest,
+    db: Session = Depends(get_db)
+):
+    if len(request.experiments) != 2:
+        raise HTTPException(status_code=400, detail="Exactly two experiments are required")
+
+    item_a, item_b = request.experiments
+    if item_a.experiment_id == item_b.experiment_id:
+        raise HTTPException(status_code=400, detail="Experiments must be different")
+
+    return export_service.build_domain_comparison(db=db, request=request)
 
 
 @router.post("/compare/download-boxplots")
 def download_compare_boxplots(
-    request: CompareBoxplotsDownloadRequest,
+    request: ComparisonMetricsRequest,
     db: Session = Depends(get_db)
 ):
     data, content_type, filename = export_service.export_metric_boxplots_zip(
         db=db,
-        experiment_ids=request.experiment_ids
+        request=request
     )
 
     return StreamingResponse(
         BytesIO(data),
         media_type=content_type,
         headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.post("/spatial-data")
+def get_spatial_data(
+    payload: DomainComparisonItem,
+    http_request: Request
+):
+    return spatial_data_service.build_spatial_data_response(
+        request_payload=payload,
+        http_request=http_request,
     )
 
 

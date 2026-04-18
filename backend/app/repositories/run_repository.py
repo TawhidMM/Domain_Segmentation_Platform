@@ -1,55 +1,67 @@
-from typing import Optional, List
+from typing import Optional, List, cast
 
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
 
 from app.models.run import Run
+from app.models.run_config import RunConfig
 from app.models.experiment import ExperimentStatus
+
+
+def _run_loader_options(include_experiment: bool = False):
+    if include_experiment:
+        return joinedload(Run.run_config).joinedload(RunConfig.experiment)
+    return joinedload(Run.run_config)
 
 
 def get_run_by_id(
     db: Session,
-    run_id: str
+    run_id: str,
+    include_experiment: bool = False,
 ) -> Optional[Run]:
-    return db.query(Run).filter(Run.id == run_id).first()
+    return (
+        db.query(Run)
+        .filter(Run.id == run_id)
+        .options(_run_loader_options(include_experiment))
+        .first()
+    )
 
 
 def get_runs_by_experiment(
     db: Session,
-    experiment_id: str
-) -> list[type[Run]]:
-
-    return db.query(Run).filter(Run.experiment_id == experiment_id).all()
-
-
-def get_dataset_ids_by_experiment(
-    db: Session,
-    experiment_id: str
-) -> List[str]:
+    experiment_id: str,
+    include_experiment: bool = False,
+) -> list[Run]:
 
     rows = (
-        db.query(Run.dataset_id)
-        .filter(Run.experiment_id == experiment_id)
-        .distinct()
+        db.query(Run)
+        .options(_run_loader_options(include_experiment))
+        .join(RunConfig, Run.run_config_id == RunConfig.id)
+        .filter(RunConfig.experiment_id == experiment_id)
         .all()
     )
-    return [dataset_id for (dataset_id,) in rows]
+
+    return cast(List[Run], rows)
 
 
 def get_runs_by_experiment_and_dataset(
     db: Session,
     experiment_id: str,
-    dataset_id: str
+    dataset_id: str,
+    include_experiment: bool = False,
 ) -> List[Run]:
 
-    return (
+    rows = (
         db.query(Run)
+        .options(_run_loader_options(include_experiment))
+        .join(RunConfig, Run.run_config_id == RunConfig.id)
         .filter(
-            Run.experiment_id == experiment_id,
-            Run.dataset_id == dataset_id
+            RunConfig.experiment_id == experiment_id,
+            RunConfig.dataset_id == dataset_id
         )
         .all()
     )
+
+    return cast(List[Run], rows)
 
 
 def create_run(
