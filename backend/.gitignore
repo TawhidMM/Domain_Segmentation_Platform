@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+experiments/
+uploads/
+.idea/
+.vscode/
+.DS_Store
+*.txt
+!requirements.txt
+use_cases.txt
+promts.txt
