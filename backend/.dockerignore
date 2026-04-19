@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Project Specific Data
+# (These should be handled via Volumes, not baked into the image)
+uploads/
+experiments/
+
+# Logs and temp files
+*.log
+*.txt
+!requirements.txt
