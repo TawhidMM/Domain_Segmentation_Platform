@@ -95,7 +95,7 @@ class RunContext:
     seed: Optional[int] = None
 
     @property
-    def experiment_root(self) -> Path:
+    def workspace_root(self) -> Path:
         return self.experiment_workspace.workspace_root
 
     @property

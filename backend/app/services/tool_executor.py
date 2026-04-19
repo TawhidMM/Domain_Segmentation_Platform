@@ -22,9 +22,15 @@ def run_tool(run_context: RunContext):
 
     container_workspace = settings.CONTAINER_WORKSPACE_PATH
 
-    experiment_dir_root = run_context.experiment_root
+    workspace_root = run_context.workspace_root
+
     config_dir = run_context.config_dir
-    relative_config_dir = config_dir.relative_to(experiment_dir_root)
+    relative_config_dir = config_dir.relative_to(workspace_root)
+
+    relative_workspace_path = workspace_root.relative_to(settings.EXPERIMENTS_ROOT)
+    host_path = settings.HOST_EXPERIMENTS_ROOT / relative_workspace_path
+
+    print(f"host path : {host_path}")
 
     container_config_path = (
             container_workspace
@@ -35,7 +41,7 @@ def run_tool(run_context: RunContext):
     cmd = [
         "docker", "run", "--rm",
         "--gpus", "all",
-        "-v", f"{run_context.experiment_root}:{container_workspace}",
+        "-v", f"{host_path}:{container_workspace}",
         tool["image"],
         str(container_config_path)
     ]

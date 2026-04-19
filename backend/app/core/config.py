@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
+    HOST_EXPERIMENTS_ROOT: str
+
     # Paths (computed after initialization)
     BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
     EXPERIMENTS_ROOT: Optional[Path] = None
@@ -32,10 +34,11 @@ class Settings(BaseSettings):
     UPLOAD_DIR: ClassVar[str] = "uploads"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(__file__).resolve().parent.parent.parent / ".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
-        extra="ignore"
+        extra="ignore",
+        env_ignore_empty=True,
     )
 
     def model_post_init(self, __context) -> None:

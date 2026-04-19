@@ -24,7 +24,7 @@ class DeepStAdapter(ToolAdapter):
     def build_config(self):
         resolved_params = resolve_config(DEEPST_MANIFEST, self.run_context.params)
 
-        experiment_root = self.run_context.experiment_root
+        experiment_root = self.run_context.workspace_root
         relative_output_dir = self.run_context.output_dir.relative_to(experiment_root)
         relative_dataset_dir = self.run_context.dataset_path.relative_to(experiment_root)
 

@@ -16,5 +16,9 @@ COPY . .
 # Set PYTHONPATH
 ENV PYTHONPATH=/app
 
+# Create user
+RUN useradd -m -u 1000 -s /bin/bash appuser
+USER appuser
+
 # Default command (for API)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
