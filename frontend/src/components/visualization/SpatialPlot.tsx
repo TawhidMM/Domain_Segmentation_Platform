@@ -91,25 +91,11 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   const showSpots = effectiveMode === 'spots' || effectiveMode === 'overlay';
 
   const plotData: Data[] = useMemo(() => {
-    if (effectiveMode === 'histology') {
-      return [
-        {
-          x: [],
-          y: [],
-          mode: 'markers' as const,
-          type: 'scattergl' as const,
-          hoverinfo: 'skip',
-          marker: { opacity: 0 },
-          showlegend: false,
-        },
-      ];
-    }
-
-    if (!result || !result.spots || !result.domains) {
+    if (!result || !result.spots) {
       return [];
     }
 
-    if (result.spots.length === 0 || result.domains.length === 0) {
+    if (result.spots.length === 0) {
       return [];
     }
 
@@ -134,6 +120,30 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
 
     const opacityValue = effectiveMode === 'overlay' ? overlayOpacity : 0.85;
 
+    if (effectiveMode === 'histology') {
+      // Keep histology mode on the same coordinate system as spots/overlay.
+      const transformedSpots = result.spots.map((spot) => transformCoords(spot.x, spot.y));
+
+      return [
+        {
+          x: transformedSpots.map((spot) => spot.x),
+          y: transformedSpots.map((spot) => spot.y),
+          mode: 'markers' as const,
+          type: 'scattergl' as const,
+          hoverinfo: 'skip',
+          marker: {
+            opacity: 0,
+            size: compact ? 4 : 6,
+          },
+          showlegend: false,
+        },
+      ];
+    }
+
+    if (!result.domains || result.domains.length === 0) {
+      return [];
+    }
+
     const data = result.domains.map((domain) => {
       const spotsForDomain = result.spots.filter((spot) => spot.domain === domain.domain_id);
 
@@ -157,7 +167,6 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
 
   const layout: Partial<Layout> = useMemo(() => {
     const hasImage = showImage && histologySize && loadedHistologyUrl;
-    const yRange = hasImage ? [histologySize?.height ?? 0, 0] : undefined;
 
     return {
       autosize: true,
@@ -178,7 +187,6 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         gridcolor: '#E2E8F0',
         zeroline: false,
         tickfont: { size: compact ? 10 : 12 },
-        range: hasImage ? [0, histologySize?.width ?? 0] : undefined,
       },
       yaxis: {
         title: { text: 'Y Coordinate' },
@@ -188,8 +196,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         scaleanchor: 'x',
         scaleratio: 1,
         tickfont: { size: compact ? 10 : 12 },
-        autorange: hasImage ? false : 'reversed',
-        range: yRange,
+        autorange: 'reversed',
       },
       images: hasImage
         ? [
