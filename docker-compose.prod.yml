@@ -19,11 +19,18 @@ services:
     networks:
       - backend
 
+  chown-fix:
+    image: alpine:latest
+    user: "0:0"
+    command: >
+      sh -c "chown -R 1000:1000 /app/experiments /app/uploads &&
+             echo 'Permissions fixed for experiments and uploads'"
+    volumes:
+      - ${HOST_EXPERIMENTS_ROOT}:/app/experiments
+      - ${HOST_UPLOADS_ROOT}:/app/uploads
+    restart: "no"    
+
   api:
-    build:
-      context: ./backend
-      args:
-        DOCKER_GID: ${DOCKER_GID}
     container_name: st_project_api
     image: tawhidmm/st_project:api-latest
     restart: unless-stopped
@@ -33,17 +40,13 @@ services:
     env_file:
       - .env
     volumes:
-      - ./backend/experiments:/app/experiments
-      - ./backend/uploads:/app/uploads
+      - ${HOST_EXPERIMENTS_ROOT}:/app/experiments
+      - ${HOST_UPLOADS_ROOT}:/app/uploads
     networks:
       - backend
       - frontend
 
   worker:
-    build:
-      context: ./backend
-      args:
-        DOCKER_GID: ${DOCKER_GID}
     container_name: st_project_worker
     image: tawhidmm/st_project:worker-latest
     command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=1
@@ -57,13 +60,12 @@ services:
       - "${DOCKER_GID}"  
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./backend/experiments:/app/experiments
-      - ./backend/uploads:/app/uploads
+      - ${HOST_EXPERIMENTS_ROOT}:/app/experiments
+      - ${HOST_UPLOADS_ROOT}:/app/uploads
     networks:
       - backend
 
   frontend:
-    build: ./frontend
     image: tawhidmm/st_project:frontend-latest
     container_name: st_project_frontend
     restart: unless-stopped
