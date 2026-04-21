@@ -465,6 +465,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const startNewExperiment = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('experiment-builder-state-v1');
+    }
+    setParameterDrafts({});
+    setSelectedDatasetIds([]);
+    setFocusDatasetId(null);
+    setDatasetAnnotationMap({});
     setWorkspaceMode('builder');
     setActiveExperimentId(null);
   }, []);
