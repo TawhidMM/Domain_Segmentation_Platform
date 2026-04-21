@@ -2,9 +2,8 @@ fastapi
 uvicorn
 python-multipart
 pydantic
-
-sqlalchemy
-uliweb-alembic
+sqlalchemy>=2.0.0
+alembic>=1.13.0
 python-dotenv
 pyyaml
 scikit-learn
