@@ -1,26 +1,39 @@
 #!/bin/bash
 
-echo "--- 1. Pulling Research Tools Sequentially ---"
+# Terminate immediately if any command fails
+set -e
 
-# This runs the python script and captures the output into a variable
+# Optional: Print a message if the script exits on an error
+trap 'echo "!!! DEPLOYMENT FAILED at Step $CURRENT_STEP !!!"; exit 1' ERR
+
+CURRENT_STEP="1: Pulling Research Tools"
+echo "--- $CURRENT_STEP ---"
 TOOL_IMAGES=$(python3 get_tool_images.py)
-
 for IMG in $TOOL_IMAGES; do
     echo "Processing: $IMG"
-
     docker pull "$IMG"
-
     echo "Done with $IMG"
     echo "------------------------------------------"
 done
 
-echo "--- 2. Pulling App Infrastructure (FE/BE) ---"
+CURRENT_STEP="2: Pulling App Infrastructure"
+echo "--- $CURRENT_STEP ---"
 docker compose -f docker-compose.prod.yml pull
 
-echo "--- 3. Restarting Services ---"
+CURRENT_STEP="3: Restarting Services"
+echo "--- $CURRENT_STEP ---"
 docker compose -f docker-compose.prod.yml up -d
 
-echo "--- 4. Cleanup ---"
+CURRENT_STEP="4: Database Migrations"
+echo "--- $CURRENT_STEP ---"
+echo "Waiting 5s for Postgres to initialize..."
+sleep 5
+docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
+
+CURRENT_STEP="5: Cleanup"
+echo "--- $CURRENT_STEP ---"
 docker image prune -f
 
-echo "Deployment Successful."
+echo "**************************"
+echo "  DEPLOYMENT SUCCESSFUL   "
+echo "**************************"
