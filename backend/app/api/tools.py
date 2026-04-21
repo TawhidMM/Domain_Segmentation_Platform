@@ -10,12 +10,12 @@ from app.tools.manifests.staig import STAIG_MANIFESTS
 router = APIRouter()
 
 STAIG_UI_SCHEMA = generate_frontend_schema(STAIG_MANIFESTS)
-SCRIBBLEDOM_UI_SCHEMA = generate_frontend_schema(SCRIBBLEDOM_MANIFEST)
+# SCRIBBLEDOM_UI_SCHEMA = generate_frontend_schema(SCRIBBLEDOM_MANIFEST)
 DEEPST_UI_SCHEMA = generate_frontend_schema(DEEPST_MANIFEST)
 
 # Tool registry - add more tools here as they become available
 TOOL_SCHEMAS = {
-    SCRIBBLEDOM_UI_SCHEMA["tool_id"]: SCRIBBLEDOM_UI_SCHEMA,
+    # SCRIBBLEDOM_UI_SCHEMA["tool_id"]: SCRIBBLEDOM_UI_SCHEMA,
     STAIG_UI_SCHEMA["tool_id"]: STAIG_UI_SCHEMA,
     DEEPST_UI_SCHEMA["tool_id"]: DEEPST_UI_SCHEMA,
 }
