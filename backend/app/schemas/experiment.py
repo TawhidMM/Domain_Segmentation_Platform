@@ -35,6 +35,7 @@ class RunStatusResponse(BaseModel):
 
 class DatasetWithRunsResponse(BaseModel):
     dataset_id: str
+    dataset_name: str
     runs: List[RunStatusResponse]
 
     class Config:

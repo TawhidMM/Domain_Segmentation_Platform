@@ -11,3 +11,4 @@ uploads/
 !requirements.txt
 use_cases.txt
 promts.txt
+docker-compose.yml

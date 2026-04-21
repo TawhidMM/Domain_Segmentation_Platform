@@ -269,14 +269,22 @@ def build_nested_experiment_response(
                 "started_at": run.started_at,
                 "finished_at": run.finished_at
             })
+
+    dataset_ids = list(runs_by_dataset.keys())
+    dataset_entities = dataset_repository.get_datasets_by_ids(db, dataset_ids)
+    dataset_name_map = {
+        dataset.dataset_id: dataset.dataset_name
+        for dataset in dataset_entities
+    }
     
     # Build datasets list
     datasets = [
         {
             "dataset_id": dataset_id,
+            "dataset_name": dataset_name_map.get(dataset_id, f"dataset-{index + 1}"),
             "runs": runs
         }
-        for dataset_id, runs in runs_by_dataset.items()
+        for index, (dataset_id, runs) in enumerate(runs_by_dataset.items())
     ]
     
     return {
