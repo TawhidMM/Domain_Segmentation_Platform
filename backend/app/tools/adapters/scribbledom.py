@@ -42,7 +42,8 @@ class ScribbleDomAdapter(ToolAdapter):
         resolved_params = resolve_config(manifest=SCRIBBLEDOM_MANIFEST, user_input=self.run_context.params)
         resolved_params["seed"] = self.run_context.seed
 
-        dataset_dir = self.run_context.dataset_path
+        experiment_root = self.run_context.workspace_root
+        relative_dataset_dir = self.run_context.dataset_path.relative_to(experiment_root)
        
         system_config = {
             "preprocessed_data_folder": self.PREPROCESSED_DATA_FOLDER,
@@ -50,7 +51,7 @@ class ScribbleDomAdapter(ToolAdapter):
             "model_output_folder": self.MODEL_OUTPUT_FOLDER,
             "final_output_folder": self.FINAL_OUTPUT_FOLDER,
 
-            "space_ranger_output_directory": dataset_dir.name,
+            "space_ranger_output_directory": str(relative_dataset_dir),
             "dataset": self.DATASET,
             "samples": [self.SAMPLE]
         }
@@ -80,7 +81,7 @@ class ScribbleDomAdapter(ToolAdapter):
         dst = target_dir / expected_name
 
         for f in target_dir.iterdir():
-            if f.name.lower().endswith("_filtered_feature_bc_matrix.h5"):
+            if f.name.lower().endswith("matrix.h5"):
                 if f.name != expected_name:
                     if dst.exists():
                         dst.unlink()

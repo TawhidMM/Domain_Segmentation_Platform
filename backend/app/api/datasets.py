@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -37,6 +39,7 @@ async def upload(
 @router.post("/finalize-upload")
 def finalize(
     upload_id: str = Form(...),
+    dataset_name: Optional[str] = Form(default=None),
     db: Session = Depends(get_db)
 ):
 
@@ -45,7 +48,8 @@ def finalize(
     dataset_id = create_dataset(
         db=db,
         upload_id=upload_id,
-        zip_path=zip_path
+        zip_path=zip_path,
+        dataset_name=dataset_name,
     )
 
     extraction_path = settings.UPLOAD_ROOT / f"upload_{upload_id}" / "extracted"
