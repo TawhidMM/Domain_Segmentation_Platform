@@ -107,10 +107,10 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
   const statusInfo = getStatusInfo();
 
   const handleRefreshResult = async () => {
-    if (!experiment.jobId) return;
-    setIsRefreshing(true);
-    await refreshExperimentResult(experiment.id);
-    setIsRefreshing(false);
+    // if (!experiment.jobId) return;
+    // setIsRefreshing(true);
+    // await refreshExperimentResult(experiment.id);
+    // setIsRefreshing(false);
   };
 
   const handleRotate = () => {

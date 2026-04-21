@@ -68,7 +68,7 @@ chmod +x deploy.sh
 5. **Auto-Cleanup:** Prunes orphaned image layers to reclaim disk space.
 
 
-## **4. Download the Sample Data:**
+## 📂 **Step 4: Download the Sample Data**
 
 You can sample datasets here: [Dataset Repository (Google Drive)](https://drive.google.com/drive/folders/1IaYbdZvMc5U3lj3VizW8VT623gDtGZRO?usp=sharing)
 
@@ -77,6 +77,26 @@ You can sample datasets here: [Dataset Repository (Google Drive)](https://drive.
 - Use these zip files as direct input to the tool execution interface.
 
 ---
+
+## 📺 Step 5: Tutorials & Usage
+
+These videos walk through the interface, dataset uploading, and how to interpret the domain identification results.
+
+**Watch the Tutorial Series:**
+[Spatial Transcriptomics Webserver - YouTube Playlist](https://www.youtube.com/playlist?list=PLA_NksohuCtNzN6l_ZiJuAr2sjdAbjhFE)
+
+---
+
+## 🌐 Step 6: Accessing the Platform
+
+Once the deployment script confirms "SUCCESSFUL," the web server will be live.
+
+**1. URL to Access:**
+- **Local Deployment:** [http://localhost](http://localhost)
+- **Remote Server:** `http://your-server-ip-address`
+
+**2. Port Configuration:**
+The platform uses standard HTTP (**Port 80**). Ensure your server's firewall (e.g., UFW or AWS Security Groups) has Port 80 open to inbound traffic.
 
 
 ## Project Structure
