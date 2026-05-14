@@ -126,6 +126,7 @@ const AnnotationPage: React.FC = () => {
         }
 
         annotationBuffer.set(nextBuffer);
+        setDatasetAnnotation(datasetId, annotationId);
         requestRenderUpdate();
 
         const nextLabels = Array.from(nextLabelsMap.values()).sort((a, b) => a.id - b.id);

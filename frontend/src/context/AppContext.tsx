@@ -40,6 +40,7 @@ interface AppContextType {
   // Experiment actions
   createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number, datasetIds?: string[], requirements?: ToolRequirements) => void;
   setActiveExperiment: (id: string | null) => void;
+  removeExperiment: (id: string) => void;
   submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
   refreshExperimentResult: (experimentId: string) => Promise<void>;
   toggleComparisonExperiment: (id: string) => void;
@@ -322,6 +323,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
+  const removeExperiment = useCallback((id: string) => {
+    setExperiments((prev) => {
+      const nextExperiments = prev.filter((experiment) => experiment.id !== id);
+      setActiveExperimentId((currentActiveId) => (
+        currentActiveId === id ? nextExperiments[0]?.id ?? null : currentActiveId
+      ));
+      return nextExperiments;
+    });
+    setComparisonExperimentIds((prev) => prev.filter((experimentId) => experimentId !== id));
+  }, []);
+
   const submitExperiments = useCallback(async (email: string): Promise<JobRedirectInfo | null> => {
     if (successfulDatasets.length === 0) {
       console.error('No datasets available. Please upload datasets first.');
@@ -355,6 +367,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const datasetConfigs = datasetIds.map((datasetId) => ({
           dataset_id: datasetId,
           params: parameterDrafts[datasetId] ?? exp.parameters,
+          annotation_id: datasetAnnotationMap[datasetId] ?? undefined,
         }));
 
         const response = await axios.post('/experiments/submit', {
@@ -401,7 +414,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     return firstJobRedirect;
-  }, [experiments, successfulDatasets, parameterDrafts]);
+  }, [datasetAnnotationMap, experiments, successfulDatasets, parameterDrafts]);
 
   const refreshExperimentResult = useCallback(
     async (experimentId: string) => {
@@ -546,6 +559,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         uploadTissueImage,
         createExperiment,
         setActiveExperiment,
+        removeExperiment,
         submitExperiments,
         refreshExperimentResult,
         toggleComparisonExperiment,

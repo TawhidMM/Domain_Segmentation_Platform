@@ -1,8 +1,9 @@
 from app.core.celery import celery_app
 from app.core.database import SessionLocal
-from app.repositories import dataset_repository, run_repository
+from app.repositories import dataset_repository
+from app.repositories import run_repository
 from app.services.run_service import mark_failed, mark_running, build_run_context, mark_finished
-from app.services.tool_executor import run_tool
+from app.services.tool_executor import ToolExecutor
 
 
 @celery_app.task(
@@ -15,16 +16,15 @@ def run_task(
     self,
     run_id: str
 ):
+    if not run_id:
+        return
 
     db = SessionLocal()
-    run = None
-
     try:
         run = run_repository.get_run_by_id(db, run_id)
         if not run:
             return
 
-        # Get dataset_id and params from run_config
         dataset_id = run.run_config.dataset_id
         dataset = dataset_repository.get_dataset_by_id(db, dataset_id)
         if not dataset:
@@ -34,7 +34,8 @@ def run_task(
         mark_running(db, run)
 
         run_context = build_run_context(db, run)
-        run_tool(run_context)
+        tool_executor = ToolExecutor(run_context)
+        tool_executor.execute()
 
         mark_finished(db, run)
 

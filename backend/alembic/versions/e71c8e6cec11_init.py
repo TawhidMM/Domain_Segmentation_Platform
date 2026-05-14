@@ -1,8 +1,8 @@
 """init
 
-Revision ID: 8e4bba445e43
+Revision ID: e71c8e6cec11
 Revises: 
-Create Date: 2026-04-21 11:21:04.936019
+Create Date: 2026-05-21 06:33:31.966305
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8e4bba445e43'
+revision: str = 'e71c8e6cec11'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,7 +25,6 @@ def upgrade() -> None:
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('dataset_id', sa.String(), nullable=False),
     sa.Column('file_path', sa.Text(), nullable=False),
-    sa.Column('source', sa.String(), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), nullable=False),
     sa.Column('updated_at', sa.TIMESTAMP(), nullable=False),
     sa.PrimaryKeyConstraint('id')
@@ -53,7 +52,9 @@ def upgrade() -> None:
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('experiment_id', sa.String(), nullable=False),
     sa.Column('dataset_id', sa.String(), nullable=False),
+    sa.Column('annotation_id', sa.String(), nullable=True),
     sa.Column('params_json', sa.JSON(), nullable=False),
+    sa.ForeignKeyConstraint(['annotation_id'], ['annotations.id'], ),
     sa.ForeignKeyConstraint(['dataset_id'], ['datasets.dataset_id'], ),
     sa.ForeignKeyConstraint(['experiment_id'], ['experiments.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')

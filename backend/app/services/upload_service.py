@@ -13,7 +13,7 @@ def init_upload(total_chunks: int):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     upload_id = f"{timestamp}_{uuid4().hex[:4]}"
 
-    path = settings.UPLOAD_ROOT / f"upload_{upload_id}" / UPLOAD_ZIP_FILENAME
+    path = settings.INTERNAL_UPLOAD_ROOT / f"upload_{upload_id}" / UPLOAD_ZIP_FILENAME
     _upload_sessions[upload_id] = {
         "path": path,
         "total": total_chunks,

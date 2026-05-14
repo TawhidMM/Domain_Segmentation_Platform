@@ -22,10 +22,12 @@ class RunConfig(Base):
         nullable=False,
     )
 
+    annotation_id = Column(String, ForeignKey("annotations.id"), nullable=True)
+
     params_json = Column(JSON, nullable=False)
 
     runs = relationship(
         "Run",
-        backref="run_config",
+        back_populates="run_config",
         cascade="all, delete-orphan",
     )

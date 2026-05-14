@@ -29,7 +29,7 @@ class ScribbleDomAdapter(ToolAdapter):
         target_dir.mkdir(parents=True, exist_ok=True)
 
         extract_zip(zip_dir, target_dir)
-        has_scribble = self._stage_manual_scribble(target_dir)
+        # has_scribble = self._stage_manual_scribble(target_dir)
 
         # if self.schema == "expert" and not has_scribble:
         #     raise RuntimeError(
@@ -39,42 +39,44 @@ class ScribbleDomAdapter(ToolAdapter):
         self._normalize_h5_filename(target_dir)
 
     def build_config(self):
-        resolved_params = resolve_config(manifest=SCRIBBLEDOM_MANIFEST, user_input=self.run_context.params)
-        resolved_params["seed"] = self.run_context.seed
+        # resolved_params = resolve_config(manifest=SCRIBBLEDOM_MANIFEST, user_input=self.run_context.params)
+        # resolved_params["seed"] = self.run_context.seed
+        #
+        # experiment_root = self.run_context.workspace_root
+        # relative_dataset_dir = self.run_context.dataset_path.relative_to(experiment_root)
+        #
+        # system_config = {
+        #     "preprocessed_data_folder": self.PREPROCESSED_DATA_FOLDER,
+        #     "matrix_represenation_of_ST_data_folder": self.MATRIX_REP_OF_ST_DATA_FOLDER,
+        #     "model_output_folder": self.MODEL_OUTPUT_FOLDER,
+        #     "final_output_folder": self.FINAL_OUTPUT_FOLDER,
+        #
+        #     "space_ranger_output_directory": str(relative_dataset_dir),
+        #     "dataset": self.DATASET,
+        #     "samples": [self.SAMPLE]
+        # }
+        #
+        # self.run_context.config_dir.mkdir(parents=True, exist_ok=True)
+        #
+        # config_path = self.run_context.config_dir / "config.json"
+        # with open(config_path, "w") as f:
+        #     json.dump({**resolved_params, **system_config}, f, indent=4)
 
-        experiment_root = self.run_context.workspace_root
-        relative_dataset_dir = self.run_context.dataset_path.relative_to(experiment_root)
-       
-        system_config = {
-            "preprocessed_data_folder": self.PREPROCESSED_DATA_FOLDER,
-            "matrix_represenation_of_ST_data_folder": self.MATRIX_REP_OF_ST_DATA_FOLDER,
-            "model_output_folder": self.MODEL_OUTPUT_FOLDER,
-            "final_output_folder": self.FINAL_OUTPUT_FOLDER,
-
-            "space_ranger_output_directory": str(relative_dataset_dir),
-            "dataset": self.DATASET,
-            "samples": [self.SAMPLE]
-        }
-
-        self.run_context.config_dir.mkdir(parents=True, exist_ok=True)
-
-        config_path = self.run_context.config_dir / "config.json"
-        with open(config_path, "w") as f:
-            json.dump({**resolved_params, **system_config}, f, indent=4)
+        pass
 
 
-    def _stage_manual_scribble(self, target_dir: Path):
-        staged_dir = self.run_context.run_root / "staged_inputs"
-        staged_dir.mkdir(parents=True, exist_ok=True)
-
-        for f in list(target_dir.iterdir()):
-            if f.suffix.lower().endswith(".csv"):
-                src = target_dir / f.name
-                dst = staged_dir / "manual_scribble.csv"
-                shutil.move(src, dst)
-                return True
-
-        return False
+    # def _stage_manual_scribble(self, target_dir: Path):
+    #     staged_dir = self.run_context.run_root / "staged_inputs"
+    #     staged_dir.mkdir(parents=True, exist_ok=True)
+    #
+    #     for f in list(target_dir.iterdir()):
+    #         if f.suffix.lower().endswith(".csv"):
+    #             src = target_dir / f.name
+    #             dst = staged_dir / "manual_scribble.csv"
+    #             shutil.move(src, dst)
+    #             return True
+    #
+    #     return False
 
     def _normalize_h5_filename(self, target_dir: Path):
         expected_name = f"{self.SAMPLE}_filtered_feature_bc_matrix.h5"

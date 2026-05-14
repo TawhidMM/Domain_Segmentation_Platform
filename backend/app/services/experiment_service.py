@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -57,14 +57,21 @@ def _create_run_config_entity(
     run_config_id: str,
     experiment_id: str,
     dataset_id: str,
-    params_dict: dict
+    params_dict: dict,
+    annotation_id: Optional[str] = None,
 ) -> RunConfig:
     """Create a RunConfig that stores dataset-specific params."""
+    run_config_kwargs = {
+        "id": run_config_id,
+        "experiment_id": experiment_id,
+        "dataset_id": dataset_id,
+        "params_json": params_dict,
+    }
+    if annotation_id is not None:
+        run_config_kwargs["annotation_id"] = annotation_id
+
     return RunConfig(
-        id=run_config_id,
-        experiment_id=experiment_id,
-        dataset_id=dataset_id,
-        params_json=params_dict
+        **run_config_kwargs
     )
 
 
@@ -84,8 +91,6 @@ def _create_experiment_entity(
         completed_runs=0,
         status=ExperimentStatus.QUEUED,
         access_token_hash=token_hash,
-        started_at=None,
-        finished_at=None
     )
 
 
@@ -103,8 +108,6 @@ def _create_run_entity(
         status=ExperimentStatus.QUEUED,
         output_path=output_path,
         metrics_json=None,
-        started_at=None,
-        finished_at=None
     )
 
 
@@ -120,18 +123,19 @@ def _create_run_folders(
 
 def _prepare_run_configs(
     experiment_id: str,
-    dataset_param_map: Dict[str, dict],
+    dataset_configs: List[DatasetConfigRequest],
 ) -> List[RunConfig]:
-    """Create one RunConfig entity per dataset."""
+    """Create one RunConfig entity per dataset config item."""
     run_configs = []
 
-    for dataset_id, params_dict in dataset_param_map.items():
+    for config in dataset_configs:
         run_config_id = str(uuid.uuid4())
         run_config = _create_run_config_entity(
             run_config_id=run_config_id,
             experiment_id=experiment_id,
-            dataset_id=dataset_id,
-            params_dict=params_dict
+            dataset_id=config.dataset_id,
+            params_dict=config.params,
+            annotation_id=config.annotation_id,
         )
         run_configs.append(run_config)
 
@@ -179,20 +183,11 @@ def create_experiment_record(
     if not dataset_param_configs:
         raise HTTPException(status_code=400, detail="At least one dataset config is required")
 
-    dataset_param_map: Dict[str, dict] = {}
-    for item in dataset_param_configs:
-        dataset_id = item.dataset_id
-        params_dict = item.params
-        if not dataset_id:
-            raise HTTPException(status_code=400, detail="dataset_id cannot be empty")
-        dataset_param_map[dataset_id] = params_dict
-
-    unique_dataset_ids = list(dataset_param_map.keys())
-    for dataset_id in unique_dataset_ids:
-        require_dataset(db, dataset_id)
+    for dataset_config in dataset_param_configs:
+        require_dataset(db, dataset_config.dataset_id)
 
     validated_seeds = _validate_and_prepare_seeds(number_of_runs, seed_list)
-    total_runs = len(unique_dataset_ids) * number_of_runs
+    total_runs = len(dataset_param_configs) * number_of_runs
 
     experiment_id = str(uuid.uuid4())
     access_token, token_hash = generate_token_pair()
@@ -213,7 +208,7 @@ def create_experiment_record(
     # Prepare entries in separate steps.
     run_configs = _prepare_run_configs(
         experiment_id=experiment_id,
-        dataset_param_map=dataset_param_map,
+        dataset_configs=dataset_param_configs,
     )
 
     run_config_repository.create_run_configs_batch(db, run_configs)

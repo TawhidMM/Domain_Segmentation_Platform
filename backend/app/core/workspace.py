@@ -14,32 +14,36 @@ class ExperimentWorkspace:
 
     def __init__(self, experiment_id: str):
         self._experiment_id = experiment_id
-        self._root: Path = settings.EXPERIMENTS_ROOT / experiment_id
+        self._root: Path = settings.INTERNAL_EXPERIMENTS_ROOT / experiment_id
 
     @property
     def workspace_root(self) -> Path:
         return self._root
 
-    @property
-    def datasets_root(self) -> Path:
-        return self._root / self._DATASETS_DIR
-
-    @property
-    def runs_root(self) -> Path:
-        return self._root / self._RUNS_DIR
-
-    @property
-    def artifacts_root(self) -> Path:
-        return self._root / self._ARTIFACTS_DIR
-
-    def dataset_dir(self, dataset_id: str) -> Path:
-        return self.datasets_root / dataset_id
-
     def run_root(self, run_id: str) -> Path:
-        return self.runs_root / run_id
+        return self._root / self._RUNS_DIR / run_id
 
     def consensus_file(self, dataset_id: str) -> Path:
-        return self.artifacts_root / dataset_id / "consensus" / self._CONSENSUS_FILE
+        return self._root / self._ARTIFACTS_DIR / dataset_id / "consensus" / self._CONSENSUS_FILE
+
+
+class DatasetSpace:
+
+    _EXTRACTED_DIR: str = "extracted"
+    _ANNOTATIONS_DIR: str = "annotations"
+
+    def __init__(self, dataset_id: str):
+        self._dataset_id = dataset_id
+        self._root: Path = settings.INTERNAL_UPLOAD_ROOT / f"upload_{dataset_id}"
+
+    @property
+    def dataset_path(self) -> Path:
+        return self._root / self._EXTRACTED_DIR
+
+    def annotation_file(self, annotation_id: str) -> Path:
+        return self._root / self._ANNOTATIONS_DIR / f"{annotation_id}.json"
+
+
 
 
 class RunWorkspace:
@@ -85,30 +89,21 @@ class RunContext:
     experiment_id: str
     run_id: str
     dataset_id: str
+    annotation_id: Optional[str]
 
     experiment_workspace: ExperimentWorkspace
     run_workspace: RunWorkspace
+    dataset_space: DatasetSpace
 
 
-    tool_name: Optional[str] = None
+    tool_name: str
     params: Dict[str, Any] = field(default_factory=dict)
     seed: Optional[int] = None
 
-    @property
-    def workspace_root(self) -> Path:
-        return self.experiment_workspace.workspace_root
-
-    @property
-    def dataset_root(self) -> Path:
-        return self.experiment_workspace.datasets_root
 
     @property
     def dataset_path(self) -> Path:
-        return self.experiment_workspace.dataset_dir(self.dataset_id)
-
-    @property
-    def run_root(self) -> Path:
-        return self.run_workspace.root
+        return self.dataset_space.dataset_path
 
     @property
     def output_dir(self) -> Path:
@@ -134,26 +129,55 @@ class RunContext:
     def embeddings_file(self) -> Path:
         return self.run_workspace.embeddings_file
 
+    @property
+    def annotations_file(self) -> Optional[Path]:
+        if self.annotation_id:
+            return self.dataset_space.annotation_file(self.annotation_id)
+        return None
+
+    @property
+    def absolute_workspace_path(self) -> Path:
+        relative_workspace_path = self.experiment_workspace.run_root(self.run_id).relative_to(settings.INTERNAL_EXPERIMENTS_ROOT)
+        return settings.HOST_EXPERIMENTS_ROOT / relative_workspace_path
+
+    @property
+    def absolute_dataset_path(self) -> Path:
+        relative_data_path = self.dataset_path.relative_to(settings.INTERNAL_UPLOAD_ROOT)
+        return settings.HOST_UPLOADS_ROOT / relative_data_path
+
+    @property
+    def absolute_annotation_file_path(self) -> Optional[Path]:
+        if self.annotations_file is None:
+            return None
+
+        relative_annotation_file_path = self.annotations_file.relative_to(settings.INTERNAL_UPLOAD_ROOT)
+        return settings.HOST_UPLOADS_ROOT / relative_annotation_file_path
+
+
     @classmethod
     def create(
         cls,
         experiment_id: str,
         run_id: str,
         dataset_id: str,
-        tool_name: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
+        tool_name: str,
+        params: Dict[str, Any],
+        annotation_id: Optional[str] = None,
         seed: Optional[int] = None
     ) -> "RunContext":
 
-        exp_ws = ExperimentWorkspace(experiment_id)
-        run_ws = RunWorkspace(exp_ws.run_root(run_id))
+        experiment_workspace = ExperimentWorkspace(experiment_id)
+        run_workspace = RunWorkspace(experiment_workspace.run_root(run_id))
+        dataset_space = DatasetSpace(dataset_id)
 
         return cls(
             experiment_id=experiment_id,
             run_id=run_id,
             dataset_id=dataset_id,
-            experiment_workspace=exp_ws,
-            run_workspace=run_ws,
+            annotation_id=annotation_id,
+            experiment_workspace=experiment_workspace,
+            run_workspace=run_workspace,
+            dataset_space=dataset_space,
             tool_name=tool_name,
             params=params,
             seed=seed

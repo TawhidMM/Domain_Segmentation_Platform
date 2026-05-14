@@ -12,8 +12,9 @@ class DataSetRequest(BaseModel):
     dataset_id: str
 
 class DatasetConfigRequest(BaseModel):
-    dataset_id: str
-    params: Dict[str, Any]
+    dataset_id: str = Field(min_length=1)
+    params: Dict[str, Any] = Field(min_length=1)
+    annotation_id: Optional[str] = None
 
 
 class ExperimentSubmitRequest(BaseModel):
