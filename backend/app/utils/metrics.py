@@ -8,6 +8,35 @@ from sklearn.metrics import davies_bouldin_score
 from sklearn.metrics import calinski_harabasz_score
 
 
+
+
+
+
+def get_segmentation_metrics(
+    predictions_path: Path,
+    coords_path: Path,
+    embeddings_path: Path
+) -> dict:
+    """Compute segmentation metrics from predictions and spatial data."""
+    labels, embeddings, coords = load_and_align(
+        predictions_path,
+        embeddings_path,
+        coords_path
+    )
+
+    W = spatial_weights(coords, k=6)
+
+    metrics = {
+        "silhouette": compute_silhouette(embeddings, labels),
+        "davies_bouldin": compute_davies_bouldin(embeddings, labels),
+        "calinski_harabasz": compute_calinski_harabasz(embeddings, labels),
+        "morans_I": morans_I(labels, W),
+        "gearys_C": gearys_C(labels, W)
+    }
+
+    return metrics
+
+
 def min_max_normalize(values: list[float]) -> list[float]:
     if not values:
         return []
@@ -42,9 +71,9 @@ def load_and_align(
     coord = coord.loc[common]
 
     # Labels
-    if "domain" not in pred.columns:
-        raise ValueError("Column 'domain' missing in prediction file")
-    labels = pred["domain"].to_numpy()
+    if len(pred.columns) < 1:
+        raise ValueError("Prediction file has no columns to extract labels from")
+    labels = pred.iloc[:, -1].to_numpy()
 
     # Embeddings: all numeric columns in emb
     emb_num = emb.select_dtypes(include=np.number)

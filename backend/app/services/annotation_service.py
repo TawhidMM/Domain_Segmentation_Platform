@@ -28,7 +28,7 @@ def ensure_dataset_exists(
 def build_annotation_directory(
     dataset_id: str
 ) -> Path:
-    return settings.UPLOAD_ROOT / f"upload_{dataset_id}" / "annotations"
+    return settings.INTERNAL_UPLOAD_ROOT / f"upload_{dataset_id}" / "annotations"
 
 
 def build_annotation_path(
@@ -64,7 +64,6 @@ def create_annotation(
         id=annotation_id,
         dataset_id=dataset_id,
         file_path=str(file_path),
-        source="manual",
     )
     return create_annotation_record(db, annotation)
 

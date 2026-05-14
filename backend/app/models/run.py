@@ -1,14 +1,11 @@
 from sqlalchemy import Column, String, ForeignKey, Integer, JSON, DateTime, Enum as SAEnum
+from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 from app.models.experiment import ExperimentStatus
 
 
 class Run(Base):
-    """
-    Simple execution pointer: only stores seed and results.
-    Dataset and params are resolved through RunConfig.
-    """
     __tablename__ = "runs"
 
     id = Column(String, primary_key=True)
@@ -18,6 +15,8 @@ class Run(Base):
         ForeignKey("run_configs.id", ondelete="CASCADE"),
         nullable=False
     )
+
+    run_config = relationship("RunConfig", back_populates="runs")
 
     seed = Column(Integer, nullable=False)
 

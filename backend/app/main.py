@@ -15,10 +15,11 @@ from app.core.startup import create_directories
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_directories()
+    # create_directories()
 
     yield
 
+create_directories()
 
 app = FastAPI(
     title="Spatial Transcriptomics Backend",
@@ -35,8 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static/experiments", StaticFiles(directory=str(settings.EXPERIMENTS_ROOT)), name="static")
-app.mount("/static/datasets", StaticFiles(directory=str(settings.UPLOAD_ROOT)), name="datasets")
+app.mount("/static/datasets", StaticFiles(directory=str(settings.INTERNAL_UPLOAD_ROOT)), name="datasets")
 
 
 app.include_router(

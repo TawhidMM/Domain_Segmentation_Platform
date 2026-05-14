@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,16 +22,18 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
 
     HOST_EXPERIMENTS_ROOT: str
+    HOST_UPLOADS_ROOT: str
 
-    # Paths (computed after initialization)
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
-    EXPERIMENTS_ROOT: Optional[Path] = None
-    UPLOAD_ROOT: Optional[Path] = None
+    # Internal directories
+    _BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
+    _EXPERIMENTS_DIR_NAME: ClassVar[str] = "experiments"
+    _UPLOADS_DIR_NAME: ClassVar[str] = "uploads"
 
-    # Constants
+    # Container paths
     CONTAINER_WORKSPACE_PATH: ClassVar[Path] = Path("/workspace")
-    EXPERIMENT_DIR: ClassVar[str] = "experiments"
-    UPLOAD_DIR: ClassVar[str] = "uploads"
+    CONTAINER_DATASET_PATH: ClassVar[Path] = Path("/input")
+    CONTAINER_ANNOTATION_PATH: ClassVar[Path] = Path("/annotation/annotations.json")
+
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent.parent / ".env",
@@ -41,12 +43,13 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
     )
 
-    def model_post_init(self, __context) -> None:
+    @property
+    def INTERNAL_EXPERIMENTS_ROOT(self) -> Path:
+        return self._BASE_DIR / self._EXPERIMENTS_DIR_NAME
 
-        if self.EXPERIMENTS_ROOT is None:
-            self.EXPERIMENTS_ROOT = self.BASE_DIR / self.EXPERIMENT_DIR
-        if self.UPLOAD_ROOT is None:
-            self.UPLOAD_ROOT = self.BASE_DIR / self.UPLOAD_DIR
+    @property
+    def INTERNAL_UPLOAD_ROOT(self) -> Path:
+        return self._BASE_DIR / self._UPLOADS_DIR_NAME
 
     @computed_field
     @property

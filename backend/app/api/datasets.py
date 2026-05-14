@@ -52,7 +52,7 @@ def finalize(
         dataset_name=dataset_name,
     )
 
-    extraction_path = settings.UPLOAD_ROOT / f"upload_{upload_id}" / "extracted"
+    extraction_path = settings.INTERNAL_UPLOAD_ROOT / f"upload_{upload_id}" / "extracted"
     extract_zip(zip_path=zip_path, target_dir=extraction_path)
 
     return {"dataset_id": dataset_id}

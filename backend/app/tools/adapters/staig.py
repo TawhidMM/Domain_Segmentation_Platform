@@ -24,21 +24,23 @@ class StaigAdapter(ToolAdapter):
         extract_zip(zip_dir, target_dir)
 
     def build_config(self):
-        resolved_params = resolve_config(STAIG_MANIFESTS, self.run_context.params)
+        # resolved_params = resolve_config(STAIG_MANIFESTS, self.run_context.params)
+        #
+        # experiment_root = self.run_context.workspace_root
+        # relative_output_dir = self.run_context.output_dir.relative_to(experiment_root)
+        # relative_dataset_dir = self.run_context.dataset_path.relative_to(experiment_root)
+        #
+        # resolved_params["seed"] = self.run_context.seed
+        # resolved_params["input_path"] = str(relative_dataset_dir)
+        # resolved_params["output_path"] = str(relative_output_dir)
+        #
+        # self.run_context.config_dir.mkdir(parents=True, exist_ok=True)
+        #
+        # config_path = self.run_context.config_dir / "config.yml"
+        # with open(config_path, "w") as f:
+        #     yaml.safe_dump(resolved_params, f, sort_keys=False)
 
-        experiment_root = self.run_context.workspace_root
-        relative_output_dir = self.run_context.output_dir.relative_to(experiment_root)
-        relative_dataset_dir = self.run_context.dataset_path.relative_to(experiment_root)
-
-        resolved_params["seed"] = self.run_context.seed
-        resolved_params["input_path"] = str(relative_dataset_dir)
-        resolved_params["output_path"] = str(relative_output_dir)
-
-        self.run_context.config_dir.mkdir(parents=True, exist_ok=True)
-
-        config_path = self.run_context.config_dir / "config.yml"
-        with open(config_path, "w") as f:
-            yaml.safe_dump(resolved_params, f, sort_keys=False)
+        pass
 
 
     def build_frontend_output(self) -> dict:

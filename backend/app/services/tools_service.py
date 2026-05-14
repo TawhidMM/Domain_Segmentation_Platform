@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from copy import deepcopy
 
 
 def generate_frontend_schema(tool_definition: dict) -> dict:
@@ -44,9 +45,6 @@ def apply_global_defaults(
             config[param_name] = deepcopy(meta["default"])
 
     return config
-
-
-from copy import deepcopy
 
 
 def apply_profile_overrides(

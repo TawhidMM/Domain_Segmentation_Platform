@@ -71,7 +71,7 @@ def build_spatial_data_response_from_dataset(
     visium_dataset = VisiumDataset()
 
 
-    dataset_dir = settings.UPLOAD_ROOT / f"upload_{dataset_id}" / "extracted"
+    dataset_dir = settings.INTERNAL_UPLOAD_ROOT / f"upload_{dataset_id}" / "extracted"
 
     print(dataset_dir)
 
@@ -132,7 +132,7 @@ def _build_static_image_url(
     image_path: Path
 ) -> str:
     try:
-        relative_path = image_path.relative_to(settings.UPLOAD_ROOT)
+        relative_path = image_path.relative_to(settings.INTERNAL_UPLOAD_ROOT)
     except ValueError as exc:
         raise HTTPException(
             status_code=500,

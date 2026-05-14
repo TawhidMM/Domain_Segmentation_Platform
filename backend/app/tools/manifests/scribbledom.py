@@ -102,7 +102,15 @@ SCRIBBLEDOM_MANIFEST = {
     "profiles": {
         "default": {
             "overrides": {},
-            "internal_params": {},
+            "internal_params": {
+                "preprocessed_data_folder": "processed_data",
+                "matrix_represenation_of_ST_data_folder": "matrix_representation",
+                "model_output_folder": "model_outputs",
+                "final_output_folder": "final_outputs",
+                "dataset": "dataset_001",
+                "samples": ["sample_001"],
+                "space_ranger_output_directory": "space_ranger_directory",
+            },
         },
     },
 }
