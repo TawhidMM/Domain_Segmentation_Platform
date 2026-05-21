@@ -130,8 +130,8 @@ def get_metrics_json(
 
 
 def mark_running(
-        db: Session,
-        run: Run
+    db: Session,
+    run: Run
 ) -> Run:
     return _update_run_status(
         db,
@@ -142,8 +142,8 @@ def mark_running(
 
 
 def mark_finished(
-        db: Session,
-        run: Run
+    db: Session,
+    run: Run
 ) -> Run:
     return _update_run_status(
         db,
@@ -154,8 +154,8 @@ def mark_finished(
 
 
 def mark_failed(
-        db: Session,
-        run: Run
+    db: Session,
+    run: Run
 ) -> Run:
     return _update_run_status(
         db,

@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     _EXPERIMENTS_DIR_NAME: ClassVar[str] = "experiments"
     _UPLOADS_DIR_NAME: ClassVar[str] = "uploads"
 
+    # ---- Standardized Target Filenames ----
+    DATASET_ZIP_FILENAME: ClassVar[str] = "dataset.zip"
+    IMPORT_ZIP_FILENAME: ClassVar[str] = "imported_results.zip"
+    PREDICTIONS_CSV: ClassVar[str] = "predictions.csv"
+    EMBEDDINGS_CSV: ClassVar[str] = "embeddings.csv"
+
     # Container paths
     CONTAINER_WORKSPACE_PATH: ClassVar[Path] = Path("/workspace")
     CONTAINER_DATASET_PATH: ClassVar[Path] = Path("/input")
@@ -50,6 +56,8 @@ class Settings(BaseSettings):
     @property
     def INTERNAL_UPLOAD_ROOT(self) -> Path:
         return self._BASE_DIR / self._UPLOADS_DIR_NAME
+
+
 
     @computed_field
     @property

@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any, List
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,8 @@ from app.schemas.experiment import (
     ExperimentRequest,
     ExperimentSubmitRequest,
     ExperimentSubmitResponse,
-    ExperimentStatusResponse
+    ExperimentStatusResponse,
+    ImportResultRequest
 )
 from app.services import comparison_service
 from app.services import experiment_service
@@ -30,6 +31,7 @@ from app.services import export_service
 from app.services import metrics_service
 from app.services import spatial_data_service
 from app.tasks.experiment_tasks import run_task
+from app.tasks.result_processing_task import process_imported_results
 
 router = APIRouter()
 
@@ -140,6 +142,31 @@ async def submit_experiment(
     runs = run_repository.get_runs_by_experiment(db, experiment_id)
     for run in runs:
         run_task.delay(run.id)
+
+    return ExperimentSubmitResponse(
+        experiment_id=experiment_id,
+        access_token=access_token,
+        status="queued"
+    )
+
+
+@router.post("/submit-imported", response_model=ExperimentSubmitResponse)
+async def submit_imported_experiment(
+    request: ImportResultRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    print("hitting api")
+    experiment_id, access_token, staging_data = experiment_service.create_imported_experiment_record(
+        db=db,
+        results=request.results,
+        tool_name=request.tool_name
+    )
+
+    background_tasks.add_task(
+        process_imported_results,
+        staging_data=staging_data
+    )
 
     return ExperimentSubmitResponse(
         experiment_id=experiment_id,

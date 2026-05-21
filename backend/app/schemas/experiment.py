@@ -23,6 +23,13 @@ class ExperimentSubmitRequest(BaseModel):
     number_of_runs: int = Field(default=1, ge=1)
     seed_list: Optional[List[int]] = None
 
+class ImportResultsDatasetRequest(BaseModel):
+    dataset_id: str
+    stage_id: str
+
+class ImportResultRequest(BaseModel):
+    results: List[ImportResultsDatasetRequest] = Field(min_length=1)
+    tool_name: str
 
 class RunStatusResponse(BaseModel):
     run_id: str

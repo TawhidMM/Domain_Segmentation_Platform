@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.storage_space import DatasetSpace
 from app.models.annotations import Annotation
 from app.repositories.annotation_repository import (
     create_annotation as create_annotation_record,
@@ -25,20 +26,6 @@ def ensure_dataset_exists(
         raise HTTPException(status_code=404, detail=f"Dataset '{dataset_id}' not found")
 
 
-def build_annotation_directory(
-    dataset_id: str
-) -> Path:
-    return settings.INTERNAL_UPLOAD_ROOT / f"upload_{dataset_id}" / "annotations"
-
-
-def build_annotation_path(
-        dataset_id: str,
-        annotation_id: str
-) -> Path:
-
-    return build_annotation_directory(dataset_id) / f"{annotation_id}.json"
-
-
 def create_annotation(
         db: Session,
         dataset_id: str,
@@ -48,7 +35,7 @@ def create_annotation(
     ensure_dataset_exists(db, dataset_id)
 
     annotation_id = str(uuid.uuid4())
-    file_path = build_annotation_path(dataset_id, annotation_id)
+    file_path = DatasetSpace(dataset_id).annotation_file_path(annotation_id)
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     annotation_payload = {

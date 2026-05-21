@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from app.core.config import settings
+from app.core.storage_space import DatasetSpace
 
 
 class ExperimentWorkspace:
@@ -11,6 +12,10 @@ class ExperimentWorkspace:
     _RUNS_DIR: str = "runs"
     _ARTIFACTS_DIR: str = "artifacts"
     _CONSENSUS_FILE: str = "experiment_consensus.json"
+
+    @classmethod
+    def base_directory(cls) -> Path:
+        return settings.INTERNAL_EXPERIMENTS_ROOT
 
     def __init__(self, experiment_id: str):
         self._experiment_id = experiment_id
@@ -25,25 +30,6 @@ class ExperimentWorkspace:
 
     def consensus_file(self, dataset_id: str) -> Path:
         return self._root / self._ARTIFACTS_DIR / dataset_id / "consensus" / self._CONSENSUS_FILE
-
-
-class DatasetSpace:
-
-    _EXTRACTED_DIR: str = "extracted"
-    _ANNOTATIONS_DIR: str = "annotations"
-
-    def __init__(self, dataset_id: str):
-        self._dataset_id = dataset_id
-        self._root: Path = settings.INTERNAL_UPLOAD_ROOT / f"upload_{dataset_id}"
-
-    @property
-    def dataset_path(self) -> Path:
-        return self._root / self._EXTRACTED_DIR
-
-    def annotation_file(self, annotation_id: str) -> Path:
-        return self._root / self._ANNOTATIONS_DIR / f"{annotation_id}.json"
-
-
 
 
 class RunWorkspace:
@@ -130,9 +116,9 @@ class RunContext:
         return self.run_workspace.embeddings_file
 
     @property
-    def annotations_file(self) -> Optional[Path]:
+    def annotations_file_path(self) -> Optional[Path]:
         if self.annotation_id:
-            return self.dataset_space.annotation_file(self.annotation_id)
+            return self.dataset_space.annotation_file_path(self.annotation_id)
         return None
 
     @property
@@ -142,16 +128,14 @@ class RunContext:
 
     @property
     def absolute_dataset_path(self) -> Path:
-        relative_data_path = self.dataset_path.relative_to(settings.INTERNAL_UPLOAD_ROOT)
-        return settings.HOST_UPLOADS_ROOT / relative_data_path
+        return self.dataset_space.host_dataset_path
 
     @property
     def absolute_annotation_file_path(self) -> Optional[Path]:
-        if self.annotations_file is None:
+        if self.annotation_id is None:
             return None
 
-        relative_annotation_file_path = self.annotations_file.relative_to(settings.INTERNAL_UPLOAD_ROOT)
-        return settings.HOST_UPLOADS_ROOT / relative_annotation_file_path
+        return self.dataset_space.host_annotation_file_path(self.annotation_id)
 
 
     @classmethod

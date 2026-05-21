@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import HTTPException, Request
 
 from app.core.config import settings
+from app.core.storage_space import DatasetSpace
 from app.core.workspace import ExperimentWorkspace
 from app.schemas.experiment import DomainComparisonItem
 from app.utils.visium import (
@@ -71,7 +72,7 @@ def build_spatial_data_response_from_dataset(
     visium_dataset = VisiumDataset()
 
 
-    dataset_dir = settings.INTERNAL_UPLOAD_ROOT / f"upload_{dataset_id}" / "extracted"
+    dataset_dir = DatasetSpace(dataset_id).dataset_path
 
     print(dataset_dir)
 
@@ -132,7 +133,7 @@ def _build_static_image_url(
     image_path: Path
 ) -> str:
     try:
-        relative_path = image_path.relative_to(settings.INTERNAL_UPLOAD_ROOT)
+        relative_path = image_path.relative_to(DatasetSpace.base_directory())
     except ValueError as exc:
         raise HTTPException(
             status_code=500,
