@@ -1,18 +1,20 @@
+import random
 import uuid
-from typing import List, Optional, Tuple
+from collections import defaultdict
+from datetime import datetime, timezone
+from typing import List, Optional, Tuple, Dict
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from collections import defaultdict
-import random
 
+from app.core.config import settings
 from app.core.workspace import ExperimentWorkspace
 from app.models import Dataset
 from app.models.experiment import Experiment, ExperimentStatus
 from app.models.run import Run
 from app.models.run_config import RunConfig
 from app.repositories import dataset_repository, experiment_repository, run_config_repository, run_repository
-from app.schemas.experiment import DatasetConfigRequest
+from app.schemas.experiment import DatasetConfigRequest, ImportResultsDatasetRequest
 from app.utils.security import generate_token_pair, verify_token
 
 
@@ -187,7 +189,7 @@ def create_experiment_record(
         require_dataset(db, dataset_config.dataset_id)
 
     validated_seeds = _validate_and_prepare_seeds(number_of_runs, seed_list)
-    total_runs = len(dataset_param_configs) * number_of_runs
+    total_runs = number_of_runs
 
     experiment_id = str(uuid.uuid4())
     access_token, token_hash = generate_token_pair()
@@ -289,3 +291,90 @@ def build_nested_experiment_response(
         "finished_at": experiment.finished_at,
         "datasets": datasets
     }
+
+
+def create_imported_experiment_record(
+    db: Session,
+    results: list[ImportResultsDatasetRequest],
+    tool_name: str,
+) -> Tuple[ str, str, List[Dict[str, str]] ]:
+
+    for result in results:
+        require_dataset(db, result.dataset_id)
+
+    experiment_id = str(uuid.uuid4())
+    access_token, token_hash = generate_token_pair()
+    
+    exp_workspace = ExperimentWorkspace(experiment_id)
+    
+    experiment = _create_experiment_entity(
+        experiment_id=experiment_id,
+        tool_name=tool_name,
+        workspace_path=str(exp_workspace.workspace_root),
+        total_runs=1,
+        token_hash=token_hash
+    )
+    
+    experiment_repository.create_experiment(db, experiment)
+    
+    run_configs, runs, staging_data = _prepare_imported_run_components(results, experiment_id, exp_workspace)
+
+    run_config_repository.create_run_configs_batch(db, run_configs)
+    run_repository.create_runs_batch(db, runs)
+    db.commit()
+
+    experiment_db = db.query(Experiment).filter(Experiment.id == experiment_id).first()
+    experiment_db.status = ExperimentStatus.RUNNING
+    experiment_db.started_at = datetime.now(timezone.utc)
+    db.commit()
+    
+    return experiment_id, access_token, staging_data
+
+
+
+def _prepare_imported_run_components(
+    results: List[ImportResultsDatasetRequest],
+    experiment_id: str,
+    exp_workspace: ExperimentWorkspace,
+) -> Tuple[ List[RunConfig], List[Run], List[Dict[str, str]] ]:
+
+    run_configs = []
+    runs = []
+    staging_data = []
+
+    for item in results:
+        # Generate cohesive relational keys
+        run_config_id = str(uuid.uuid4())
+        run_id = str(uuid.uuid4())
+
+        run_path = exp_workspace.run_root(run_id)
+        run_path.mkdir(parents=True, exist_ok=True)
+
+        # Build RunConfig
+        run_config = _create_run_config_entity(
+            run_config_id=run_config_id,
+            experiment_id=experiment_id,
+            dataset_id=item.dataset_id,
+            params_dict={},
+            annotation_id=None,
+        )
+        run_configs.append(run_config)
+
+        # Build Run
+        run = _create_run_entity(
+            run_id=run_id,
+            run_config_id=run_config_id,
+            seed=0,
+            output_path=str(run_path)
+        )
+        runs.append(run)
+
+        staging_data.append(
+            {
+                "run_id": run_id,
+                "dataset_id": item.dataset_id,
+                "stage_id": item.stage_id
+            }
+        )
+
+    return run_configs, runs, staging_data

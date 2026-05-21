@@ -5,8 +5,8 @@ from pathlib import Path
 
 def extract_zip(zip_path: Path, target_dir: Path):
 
-    if target_dir.exists() and any(target_dir.iterdir()):
-        return
+    # if target_dir.exists() and any(target_dir.iterdir()):
+    #     return
 
     temp_extract_path = target_dir / f"tmp"
 
@@ -22,6 +22,11 @@ def extract_zip(zip_path: Path, target_dir: Path):
 
         with zipfile.ZipFile(zip_path, "r") as z:
             z.extractall(temp_extract_path)
+
+        # REMOVE MACOSX METADATA IMMEDIATELY AFTER EXTRACTION
+        macosx_dir = temp_extract_path / "__MACOSX"
+        if macosx_dir.exists():
+            shutil.rmtree(macosx_dir)
 
         items = [i for i in temp_extract_path.iterdir()]
         if len(items) == 1 and items[0].is_dir():

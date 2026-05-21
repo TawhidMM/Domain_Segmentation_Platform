@@ -39,6 +39,13 @@ STAIG_MANIFEST = {
                 "profile": ["DLPFC"],
             },
         },
+        "use_morphology": {
+            "type": "enum",
+            "label": "Use morphological features",
+            "options": ["Yes", "No"],
+            "default": "Yes",
+            "ui_group": "basic",
+        },
         "tau": {
             "type": "float",
             "label": "Contrastive temperature (tau)",

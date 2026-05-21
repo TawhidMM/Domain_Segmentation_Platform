@@ -4,13 +4,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.experiments import router as experiments_router
-from app.api.runs import router as runs_router
-from app.api.datasets import router as datasets_router
 from app.api.annotations import router as annotations_router
+from app.api.datasets import router as datasets_router
+from app.api.experiments import router as experiments_router
+from app.api.result_imports import router as result_import_router
+from app.api.runs import router as runs_router
 from app.api.tools import router as tools_router
 from app.core.config import settings
 from app.core.startup import create_directories
+from app.core.storage_space import DatasetSpace
 
 
 @asynccontextmanager
@@ -36,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static/datasets", StaticFiles(directory=str(settings.INTERNAL_UPLOAD_ROOT)), name="datasets")
+app.mount("/static/datasets", StaticFiles(directory=str(DatasetSpace.base_directory())), name="datasets")
 
 
 app.include_router(
@@ -67,4 +69,10 @@ app.include_router(
     annotations_router,
     prefix="/api",
     tags=["Annotations"]
+)
+
+app.include_router(
+    result_import_router,
+    prefix="/api/import/result",
+    tags=["Result Import"]
 )

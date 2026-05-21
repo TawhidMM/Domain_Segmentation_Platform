@@ -13,7 +13,7 @@ class VisiumDataset(SpatialDataset):
             if not (input_dir / name).exists():
                 raise ValueError(
                     f"Invalid Visium input: missing '{name}'. "
-                    "Please upload a standard Space Ranger output directory."
+                    "Please upload a standard Space Ranger output result_directory."
                 )
 
     def validate_input(self, input_dir: Path) -> None:
@@ -29,7 +29,7 @@ class VisiumDataset(SpatialDataset):
         if possible_paths:
             return possible_paths[0]
 
-        raise FileNotFoundError("No spatial directory found")
+        raise FileNotFoundError("No spatial result_directory found")
 
     def resolve_coordinates_file(self, spatial_dir: Path) -> Path:
         candidate_files = [
@@ -41,7 +41,7 @@ class VisiumDataset(SpatialDataset):
             if candidate.exists():
                 return candidate
 
-        raise FileNotFoundError("No tissue positions file found in spatial directory")
+        raise FileNotFoundError("No tissue positions file found in spatial result_directory")
 
     def read_scale_factors(self, spatial_dir: Path) -> dict:
         scale_file = spatial_dir / "scalefactors_json.json"
@@ -49,7 +49,7 @@ class VisiumDataset(SpatialDataset):
         if not scale_file.exists():
             raise FileNotFoundError(
                 f"Scale factors file not found at {scale_file}. "
-                "Expected 'scalefactors_json.json' in spatial directory."
+                "Expected 'scalefactors_json.json' in spatial result_directory."
             )
 
         with scale_file.open("r") as f:

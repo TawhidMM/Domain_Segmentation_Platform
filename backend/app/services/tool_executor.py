@@ -1,5 +1,7 @@
 import json
 import subprocess
+from typing import Optional
+
 import yaml
 
 from app.core.config import settings
@@ -11,47 +13,18 @@ from app.utils.visium import merge_predictions_and_coords, get_color_mapped_doma
     get_histology_image_path
 
 
-# def run_tool(run_context: RunContext):
-#     tool = TOOLS[run_context.tool_name.lower()]
-#
-#     container_workspace = settings.CONTAINER_WORKSPACE_PATH
-#     container_data_dir = settings.CONTAINER_DATA_DIR
-#     container_annotation_file = settings.CONTAINER_ANNOTATION_FILE
-#
-#     cmd = [
-#         "docker", "run", "--rm",
-#         "--gpus", "all",
-#         "-v", f"{run_context.absolute_workspace_path}:{container_workspace}",
-#         "-v", f"{run_context.absolute_dataset_path}:{container_data_dir}",
-#     ]
-#
-#     if run_context.absolute_annotation_file_path is not None:
-#         cmd.extend(["-v", f"{run_context.absolute_annotation_file_path}:{container_annotation_file}"])
-#
-#     cmd.extend(
-#         [
-#             "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/run_pipeline.py:/runner/run_pipeline.py",
-#             "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/scribbledom_adapter.py:/runner/scribbledom_adapter.py",
-#             tool["image"],
-#             "python3", "/runner/run_pipeline.py"
-#         ]
-#     )
-#
-#
-#     run_docker(cmd, run_context.logs_dir)
-#
-#     result = build_output(run_context)
-#
-#     run_context.result_file.write_text(json.dumps(result, indent=2))
-
 
 class ToolExecutor:
     def __init__(self, context: RunContext):
         self.run_context = context
-        self.tool = TOOLS.get(self.run_context.tool_name.lower())
+        self.tool: Optional[dict] = TOOLS.get(self.run_context.tool_name.lower())
 
 
     def _prepare_config(self):
+
+        if not self.tool:
+            raise ValueError(f"Cannot create config file: Tool '{self.run_context.tool_name}' is not registered.")
+
         resolved_params = resolve_config(self.tool["manifest"], user_input=self.run_context.params)
         resolved_params["seed"] = self.run_context.seed
 
@@ -69,6 +42,9 @@ class ToolExecutor:
 
     def _execute_docker(self):
 
+        if not self.tool:
+            raise ValueError(f"Cannot execute Docker: Tool '{self.run_context.tool_name}' is not registered.")
+
         volumes = [
             f"{self.run_context.absolute_workspace_path}:{settings.CONTAINER_WORKSPACE_PATH}",
             f"{self.run_context.absolute_dataset_path}:{settings.CONTAINER_DATASET_PATH}:ro"
@@ -77,13 +53,19 @@ class ToolExecutor:
         if self.run_context.absolute_annotation_file_path is not None:
             volumes.append(f"{self.run_context.absolute_annotation_file_path}:{settings.CONTAINER_ANNOTATION_PATH}:ro")
 
+        # cmd = [
+        #     "docker", "run", "--rm", "--gpus", "all",
+        #     *[flag for v in volumes for flag in ("-v", v)],
+        #     "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/run_pipeline.py:/runner/run_pipeline.py",
+        #     "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/scribbledom_adapter.py:/runner/scribbledom_adapter.py",
+        #     self.tool["image"],
+        #     "python3", "/runner/run_pipeline.py",
+        # ]
+
         cmd = [
             "docker", "run", "--rm", "--gpus", "all",
             *[flag for v in volumes for flag in ("-v", v)],
-            "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/run_pipeline.py:/runner/run_pipeline.py",
-            "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/scribbledom_adapter.py:/runner/scribbledom_adapter.py",
-            self.tool["image"],
-            "python3", "/runner/run_pipeline.py",
+            self.tool["image"]
         ]
 
         subprocess.run(cmd, check=True)
@@ -129,6 +111,11 @@ class ToolExecutor:
 
         self._prepare_config()
         self._execute_docker()
+        self._format_tool_prediction()
+        self._create_metrics_file()
+
+    def posst_process_result(self) -> None:
+
         self._format_tool_prediction()
         self._create_metrics_file()
 

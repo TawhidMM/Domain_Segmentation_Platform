@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -6,14 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.repositories import run_repository
+from app.core.storage_space import DatasetSpace
 from app.schemas.experiment import DataSetRequest
+from app.services import spatial_data_service
 from app.services.dataset_service import create_dataset
 from app.services.run_service import require_run_with_access, build_run_context
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
 )
-from app.services import experiment_service, spatial_data_service
 from app.utils.visium import get_histology_image_path
 from app.utils.zip_utils import extract_zip
 
@@ -23,7 +24,15 @@ router = APIRouter()
 def init(
     total_chunks: int = Form(...)
 ):
-    upload_id = init_upload(total_chunks)
+    upload_id = str(uuid4())
+    upload_directory = DatasetSpace(upload_id).upload_directory
+
+    init_upload(
+        upload_id=upload_id,
+        total_chunks=total_chunks,
+        target_dir=upload_directory,
+        filename=settings.DATASET_ZIP_FILENAME
+    )
     return {"upload_id": upload_id}
 
 
@@ -52,7 +61,8 @@ def finalize(
         dataset_name=dataset_name,
     )
 
-    extraction_path = settings.INTERNAL_UPLOAD_ROOT / f"upload_{upload_id}" / "extracted"
+    dataset_space = DatasetSpace(upload_id)
+    extraction_path = dataset_space.dataset_path
     extract_zip(zip_path=zip_path, target_dir=extraction_path)
 
     return {"dataset_id": dataset_id}
@@ -77,7 +87,7 @@ def get_histology(
         else:
             raise HTTPException(
                 status_code=404, 
-                detail="No spatial directory found")
+                detail="No spatial result_directory found")
     
     # Get histology image path
     image_path, image_type = get_histology_image_path(spatial_dir)
