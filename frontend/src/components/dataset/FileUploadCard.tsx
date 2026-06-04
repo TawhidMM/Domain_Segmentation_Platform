@@ -78,6 +78,10 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       sx={{
+        width: '100%',
+        display: 'block',
+        boxSizing: 'border-box',
+        alignSelf: 'stretch',
         p: 3,
         border: '2px dashed',
         borderColor: disabled ? 'divider' : hasUploads ? 'primary.main' : 'divider',
@@ -108,7 +112,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         />
       )}
 
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%', minWidth: 0 }}>
         <Box
           sx={{
             width: 48,
@@ -152,19 +156,6 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
                   fontSize: '0.65rem',
                   fontWeight: 600,
                   bgcolor: 'error.main',
-                  color: 'white',
-                }}
-              />
-            )}
-            {disabled && (
-              <Chip
-                label="Coming Soon"
-                size="small"
-                sx={{
-                  height: 18,
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  bgcolor: 'text.secondary',
                   color: 'white',
                 }}
               />

@@ -8,7 +8,7 @@ trap 'echo "!!! DEPLOYMENT FAILED at Step $CURRENT_STEP !!!"; exit 1' ERR
 
 CURRENT_STEP="1: Pulling Research Tools"
 echo "--- $CURRENT_STEP ---"
-TOOL_IMAGES=$(python3 get_tool_images.py)
+TOOL_IMAGES=$(PYTHONPATH=backend python get_tool_images.py)
 for IMG in $TOOL_IMAGES; do
     echo "Processing: $IMG"
     docker pull "$IMG"
