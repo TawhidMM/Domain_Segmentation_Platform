@@ -10,6 +10,7 @@ import {
   ComparisonDatasetsResponse,
 } from '@/types';
 import { DomainComparisonResponse } from '@/components/visualization/domainComparison/types';
+import { JobSubmissionResponse } from '@/types';
 
 export interface OverlayDomainMapSpot {
   spot_id: string;
@@ -21,6 +22,16 @@ export interface OverlayDomainMapSpot {
 export interface OverlayDomainMapResponse {
   tools: string[];
   spots: OverlayDomainMapSpot[];
+}
+
+export interface ImportResultsDatasetRequestPayload {
+  dataset_id: string;
+  stage_id: string;
+}
+
+export interface ImportResultRequestPayload {
+  results: ImportResultsDatasetRequestPayload[];
+  tool_name: string;
 }
 
 function getAggregateExperimentStatus(details: ExperimentDetails): JobStatusResponse {
@@ -64,7 +75,7 @@ export async function fetchJobStatus(experimentId: string, token: string): Promi
   return getAggregateExperimentStatus(details);
 }
 
-// New endpoints for experiment details page
+
 export async function fetchExperimentDetails(experimentId: string, token: string): Promise<ExperimentDetails> {
   if (!token) {
     throw new Error(`Missing token for experiment ${experimentId}`);
@@ -178,4 +189,11 @@ export async function fetchAllExperimentRunMetrics(
 export async function fetchComparisonDatasets(experiments: ExperimentRequest[]): Promise<ComparisonDatasetsResponse> {
   const res = await axios.post(`/experiments/comparison/datasets`, { experiments });
   return res.data as ComparisonDatasetsResponse;
+}
+
+export async function submitImportedResult(
+  request: ImportResultRequestPayload,
+): Promise<JobSubmissionResponse> {
+  const res = await axios.post<JobSubmissionResponse>(`/experiments/submit-imported`, request);
+  return res.data;
 }

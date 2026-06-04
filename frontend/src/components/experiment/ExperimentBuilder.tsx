@@ -1,40 +1,20 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Box, Button, Stepper, Step, StepLabel, Paper, Divider } from '@mui/material';
-import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
-import { ToolSchema } from '@/types';
-import { initializeParameterValues, prepareParametersForSubmission } from '@/utils/parameterUtils';
-import ToolSelector from './ToolSelector';
-import ParameterConfig from './ParameterConfig';
-import ExperimentSettings from './ExperimentSettings';
-import DatasetSelectionBar from './DatasetSelectionBar';
+import ImportResultsTrack from './ImportResultsTrack';
+import PipelineExecutionTrack from './PipelineExecutionTrack';
 
 const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
 
-interface PersistedBuilderState {
-  activeStep: number;
-  selectedToolSchema: ToolSchema | null;
-  parameters: Record<string, any>;
-  numberOfRuns: number;
-}
+type ExperimentBuilderTabValue = 'select-tool' | 'import-result';
 
 const ExperimentBuilder: React.FC = () => {
-  const {
-    createExperiment,
-    successfulDatasets,
-    selectedDatasetIds,
-    focusDatasetId,
-    setSelectedDatasetIds,
-    setFocusDatasetId,
-    resetParameterDrafts,
-  } = useApp();
+  const { successfulDatasets } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeStep, setActiveStep] = useState(0);
-  const [selectedToolSchema, setSelectedToolSchema] = useState<ToolSchema | null>(null);
-  const [parameters, setParameters] = useState<Record<string, any>>({});
-  const [numberOfRuns, setNumberOfRuns] = useState(1);
+  const [activeTab, setActiveTab] = useState<ExperimentBuilderTabValue>('select-tool');
+  const [showWorkflowTabs, setShowWorkflowTabs] = useState(true);
 
   useEffect(() => {
     const savedState = window.sessionStorage.getItem(BUILDER_STATE_STORAGE_KEY);
@@ -43,26 +23,18 @@ const ExperimentBuilder: React.FC = () => {
     }
 
     try {
-      const parsed = JSON.parse(savedState) as PersistedBuilderState;
-      setActiveStep(parsed.activeStep ?? 0);
-      setSelectedToolSchema(parsed.selectedToolSchema ?? null);
-      setParameters(parsed.parameters ?? {});
-      setNumberOfRuns(parsed.numberOfRuns ?? 1);
+      const parsed = JSON.parse(savedState) as { activeTab?: ExperimentBuilderTabValue };
+      if (parsed.activeTab === 'select-tool' || parsed.activeTab === 'import-result') {
+        setActiveTab(parsed.activeTab);
+      }
     } catch {
       window.sessionStorage.removeItem(BUILDER_STATE_STORAGE_KEY);
     }
   }, []);
 
   useEffect(() => {
-    const toPersist: PersistedBuilderState = {
-      activeStep,
-      selectedToolSchema,
-      parameters,
-      numberOfRuns,
-    };
-
-    window.sessionStorage.setItem(BUILDER_STATE_STORAGE_KEY, JSON.stringify(toPersist));
-  }, [activeStep, selectedToolSchema, parameters, numberOfRuns]);
+    window.sessionStorage.setItem(BUILDER_STATE_STORAGE_KEY, JSON.stringify({ activeTab }));
+  }, [activeTab]);
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
@@ -75,41 +47,6 @@ const ExperimentBuilder: React.FC = () => {
     navigate(location.pathname, { replace: true });
   }, [location.pathname, location.search, navigate]);
 
-  const handleToolSelect = useCallback((schema: ToolSchema) => {
-    setSelectedToolSchema(schema);
-    // Initialize parameters with default values from schema
-    const defaultParams = initializeParameterValues(schema);
-    setParameters(defaultParams);
-    // Reset parameter drafts and dataset selection when changing tool
-    resetParameterDrafts();
-  }, [resetParameterDrafts]);
-
-  const handleNumberOfRunsChange = useCallback((value: number) => {
-    setNumberOfRuns(value);
-  }, []);
-
-  const handleDatasetSelectionChange = useCallback((datasetIds: string[], nextFocusDatasetId: string | null) => {
-    setSelectedDatasetIds(datasetIds);
-    setFocusDatasetId(nextFocusDatasetId);
-  }, [setSelectedDatasetIds, setFocusDatasetId]);
-
-  const handleCreateExperiment = useCallback(() => {
-    if (selectedToolSchema) {
-      // Prepare parameters (expand float_range, etc.)
-      const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
-
-      createExperiment(
-        selectedToolSchema.tool_id,
-        preparedParams,
-        selectedToolSchema.label,
-        numberOfRuns,
-        selectedDatasetIds,
-        selectedToolSchema.requirements,
-      );
-    }
-  }, [selectedDatasetIds, selectedToolSchema, parameters, numberOfRuns, createExperiment]);
-
-  // Memoize available datasets for the selection bar
   const availableDatasets = useMemo(
     () =>
       successfulDatasets
@@ -121,18 +58,16 @@ const ExperimentBuilder: React.FC = () => {
     [successfulDatasets]
   );
 
-  const focusedDatasetName = useMemo(
-    () => availableDatasets.find((dataset) => dataset.id === focusDatasetId)?.name ?? null,
-    [availableDatasets, focusDatasetId]
-  );
-
-  const steps = ['Select Tool', 'Configure Parameters'];
+  const handleTabChange = useCallback((_: React.SyntheticEvent, nextTab: ExperimentBuilderTabValue) => {
+    setActiveTab(nextTab);
+    setShowWorkflowTabs(true);
+  }, []);
 
   return (
     <Box
       sx={{
         p: 4,
-        maxWidth: 1200,
+        maxWidth: 1880,
         mx: 'auto',
         minHeight: '100vh',
         display: 'flex',
@@ -141,110 +76,47 @@ const ExperimentBuilder: React.FC = () => {
       }}
     >
       <Box sx={{ flex: 1, overflowY: 'auto', pb: 10 }}>
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
         <Paper sx={{ p: 3, mb: 3 }}>
-          {activeStep === 0 && <ToolSelector selectedToolId={selectedToolSchema?.tool_id} onSelectTool={handleToolSelect} />}
-
-          {activeStep === 1 && selectedToolSchema && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {/* Dataset Selection Section */}
-              <Box>
-                <DatasetSelectionBar
-                  availableDatasets={availableDatasets}
-                  selectedDatasetIds={selectedDatasetIds}
-                  focusDatasetId={focusDatasetId}
-                  onSelectionChange={handleDatasetSelectionChange}
-                  disabled={availableDatasets.length === 0}
-                />
-              </Box>
-
-              <Divider />
-
-              {/* Tool Parameters Section - Only render when datasets are selected */}
-              {selectedDatasetIds.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <ParameterConfig
-                    toolSchema={selectedToolSchema}
-                    values={parameters}
-                    onChange={setParameters}
-                    selectedDatasetIds={selectedDatasetIds}
-                    focusDatasetId={focusDatasetId}
-                    focusDatasetName={focusedDatasetName}
-                  />
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    p: 4,
-                    textAlign: 'center',
-                    backgroundColor: 'action.hover',
-                    borderRadius: 1,
-                    border: '1px dashed',
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Box sx={{ color: 'text.secondary' }}>
-                    Select at least one dataset above to configure parameters
-                  </Box>
-                </Box>
-              )}
-
-              {/* Experiment Settings Card */}
-              {selectedDatasetIds.length > 0 && (
-                <ExperimentSettings numberOfRuns={numberOfRuns} onChange={handleNumberOfRunsChange} />
-              )}
+          {showWorkflowTabs && (
+            <Box sx={{ mb: 3 }}>
+              <Tabs
+                value={activeTab}
+                onChange={handleTabChange}
+                sx={{
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 500,
+                  },
+                }}
+              >
+                <Tab label="Run Analysis Pipeline" value="select-tool" />
+                <Tab label="Import Pre-computed Results" value="import-result" />
+              </Tabs>
             </Box>
           )}
-        </Paper>
-      </Box>
 
-      <Box
-        sx={{
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 5,
-          backgroundColor: 'background.paper',
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          py: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBack />}
-            onClick={() => setActiveStep((prev) => prev - 1)}
-            disabled={activeStep === 0}
-          >
-            Back
-          </Button>
-
-          {activeStep < steps.length - 1 ? (
-            <Button
-              variant="contained"
-              endIcon={<ArrowForward />}
-              onClick={() => setActiveStep((prev) => prev + 1)}
-              disabled={!selectedToolSchema}
-            >
-              Continue
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleCreateExperiment}
-              disabled={!selectedToolSchema || selectedDatasetIds.length === 0}
-            >
-              Create Experiment
-            </Button>
+          {activeTab === 'select-tool' && !showWorkflowTabs && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1.2 }}>
+                Experiment Builder
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                Configuring Pipeline Tools
+              </Typography>
+            </Box>
           )}
-        </Box>
+
+          {activeTab === 'select-tool' && (
+            <PipelineExecutionTrack
+              availableDatasets={availableDatasets}
+              onStepVisibilityChange={setShowWorkflowTabs}
+            />
+          )}
+
+          {activeTab === 'import-result' && <ImportResultsTrack availableDatasets={availableDatasets} />}
+        </Paper>
       </Box>
     </Box>
   );

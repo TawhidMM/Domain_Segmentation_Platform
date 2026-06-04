@@ -5,6 +5,9 @@ import { uploadGeneExpressionFile } from '@/services/uploadService';
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 
+const TOOL_WORKFLOW_STORAGE_KEY = 'select-tool-workflow-state-v1';
+const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
+
 interface JobRedirectInfo {
   experimentId: string;
   accessToken: string;
@@ -479,7 +482,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const startNewExperiment = useCallback(() => {
     if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem('experiment-builder-state-v1');
+      window.sessionStorage.removeItem(BUILDER_STATE_STORAGE_KEY);
+      window.sessionStorage.removeItem(TOOL_WORKFLOW_STORAGE_KEY);
     }
     setParameterDrafts({});
     setSelectedDatasetIds([]);
