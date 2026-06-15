@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from app.core.config import settings
 
 
@@ -6,7 +7,10 @@ celery_app = Celery(
     "spatial_app",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.tasks.experiment_tasks"]
+    include=[
+        "app.tasks.experiment_tasks",
+        "app.tasks.cleanup_tasks"
+    ]
 )
 
 celery_app.conf.update(
@@ -25,6 +29,15 @@ celery_app.conf.update(
 
     task_publish_retry=True,
 )
+
+
+
+celery_app.conf.beat_schedule = {
+    'nightly-storage-sweep': {
+        'task': 'app.tasks.cleanup_tasks.run_system_cleanup_task',
+        'schedule': crontab(hour=2, minute=0),
+    },
+}
 
 if __name__ == "__main__":
     celery_app.start()

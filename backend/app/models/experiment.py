@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Column, String, DateTime, JSON, Enum as SAEnum, Integer, ForeignKey
+from sqlalchemy import Column, String, DateTime, JSON, Enum as SAEnum, Integer, ForeignKey, TIMESTAMP
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -37,7 +38,7 @@ class Experiment(Base):
 
     access_token_hash = Column(String, nullable=False)
 
-    started_at = Column(DateTime(timezone=True), nullable=True)
+    started_at = Column(TIMESTAMP, nullable=False, default=lambda: datetime.now(timezone.utc))
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
     run_configs = relationship(
