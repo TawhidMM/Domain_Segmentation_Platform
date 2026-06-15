@@ -18,11 +18,15 @@ class RunConfig(Base):
 
     dataset_id = Column(
         String,
-        ForeignKey("datasets.dataset_id"),
+        ForeignKey("datasets.dataset_id", ondelete="CASCADE"),
         nullable=False,
     )
 
-    annotation_id = Column(String, ForeignKey("annotations.id"), nullable=True)
+    annotation_id = Column(
+        String,
+        ForeignKey("annotations.id", ondelete="SET NULL"),
+        nullable=True
+    )
 
     params_json = Column(JSON, nullable=False)
 
