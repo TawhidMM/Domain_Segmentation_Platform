@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, TextField, Button, IconButton } from '@mui/material';
 import { DeleteOutline, ErrorOutline } from '@mui/icons-material';
-import { DatasetUploadQueueItem } from '@/types';
+import type { UploadedDataset } from '@/stores/dataset';
 
 interface DatasetUploadRowProps {
-  item: DatasetUploadQueueItem;
+  item: UploadedDataset;
   onUpdateName: (datasetId: string, name: string) => void;
   onRetry: (queueItemId: string) => void;
   onDelete: (datasetId: string) => void;

@@ -2,39 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
+import { useDatasetStore } from '@/stores/dataset';
 import ImportResultsTrack from './ImportResultsTrack';
 import PipelineExecutionTrack from './PipelineExecutionTrack';
-
-const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
 
 type ExperimentBuilderTabValue = 'select-tool' | 'import-result';
 
 const ExperimentBuilder: React.FC = () => {
-  const { successfulDatasets } = useApp();
+  const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<ExperimentBuilderTabValue>('select-tool');
   const [showWorkflowTabs, setShowWorkflowTabs] = useState(true);
-
-  useEffect(() => {
-    const savedState = window.sessionStorage.getItem(BUILDER_STATE_STORAGE_KEY);
-    if (!savedState) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(savedState) as { activeTab?: ExperimentBuilderTabValue };
-      if (parsed.activeTab === 'select-tool' || parsed.activeTab === 'import-result') {
-        setActiveTab(parsed.activeTab);
-      }
-    } catch {
-      window.sessionStorage.removeItem(BUILDER_STATE_STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.sessionStorage.setItem(BUILDER_STATE_STORAGE_KEY, JSON.stringify({ activeTab }));
-  }, [activeTab]);
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);

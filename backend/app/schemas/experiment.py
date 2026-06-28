@@ -11,6 +11,9 @@ class ExperimentSubmitResponse(BaseModel):
 class DataSetRequest(BaseModel):
     dataset_id: str
 
+class DataSetRequests(BaseModel):
+    dataset_ids: List[str] = Field(min_length=1)
+
 class DatasetConfigRequest(BaseModel):
     dataset_id: str = Field(min_length=1)
     params: Dict[str, Any] = Field(min_length=1)

@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { CheckCircle, CloudUpload, Error as ErrorIcon, HourglassTop } from '@mui/icons-material';
-import { useApp } from '@/context/AppContext';
+import { useDatasetStore } from '@/stores/dataset';
 import FileUploadCard from '@/components/dataset/FileUploadCard';
 import EntityList from '@/components/shared/EntityList';
 import ImportedResultRow from './ImportedResultRow';
@@ -259,7 +259,7 @@ const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, is
 };
 
 const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatasets, onStepChange }) => {
-  const { successfulDatasets } = useApp();
+  const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
 
   const datasetOptions = useMemo(
     () =>

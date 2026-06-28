@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.dataset import Dataset
@@ -29,3 +30,14 @@ def create_dataset(
     dataset_repository.create_dataset(db, dataset)
 
     return dataset.dataset_id
+
+
+def require_dataset(
+    db: Session,
+    dataset_id: str
+) -> Dataset:
+
+    dataset = dataset_repository.get_dataset_by_id(db, dataset_id)
+    if not dataset:
+        raise HTTPException(400, "Dataset not found or not finalized")
+    return dataset

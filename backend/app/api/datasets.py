@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.storage_space import DatasetSpace
-from app.schemas.experiment import DataSetRequest
+from app.repositories.dataset_repository import get_valid_dataset_ids
+from app.schemas.experiment import DataSetRequest, DataSetRequests
 from app.services import spatial_data_service
 from app.services.dataset_service import create_dataset
 from app.services.run_service import require_run_with_access, build_run_context
@@ -117,3 +118,12 @@ def get_spatial_data(
         dataset_id=dataset_request.dataset_id,
         http_request=http_request,
     )
+
+@router.post("/check-existence")
+async def get_valid_datasets(
+    dataset_requests: DataSetRequests,
+    db: Session = Depends(get_db)
+):
+    valid_dataset_ids = get_valid_dataset_ids(db, dataset_requests.dataset_ids)
+
+    return {"validIds": valid_dataset_ids}

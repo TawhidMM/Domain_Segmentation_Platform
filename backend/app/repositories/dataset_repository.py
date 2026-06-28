@@ -24,3 +24,8 @@ def count_datasets(db: Session) -> int:
 def get_datasets_by_ids(db: Session, dataset_ids: List[str]) -> List[Dataset]:
     return db.query(Dataset).filter(Dataset.dataset_id.in_(dataset_ids)).all()
 
+def get_valid_dataset_ids(db: Session, dataset_ids: List[str]) -> List[str]:
+
+    valid_datasets = get_datasets_by_ids(db, dataset_ids)
+    return [dataset.dataset_id for dataset in valid_datasets]
+
