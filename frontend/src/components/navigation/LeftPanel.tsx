@@ -2,10 +2,14 @@ import React from 'react';
 import { Box, Typography, Button, Divider, Chip } from '@mui/material';
 import { Add, CloudUpload, Science } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
+import { useDatasetStore } from '@/stores/dataset';
 import ExperimentsList from './ExperimentsList';
 
 const LeftPanel: React.FC = () => {
-  const { dataset, isDatasetReady, startNewExperiment, experiments, setWorkspaceMode } = useApp();
+  const summary = useDatasetStore((state) => state.summary);
+  const isDatasetReady = useDatasetStore((state) => state.isDatasetReady);
+  const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
+  const { startNewExperiment, experiments, setWorkspaceMode } = useApp();
 
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
 
@@ -52,15 +56,15 @@ const LeftPanel: React.FC = () => {
               {isDatasetReady() ? 'Dataset Ready' : 'Upload Required'}
             </Typography>
           </Box>
-          {dataset.summary && (
+          {summary && (
             <Box sx={{ mt: 1, display: 'flex', gap: 0.5 }}>
               <Chip
-                label={`${dataset.summary.spotCount.toLocaleString()} spots`}
+                label={`${summary.spotCount.toLocaleString()} spots`}
                 size="small"
                 sx={{ height: 20, fontSize: '0.65rem', bgcolor: 'rgba(13, 148, 136, 0.15)', color: 'primary.dark' }}
               />
               <Chip
-                label={`${(dataset.summary.geneCount / 1000).toFixed(1)}k genes`}
+                label={`${(summary.geneCount / 1000).toFixed(1)}k genes`}
                 size="small"
                 sx={{ height: 20, fontSize: '0.65rem', bgcolor: 'rgba(37, 99, 235, 0.15)', color: 'secondary.dark' }}
               />

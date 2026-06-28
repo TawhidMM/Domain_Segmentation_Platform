@@ -55,3 +55,13 @@ export async function uploadGeneExpressionFile(
 
   return finalizeRes.data.dataset_id;
 }
+
+
+export async function validateDatasetExistence(datasetIds: string[]): Promise<string[]> {
+  const response = await axios.post<{ validIds: string[] }>(
+            '/datasets/check-existence', 
+            { dataset_ids: datasetIds }
+          );
+          
+  return response.data.validIds;
+}

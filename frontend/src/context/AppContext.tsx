@@ -1,9 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useMemo, ReactNode } from 'react';
-import { Dataset, DatasetUploadQueueItem, Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmissionResponse, ToolRequirements } from '@/types';
-import { generateMockDatasetSummary } from '@/data/mockData';
-import { uploadGeneExpressionFile } from '@/services/uploadService';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmissionResponse, ToolRequirements } from '@/types';
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
+import { useDatasetStore } from '@/stores/dataset';
 
 const TOOL_WORKFLOW_STORAGE_KEY = 'select-tool-workflow-state-v1';
 const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
@@ -14,8 +13,6 @@ interface JobRedirectInfo {
 }
 
 interface AppContextType {
-  dataset: Dataset;
-  successfulDatasets: DatasetUploadQueueItem[];
   experiments: Experiment[];
   activeExperimentId: string | null;
   workspaceMode: WorkspaceMode;
@@ -26,19 +23,13 @@ interface AppContextType {
   selectedDatasetIds: string[];
   focusDatasetId: string | null;
   datasetAnnotationMap: Record<string, string>;
+  successfulDatasets: import('@/stores/dataset').UploadedDataset[];
   updateParameterDraft: (datasetIds: string[], paramKey: string, value: any) => void;
   setSelectedDatasetIds: (ids: string[]) => void;
   setFocusDatasetId: (id: string | null) => void;
   resetParameterDrafts: () => void;
   setDatasetAnnotation: (datasetId: string, annotationId: string) => void;
   clearDatasetAnnotation: (datasetId: string) => void;
-  
-  // Dataset actions
-  uploadGeneExpression: (files: File[]) => void;
-  retryUploadQueueItem: (queueItemId: string) => void;
-  updateDatasetName: (datasetId: string, datasetName: string) => void;
-  removeUploadedDataset: (datasetId: string) => void;
-  isDatasetReady: () => boolean;
   
   // Experiment actions
   createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number, datasetIds?: string[], requirements?: ToolRequirements) => void;
@@ -52,29 +43,11 @@ interface AppContextType {
   // Workspace actions
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   startNewExperiment: () => void;
-  uploadSpatialCoordinates: (file: File) => void;
-  uploadTissueImage: (file: File) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const getDatasetNameFromFile = (fileName: string): string => {
-  const stripped = fileName.replace(/\.[^/.]+$/, '').trim();
-  return stripped || fileName;
-};
-
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [dataset, setDataset] = useState<Dataset>({
-    id: crypto.randomUUID(),
-    uploadId: null,
-    datasetUploadQueue: [],
-    spatialCoordinatesFile: null,
-    tissueImageFile: null,
-    summary: null,
-  });
-  const isQueueProcessingRef = useRef(false);
-  const uploadQueueRef = useRef<DatasetUploadQueueItem[]>([]);
-  
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('upload');
@@ -85,212 +58,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
   const [focusDatasetId, setFocusDatasetId] = useState<string | null>(null);
   const [datasetAnnotationMap, setDatasetAnnotationMap] = useState<Record<string, string>>({});
-
-  React.useEffect(() => {
-    uploadQueueRef.current = dataset.datasetUploadQueue;
-  }, [dataset.datasetUploadQueue]);
-
-  const successfulDatasets = useMemo(
-    () => dataset.datasetUploadQueue.filter((item) => item.status === 'SUCCESS'),
-    [dataset.datasetUploadQueue]
-  );
-
-  const processUploadQueue = useCallback(async () => {
-    if (isQueueProcessingRef.current) return;
-    isQueueProcessingRef.current = true;
-
-    try {
-      while (uploadQueueRef.current.some((item) => item.status === 'PENDING')) {
-        const nextItem = uploadQueueRef.current.find((item) => item.status === 'PENDING');
-        if (!nextItem) break;
-
-        setDataset((prev) => ({
-          ...prev,
-          datasetUploadQueue: prev.datasetUploadQueue.map((item) =>
-            item.id === nextItem.id
-              ? { ...item, status: 'UPLOADING' as const, uploadProgress: 0, error: undefined }
-              : item
-          ),
-        }));
-
-        try {
-          const datasetId = await uploadGeneExpressionFile(nextItem.file, (progress) => {
-            setDataset((prev) => ({
-              ...prev,
-              datasetUploadQueue: prev.datasetUploadQueue.map((item) =>
-                item.id === nextItem.id ? { ...item, uploadProgress: progress } : item
-              ),
-            }));
-          });
-
-          const datasetName = nextItem.datasetName?.trim() || getDatasetNameFromFile(nextItem.fileName);
-
-          setDataset((prev) => ({
-            ...prev,
-            uploadId: datasetId,
-            datasetUploadQueue: prev.datasetUploadQueue.map((item) =>
-              item.id === nextItem.id
-                ? {
-                    ...item,
-                    datasetId,
-                    datasetName,
-                    status: 'SUCCESS' as const,
-                    uploadProgress: 100,
-                  }
-                : item
-            ),
-            summary: prev.summary || generateMockDatasetSummary(),
-          }));
-        } catch (err) {
-          console.error(`Upload failed for ${nextItem.fileName}:`, err);
-          setDataset((prev) => ({
-            ...prev,
-            datasetUploadQueue: prev.datasetUploadQueue.map((item) =>
-              item.id === nextItem.id
-                ? {
-                    ...item,
-                    status: 'ERROR' as const,
-                    uploadProgress: 0,
-                    error: err instanceof Error ? err.message : 'Upload failed',
-                  }
-                : item
-            ),
-          }));
-        }
-      }
-    } finally {
-      isQueueProcessingRef.current = false;
-    }
-  }, []);
-
-  const uploadGeneExpression = useCallback((files: File[]) => {
-    if (!files.length) return;
-
-    const queueItems: DatasetUploadQueueItem[] = files.map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      fileName: file.name,
-      datasetName: getDatasetNameFromFile(file.name),
-      datasetId: null,
-      size: file.size,
-      uploadProgress: 0,
-      status: 'PENDING',
-    }));
-
-    setDataset((prev) => ({
-      ...prev,
-      datasetUploadQueue: [...prev.datasetUploadQueue, ...queueItems],
-    }));
-  }, []);
-
-  const retryUploadQueueItem = useCallback((queueItemId: string) => {
-    setDataset((prev) => ({
-      ...prev,
-      datasetUploadQueue: prev.datasetUploadQueue.map((item) =>
-        item.id === queueItemId
-          ? { ...item, status: 'PENDING' as const, uploadProgress: 0, error: undefined, datasetId: null }
-          : item
-      ),
-    }));
-  }, []);
-
-  const updateDatasetName = useCallback((datasetId: string, datasetName: string) => {
-    if (!datasetId) return; // Safety check for null datasetId
-    const normalizedName = datasetName.trim();
-    if (!normalizedName) return;
-
-    setDataset((prev) => ({
-      ...prev,
-      datasetUploadQueue: prev.datasetUploadQueue.map((item) =>
-        item.datasetId === datasetId ? { ...item, datasetName: normalizedName } : item
-      ),
-    }));
-  }, []);
-
-  React.useEffect(() => {
-    const pendingItems = dataset.datasetUploadQueue.filter((item) => item.status === 'PENDING');
-    if (pendingItems.length > 0 && !isQueueProcessingRef.current) {
-      void processUploadQueue();
-    }
-  }, [dataset.datasetUploadQueue.length, processUploadQueue]);
-
-  const uploadSpatialCoordinates = useCallback((file: File) => {
-    setDataset((prev) => {
-      const newDataset = { ...prev, spatialCoordinatesFile: file };
-      if (successfulDatasets.length > 0 && newDataset.spatialCoordinatesFile && !newDataset.summary) {
-        newDataset.summary = generateMockDatasetSummary();
-      }
-      return newDataset;
-    });
-  }, [successfulDatasets]);
-
-  const uploadTissueImage = useCallback((file: File) => {
-    setDataset((prev) => ({ ...prev, tissueImageFile: file }));
-  }, []);
-
-  const removeUploadedDataset = useCallback((idOrDatasetId: string) => {
-    const removedDatasetIds: string[] = [];
-
-    setDataset((prev) => {
-      prev.datasetUploadQueue.forEach((item) => {
-        if ((item.datasetId === idOrDatasetId || item.id === idOrDatasetId) && item.datasetId) {
-          removedDatasetIds.push(item.datasetId);
-        }
-      });
-
-      return {
-        ...prev,
-        datasetUploadQueue: prev.datasetUploadQueue.filter(
-          (item) => item.datasetId !== idOrDatasetId && item.id !== idOrDatasetId
-        ),
-      };
-    });
-    
-    // Garbage collect parameterDrafts for deleted dataset
-    setParameterDrafts((prev) => {
-      const copy = { ...prev };
-      removedDatasetIds.forEach((datasetId) => {
-        delete copy[datasetId];
-      });
-      if (removedDatasetIds.length === 0) {
-        delete copy[idOrDatasetId];
-      }
-      return copy;
-    });
-    
-    // Remove from selectedDatasetIds if present
-    setSelectedDatasetIds((prev) => {
-      const idsToRemove = removedDatasetIds.length > 0 ? removedDatasetIds : [idOrDatasetId];
-      return prev.filter((id) => !idsToRemove.includes(id));
-    });
-
-    setDatasetAnnotationMap((prev) => {
-      const copy = { ...prev };
-      const idsToRemove = removedDatasetIds.length > 0 ? removedDatasetIds : [idOrDatasetId];
-      idsToRemove.forEach((datasetId) => {
-        delete copy[datasetId];
-      });
-      return copy;
-    });
-  }, []);
-
-  React.useEffect(() => {
-    if (selectedDatasetIds.length === 0) {
-      if (focusDatasetId !== null) {
-        setFocusDatasetId(null);
-      }
-      return;
-    }
-
-    if (!focusDatasetId || !selectedDatasetIds.includes(focusDatasetId)) {
-      setFocusDatasetId(selectedDatasetIds[0]);
-    }
-  }, [selectedDatasetIds, focusDatasetId]);
-
-  const isDatasetReady = useCallback(() => {
-    return successfulDatasets.length > 0;
-  }, [successfulDatasets]);
-
+  const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const createExperiment = useCallback((
     toolId: string,
     parameters: ParameterValue,
@@ -544,7 +312,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider
       value={{
-        dataset,
         successfulDatasets,
         experiments,
         activeExperimentId,
@@ -554,13 +321,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         selectedDatasetIds,
         focusDatasetId,
         datasetAnnotationMap,
-        uploadGeneExpression,
-        retryUploadQueueItem,
-        updateDatasetName,
-        removeUploadedDataset,
-        isDatasetReady,
-        uploadSpatialCoordinates,
-        uploadTissueImage,
         createExperiment,
         setActiveExperiment,
         removeExperiment,

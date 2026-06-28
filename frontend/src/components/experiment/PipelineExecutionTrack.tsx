@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Box, Button, Stepper, Step, StepLabel, Divider } from '@mui/material';
 import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
+import { usePipelineStore } from '@/stores/pipeline';
 import { ToolSchema } from '@/types';
 import { initializeParameterValues, prepareParametersForSubmission } from '@/utils/parameterUtils';
 import ParameterConfig from './ParameterConfig';
@@ -9,15 +10,7 @@ import ExperimentSettings from './ExperimentSettings';
 import DatasetSelectionBar from './DatasetSelectionBar';
 import ToolSelector from './ToolSelector';
 
-const TOOL_WORKFLOW_STORAGE_KEY = 'select-tool-workflow-state-v1';
 const steps = ['Select Tool', 'Configure Parameters'];
-
-interface PersistedWorkflowState {
-  activeStep: number;
-  selectedToolSchema: ToolSchema | null;
-  parameters: Record<string, any>;
-  numberOfRuns: number;
-}
 
 interface PipelineExecutionTrackProps {
   availableDatasets: Array<{ id: string; name: string }>;
@@ -37,48 +30,29 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
     resetParameterDrafts,
   } = useApp();
 
-  const [activeStep, setActiveStep] = useState(0);
-  const [selectedToolSchema, setSelectedToolSchema] = useState<ToolSchema | null>(null);
-  const [parameters, setParameters] = useState<Record<string, any>>({});
-  const [numberOfRuns, setNumberOfRuns] = useState(1);
+  const configuration = usePipelineStore((state) => state.configuration);
+  const activeStep = usePipelineStore((state) => state.activeStep);
+  const setSelectedTool = usePipelineStore((state) => state.setSelectedTool);
+  const setParameters = usePipelineStore((state) => state.setParameters);
+  const setNumberOfRuns = usePipelineStore((state) => state.setNumberOfRuns);
+  const setActiveStep = usePipelineStore((state) => state.setActiveStep);
+  const resetPipeline = usePipelineStore((state) => state.resetPipeline);
 
-  useEffect(() => {
-    const savedState = window.sessionStorage.getItem(TOOL_WORKFLOW_STORAGE_KEY);
-    if (!savedState) {
-      return;
-    }
+  const selectedToolSchema = configuration.selectedToolSchema;
+  const parameters = configuration.parameters;
+  const numberOfRuns = configuration.numberOfRuns;
 
-    try {
-      const parsed = JSON.parse(savedState) as PersistedWorkflowState;
-      setActiveStep(parsed.activeStep ?? 0);
-      setSelectedToolSchema(parsed.selectedToolSchema ?? null);
-      setParameters(parsed.parameters ?? {});
-      setNumberOfRuns(parsed.numberOfRuns ?? 1);
-    } catch {
-      window.sessionStorage.removeItem(TOOL_WORKFLOW_STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    const toPersist: PersistedWorkflowState = {
-      activeStep,
-      selectedToolSchema,
-      parameters,
-      numberOfRuns,
-    };
-
-    window.sessionStorage.setItem(TOOL_WORKFLOW_STORAGE_KEY, JSON.stringify(toPersist));
-  }, [activeStep, selectedToolSchema, parameters, numberOfRuns]);
-
+  // Sync local step changes back to the store
   useEffect(() => {
     onStepVisibilityChange(activeStep === 0);
   }, [activeStep, onStepVisibilityChange]);
 
   const handleToolSelect = useCallback((schema: ToolSchema) => {
-    setSelectedToolSchema(schema);
-    setParameters(initializeParameterValues(schema));
+    setSelectedTool(schema);
     resetParameterDrafts();
-  }, [resetParameterDrafts]);
+  }, [resetParameterDrafts, setSelectedTool]);
+
+  const recordCreatedExperiment = usePipelineStore((state) => state.recordCreatedExperiment);
 
   const handleCreateExperiment = useCallback(() => {
     if (!selectedToolSchema) {
@@ -86,6 +60,17 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
     }
 
     const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
+
+    // Record the snapshot BEFORE creating experiment, so it's persisted even if refresh happens
+    recordCreatedExperiment({
+      toolId: selectedToolSchema.tool_id,
+      parameters: preparedParams,
+      toolLabel: selectedToolSchema.label,
+      numberOfRuns,
+      datasetIds: selectedDatasetIds,
+      requirements: selectedToolSchema.requirements,
+      createdAt: Date.now(),
+    });
 
     createExperiment(
       selectedToolSchema.tool_id,
@@ -95,7 +80,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
       selectedDatasetIds,
       selectedToolSchema.requirements,
     );
-  }, [createExperiment, numberOfRuns, parameters, selectedDatasetIds, selectedToolSchema]);
+  }, [createExperiment, numberOfRuns, parameters, selectedDatasetIds, selectedToolSchema, recordCreatedExperiment]);
 
   const focusedDatasetName = useMemo(
     () => availableDatasets.find((dataset) => dataset.id === focusDatasetId)?.name ?? null,
@@ -178,7 +163,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
           <Button
             variant="outlined"
             startIcon={<ArrowBack />}
-            onClick={() => setActiveStep((previous) => previous - 1)}
+            onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
             disabled={activeStep === 0}
           >
             Back
@@ -188,7 +173,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
             <Button
               variant="contained"
               endIcon={<ArrowForward />}
-              onClick={() => setActiveStep((previous) => previous + 1)}
+              onClick={() => setActiveStep(activeStep + 1)}
               disabled={!selectedToolSchema}
             >
               Continue

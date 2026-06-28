@@ -1,10 +1,10 @@
 import React from 'react';
-import { DatasetUploadQueueItem } from '@/types';
 import EntityList from '@/components/shared/EntityList';
 import DatasetUploadRow from './DatasetUploadRow';
+import type { UploadedDataset } from '@/stores/dataset';
 
 interface DatasetUploadTableProps {
-  items: DatasetUploadQueueItem[];
+  items: UploadedDataset[];
   onUpdateName: (datasetId: string, name: string) => void;
   onRetry: (queueItemId: string) => void;
   onDelete: (datasetId: string) => void;

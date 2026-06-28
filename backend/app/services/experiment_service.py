@@ -15,27 +15,8 @@ from app.models.run import Run
 from app.models.run_config import RunConfig
 from app.repositories import dataset_repository, experiment_repository, run_config_repository, run_repository
 from app.schemas.experiment import DatasetConfigRequest, ImportResultsDatasetRequest
+from app.services.dataset_service import require_dataset
 from app.utils.security import generate_token_pair, verify_token
-
-
-def require_dataset(
-    db: Session,
-    dataset_id: str
-) -> Dataset:
-
-    dataset = dataset_repository.get_dataset_by_id(db, dataset_id)
-    if not dataset:
-        raise HTTPException(400, "Dataset not found or not finalized")
-    return dataset
-
-
-
-# def get_experiment(
-#     db,
-#     experiment_id: str
-# ) -> Experiment:
-
-
 
 
 def _validate_and_prepare_seeds(

@@ -3,6 +3,7 @@ import { Box, Typography, ToggleButtonGroup, ToggleButton, Button, Chip, Paper, 
 import { Download, GridView, CenterFocusWeak, Schedule, PlayArrow, Check, Refresh, RotateRight, FlipToFront, Flip } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
+import { useDatasetStore } from '@/stores/dataset';
 import { Experiment } from '@/types';
 import SpatialPlot from './SpatialPlot';
 import SubmitModal from '../modals/SubmitModal';
@@ -14,13 +15,13 @@ interface FocusViewProps {
 }
 
 const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
+  const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const {
     setWorkspaceMode,
     experiments,
     comparisonExperimentIds,
     toggleComparisonExperiment,
     refreshExperimentResult,
-    successfulDatasets,
     datasetAnnotationMap,
   } = useApp();
   const location = useLocation();
