@@ -116,6 +116,11 @@ export async function pollImportResultStatus(
   throw new Error('Timed out while waiting for import result validation.');
 }
 
+export async function checkStagedResultsValidity(stageIds: string[]): Promise<Record<string, boolean>> {
+  const response = await axiosInstance.post<Record<string, boolean>>('/import/result/status', { stage_ids: stageIds });
+  return response.data;
+}
+
 export async function uploadResultBundle(
   file: File,
   datasetId: string,

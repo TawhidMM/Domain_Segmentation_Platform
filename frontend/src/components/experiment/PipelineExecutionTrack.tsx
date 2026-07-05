@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Box, Button, Stepper, Step, StepLabel, Divider } from '@mui/material';
 import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { usePipelineStore } from '@/stores/pipeline';
+import { useUIStore } from '@/store/useUIStore';
 import { ToolSchema } from '@/types';
-import { initializeParameterValues, prepareParametersForSubmission } from '@/utils/parameterUtils';
+import { prepareParametersForSubmission } from '@/utils/parameterUtils';
 import ParameterConfig from './ParameterConfig';
 import ExperimentSettings from './ExperimentSettings';
 import DatasetSelectionBar from './DatasetSelectionBar';
@@ -14,13 +15,9 @@ const steps = ['Select Tool', 'Configure Parameters'];
 
 interface PipelineExecutionTrackProps {
   availableDatasets: Array<{ id: string; name: string }>;
-  onStepVisibilityChange: (showTabs: boolean) => void;
 }
 
-const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
-  availableDatasets,
-  onStepVisibilityChange,
-}) => {
+const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availableDatasets }) => {
   const {
     createExperiment,
     selectedDatasetIds,
@@ -36,16 +33,10 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
   const setParameters = usePipelineStore((state) => state.setParameters);
   const setNumberOfRuns = usePipelineStore((state) => state.setNumberOfRuns);
   const setActiveStep = usePipelineStore((state) => state.setActiveStep);
-  const resetPipeline = usePipelineStore((state) => state.resetPipeline);
 
   const selectedToolSchema = configuration.selectedToolSchema;
   const parameters = configuration.parameters;
   const numberOfRuns = configuration.numberOfRuns;
-
-  // Sync local step changes back to the store
-  useEffect(() => {
-    onStepVisibilityChange(activeStep === 0);
-  }, [activeStep, onStepVisibilityChange]);
 
   const handleToolSelect = useCallback((schema: ToolSchema) => {
     setSelectedTool(schema);
@@ -160,14 +151,20 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBack />}
-            onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
-            disabled={activeStep === 0}
-          >
-            Back
-          </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBack />}
+              onClick={() => {
+                if (activeStep > 0) {
+                  setActiveStep(activeStep - 1);
+                  return;
+                }
+
+                useUIStore.getState().setWorkspaceView('upload');
+              }}
+            >
+              Back
+            </Button>
 
           {activeStep < steps.length - 1 ? (
             <Button

@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
 import { usePipelineStore } from '@/stores/pipeline';
+import { useImportResultsStore } from '@/stores/import-results';
+import { useUIStore } from '@/store/useUIStore';
 import { useBootstrapStore } from './bootstrapStore';
 
 export type RestoredWorkspaceMode = 'upload' | 'builder' | 'focus' | undefined;
@@ -42,15 +44,16 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
 
     const unsub1 = useDatasetStore.persist.onFinishHydration(run);
     const unsub2 = usePipelineStore.persist.onFinishHydration(run);
+    const unsub3 = useImportResultsStore.persist.onFinishHydration(run);
 
     // If already hydrated synchronously, run immediately
-    if (useDatasetStore.persist.hasHydrated() && usePipelineStore.persist.hasHydrated()) {
+    if (useDatasetStore.persist.hasHydrated() && usePipelineStore.persist.hasHydrated() && useImportResultsStore.persist.hasHydrated()) {
       run();
     } else {
       setPhase('hydrating');
       // Guard against double fire in edge cases
       onRehydrateRef.current = () => {
-        if (useDatasetStore.persist.hasHydrated() && usePipelineStore.persist.hasHydrated() && !ran.current) {
+        if (useDatasetStore.persist.hasHydrated() && usePipelineStore.persist.hasHydrated() && useImportResultsStore.persist.hasHydrated() && !ran.current) {
           run();
         }
       };
@@ -59,33 +62,30 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
     return () => {
       unsub1();
       unsub2();
+      unsub3();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   async function runValidation() {
     try {
       setPhase('validating');
 
-      // Read state AFTER hydration — getState() guarantees fresh values
       const datasetsAfterHydration = useDatasetStore.getState().uploadedDatasets;
-      const configAfterHydration = usePipelineStore.getState().configuration;
 
-      // Case 1: No persisted datasets at all
       if (!datasetsAfterHydration || datasetsAfterHydration.length === 0) {
-        if (configAfterHydration.selectedTool) {
-          resetPipeline();
-        }
+        resetPipeline();
         setPhase('completed');
         onRestored?.('upload');
         return;
       }
 
-      // Case 2: Validate against backend
       const valid = await validateDatasetsWithBackend(axios);
 
       if (!valid) {
         resetDatasetState();
         resetPipeline();
+        useImportResultsStore.getState().resetImportResults();
+        useUIStore.getState().resetUIState();
         setPhase('completed');
         onRestored?.('upload');
         return;
@@ -95,33 +95,36 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
 
       if (!remaining || remaining.length === 0) {
         resetPipeline();
+        useImportResultsStore.getState().resetImportResults();
+        useUIStore.getState().resetUIState();
         setPhase('completed');
         onRestored?.('upload');
         return;
       }
 
-      // Case 3: Valid datasets survive — determine workspace mode
       setPhase('restoring');
 
-      const pipelineConfig = usePipelineStore.getState().configuration;
       const lastExperiment = usePipelineStore.getState().lastCreatedExperiment;
 
-      // Priority: if there's a created experiment snapshot → focus view
-      // If there's pipeline config (tool selected, params configured) → builder
-      // Otherwise → upload
+      await useImportResultsStore.getState().validateStagedItems();
+
+      const persistedUserView = useUIStore.getState().currentView;
+
       let restoredMode: RestoredWorkspaceMode;
       if (lastExperiment) {
         restoredMode = 'focus';
-      } else if (pipelineConfig.selectedTool) {
-        restoredMode = 'builder';
       } else {
-        restoredMode = 'upload';
+        restoredMode = persistedUserView;
       }
 
       setPhase('completed');
       onRestored?.(restoredMode);
     } catch (err) {
       console.error('[Bootstrap] Workspace restoration failed:', err);
+      resetDatasetState();
+      resetPipeline();
+      useImportResultsStore.getState().resetImportResults();
+      useUIStore.getState().resetUIState();
       useBootstrapStore.getState().setError(
         err instanceof Error ? err.message : 'Failed to restore workspace'
       );
