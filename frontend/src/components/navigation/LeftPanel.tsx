@@ -3,13 +3,14 @@ import { Box, Typography, Button, Divider, Chip } from '@mui/material';
 import { Add, CloudUpload, Science } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useDatasetStore } from '@/stores/dataset';
+import { useUIStore } from '@/store/useUIStore';
 import ExperimentsList from './ExperimentsList';
 
 const LeftPanel: React.FC = () => {
   const summary = useDatasetStore((state) => state.summary);
   const isDatasetReady = useDatasetStore((state) => state.isDatasetReady);
   const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
-  const { startNewExperiment, experiments, setWorkspaceMode } = useApp();
+  const { startNewExperiment, experiments } = useApp();
 
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
 
@@ -35,7 +36,7 @@ const LeftPanel: React.FC = () => {
           Dataset
         </Typography>
         <Box
-          onClick={() => setWorkspaceMode('upload')}
+          onClick={() => useUIStore.getState().setWorkspaceView('upload')}
           sx={{
             mt: 1,
             p: 1.5,

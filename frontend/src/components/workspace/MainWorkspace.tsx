@@ -1,58 +1,42 @@
 import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
-import { Science } from '@mui/icons-material';
+import { Box } from '@mui/material';
 import { useApp } from '@/context/AppContext';
+import { useDatasetStore } from '@/stores/dataset';
+import { usePipelineStore } from '@/stores/pipeline';
+import { useUIStore } from '@/store/useUIStore';
 import DatasetUpload from '../dataset/DatasetUpload';
-import ExperimentBuilder from '../experiment/ExperimentBuilder';
+import ExperimentBuilder from '@/components/experiment/ExperimentBuilder';
 import FocusView from '../visualization/FocusView';
-import ComparisonView from '../visualization/ComparisonView';
 
 const MainWorkspace: React.FC = () => {
-  const { workspaceMode, experiments, activeExperimentId } = useApp();
+  const { experiments, activeExperimentId } = useApp();
+  const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
+  const lastCreatedExperiment = usePipelineStore((state) => state.lastCreatedExperiment);
+  const currentView = useUIStore((state) => state.currentView);
 
-  const activeExperiment = experiments.find((e) => e.id === activeExperimentId);
+  // Resolve the actual Experiment object for FocusView (from AppContext's live experiments)
+  const experimentForFocus = lastCreatedExperiment
+    ? experiments.find((e) => e.id === activeExperimentId) ?? null
+    : null;
 
   const renderContent = () => {
-    switch (workspaceMode) {
-      case 'upload':
-        return <DatasetUpload />;
-
-      case 'builder':
-        return <ExperimentBuilder />;
-
-      case 'focus':
-        if (activeExperiment) {
-          return <FocusView experiment={activeExperiment} />;
-        }
-        return (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Paper
-              sx={{
-                p: 6,
-                maxWidth: 400,
-                mx: 'auto',
-                backgroundColor: '#FAFAFA',
-                border: '1px dashed',
-                borderColor: 'divider',
-              }}
-            >
-              <Science sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="h6" sx={{ color: 'text.secondary', mb: 1 }}>
-                No Experiment Selected
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-                Select an experiment from the left panel or create a new one
-              </Typography>
-            </Paper>
-          </Box>
-        );
-
-      case 'comparison':
-        return <ComparisonView />;
-
-      default:
-        return <DatasetUpload />;
+    // Guardrail 1: No datasets loaded
+    if (!uploadedDatasets || uploadedDatasets.length === 0) {
+      return <DatasetUpload />;
     }
+
+    // Guardrail 2: Active experiment exists (derived from context + snapshot)
+    if (experimentForFocus) {
+      return <FocusView experiment={experimentForFocus} />;
+    }
+
+    // User preference view
+    if (currentView === 'upload') {
+      return <DatasetUpload />;
+    }
+
+    // Default: builder view (shows pipeline or import tracks)
+    return <ExperimentBuilder />;
   };
 
   return (

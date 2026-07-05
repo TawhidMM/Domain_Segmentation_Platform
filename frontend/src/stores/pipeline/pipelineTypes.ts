@@ -18,6 +18,8 @@ export interface CreatedExperimentSnapshot {
   createdAt: number;
 }
 
+export type BuilderTabValue = 'select-tool' | 'import-result';
+
 export interface PipelineState {
   configuration: PipelineConfiguration;
   activeStep: number;

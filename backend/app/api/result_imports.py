@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.core.redis import RESULT_VALIDATION_SESSION_TTL, get_result_validation_key, redis_client
 from app.core.storage import storage
 from app.core.storage_space import StagingSpace
-from app.schemas.result_validation import ValidationStatus, ValidationPayload
+from app.schemas.result_validation import ValidationStatus, ValidationPayload, CheckStagedResultsRequest
 from app.services import upload_service
 from app.tasks.result_validation_task import validate_result_bundle
 from app.utils.zip_utils import extract_zip
@@ -105,3 +105,15 @@ async def delete_staged_result(stage_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete staged result: {str(e)}")
+
+@router.post("/status", status_code=status.HTTP_200_OK)
+async def check_staged_results_validity(
+    request: CheckStagedResultsRequest
+):
+
+    validity_map = {
+        stage_id: StagingSpace(stage_id).staging_directory.exists()
+        for stage_id in request.stage_ids
+    }
+
+    return validity_map

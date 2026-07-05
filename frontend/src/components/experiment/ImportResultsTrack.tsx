@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -16,6 +16,8 @@ import {
 } from '@mui/material';
 import { CheckCircle, CloudUpload, Error as ErrorIcon, HourglassTop } from '@mui/icons-material';
 import { useDatasetStore } from '@/stores/dataset';
+import { useImportResultsStore, type StagedResultItem } from '@/stores/import-results';
+import { useUIStore } from '@/store/useUIStore';
 import FileUploadCard from '@/components/dataset/FileUploadCard';
 import EntityList from '@/components/shared/EntityList';
 import ImportedResultRow from './ImportedResultRow';
@@ -28,24 +30,8 @@ import {
   submitImportedResult,
 } from '@/services/experimentService';
 
-const IMPORT_RESULTS_STORAGE_KEY = 'import-results-workflow-state-v1';
-
-export interface StagedResultItem {
-  stageId: string;
-  datasetId: string;
-  datasetName: string;
-  fileName: string;
-}
-
-interface PersistedImportState {
-  toolName: string;
-  selectedDatasetId: string;
-  experimentTitle?: string;
-}
-
 interface ImportResultsTrackProps {
   availableDatasets?: Array<{ id: string; name: string }>;
-  onStepChange?: (step: number) => void;
 }
 
 interface UploadFilePreview {
@@ -69,6 +55,7 @@ interface ConfigurationPanelProps {
 interface StickyActionsFooterProps {
   canSubmit: boolean;
   isSubmitting: boolean;
+  onBack: () => void;
   onSubmit: () => void;
 }
 
@@ -175,19 +162,18 @@ const StagedResultsPanel: React.FC<{
 }> = ({ items, onRemove }) => {
   return (
     <EntityList
-      title={`Staged Bundles (${items.length})`}
+      title={`Staged Bundles (${items?.length ?? 0})`}
       maxHeight={420}
       panelSx={{
         backgroundColor: 'background.paper',
       }}
     >
-      {items.length === 0 ? (
+      {items?.length === 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary', px: 1, py: 1 }}>
           Successful uploads will appear here.
         </Typography>
-      ) : (
-        items.map((item) => <ImportedResultRow key={item.stageId} item={item} onRemove={onRemove} />)
       )}
+      {items?.map((item) => <ImportedResultRow key={item.stageId} item={item} onRemove={onRemove} />)}
     </EntityList>
   );
 };
@@ -229,7 +215,7 @@ const ValidationStatusPanel: React.FC<{
   );
 };
 
-const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, isSubmitting, onSubmit }) => {
+const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, isSubmitting, onBack, onSubmit }) => {
   return (
     <Box
       sx={{
@@ -243,7 +229,11 @@ const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, is
         mt: 4,
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+        <Button variant="outlined" onClick={onBack} sx={{ px: 3, py: 1, fontWeight: 600, textTransform: 'none' }}>
+          Back
+        </Button>
+
         <Button
           variant="contained"
           disabled={!canSubmit || isSubmitting}
@@ -258,8 +248,20 @@ const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, is
   );
 };
 
-const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatasets, onStepChange }) => {
+const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatasets }) => {
   const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
+  const setWorkspaceView = useUIStore((state) => state.setWorkspaceView);
+
+  // Import Results Store — single source of truth for import workflow state
+  const toolName = useImportResultsStore((state) => state.toolName);
+  const selectedDatasetId = useImportResultsStore((state) => state.selectedDatasetId);
+  const stagedItems = useImportResultsStore((state) => state.stagedItems);
+  const submittedDatasetIds = useImportResultsStore((state) => state.submittedDatasetIds);
+  const setToolName = useImportResultsStore((state) => state.setToolName);
+  const setSelectedDatasetId = useImportResultsStore((state) => state.setSelectedDatasetId);
+  const addStagedItem = useImportResultsStore((state) => state.addStagedItem);
+  const removeStagedItem = useImportResultsStore((state) => state.removeStagedItem);
+  const addSubmittedDatasetId = useImportResultsStore((state) => state.addSubmittedDatasetId);
 
   const datasetOptions = useMemo(
     () =>
@@ -272,10 +274,6 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     [availableDatasets, successfulDatasets]
   );
 
-  const [toolName, setToolName] = useState('my tool');
-  const [selectedDatasetId, setSelectedDatasetId] = useState('');
-  const [stagedItems, setStagedItems] = useState<StagedResultItem[]>([]);
-  const [submittedDatasetIds, setSubmittedDatasetIds] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadFilePreview[]>([]);
   const [validationStatus, setValidationStatus] = useState<ImportValidationPayload | null>(null);
@@ -292,41 +290,13 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     [datasetOptions, stagedItems, submittedDatasetIds]
   );
 
-  useEffect(() => {
-    const savedState = window.sessionStorage.getItem(IMPORT_RESULTS_STORAGE_KEY);
-    if (!savedState) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(savedState) as PersistedImportState;
-      setToolName(parsed.toolName ?? parsed.experimentTitle ?? 'my tool');
-      setSelectedDatasetId(parsed.selectedDatasetId ?? '');
-    } catch {
-      window.sessionStorage.removeItem(IMPORT_RESULTS_STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    const toPersist: PersistedImportState = {
-      toolName,
-      selectedDatasetId,
-    };
-
-    window.sessionStorage.setItem(IMPORT_RESULTS_STORAGE_KEY, JSON.stringify(toPersist));
-  }, [toolName, selectedDatasetId]);
-
-  useEffect(() => {
-    onStepChange?.(0);
-  }, [onStepChange]);
-
   const handleDatasetChange = useCallback((datasetId: string) => {
     setSelectedDatasetId(datasetId);
     setSelectedFile(null);
     setUploadedFiles([]);
     setValidationStatus(null);
     setSubmitFeedback(null);
-  }, []);
+  }, [setSelectedDatasetId]);
 
   const handleUploadProgress = useCallback((progress: number) => {
     setUploadedFiles((previous) =>
@@ -343,8 +313,8 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   }, []);
 
   const handleRemoveStagedItem = useCallback((stageId: string) => {
-    setStagedItems((previous) => previous.filter((item) => item.stageId !== stageId));
-  }, []);
+    removeStagedItem(stageId);
+  }, [removeStagedItem]);
 
   const handleFileSelect = useCallback(
     async (files: File[]) => {
@@ -406,17 +376,13 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
 
         if (validation.status === 'success') {
           const datasetName = datasetOptions.find((dataset) => dataset.id === selectedDatasetId)?.name ?? selectedDatasetId;
-          setStagedItems((previous) => [
-            ...previous,
-            {
-              stageId,
-              datasetId: selectedDatasetId,
-              datasetName,
-              fileName: file.name,
-            },
-          ]);
+          addStagedItem({
+            stageId,
+            datasetId: selectedDatasetId,
+            datasetName,
+            fileName: file.name,
+          });
 
-          window.sessionStorage.removeItem(IMPORT_RESULTS_STORAGE_KEY);
           setSelectedDatasetId('');
           setSelectedFile(null);
           setUploadedFiles([]);
@@ -439,7 +405,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         setIsSubmitting(false);
       }
     },
-    [datasetOptions, handleUploadProgress, selectedDatasetId, toolName]
+    [datasetOptions, handleUploadProgress, selectedDatasetId, toolName, addStagedItem, setSelectedDatasetId]
   );
 
   const handleSubmit = useCallback(async () => {
@@ -469,12 +435,11 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         severity: 'success',
         message: `Imported experiment queued: ${response.experiment_id}`,
       });
-      setSubmittedDatasetIds((previous) => [
-        ...previous,
-        ...stagedItems.map((item) => item.datasetId).filter((datasetId) => !previous.includes(datasetId)),
-      ]);
-      setStagedItems([]);
-      setValidationStatus(null);
+
+      const newlySubmitted = stagedItems.map((item) => item.datasetId).filter(
+        (datasetId) => !submittedDatasetIds.includes(datasetId)
+      );
+      newlySubmitted.forEach((datasetId) => addSubmittedDatasetId(datasetId));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to submit imported experiment.';
       setSubmitFeedback({
@@ -484,7 +449,11 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, stagedItems, toolName]);
+  }, [isSubmitting, stagedItems, toolName, submittedDatasetIds, addSubmittedDatasetId]);
+
+  const handleBack = useCallback(() => {
+    setWorkspaceView('upload');
+  }, [setWorkspaceView]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1 }}>
@@ -511,7 +480,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
             uploadedFiles={uploadedFiles}
             uploaderEnabled={Boolean(toolName.trim())}
             isSubmitting={isSubmitting}
-            onSelectedDatasetChange={handleDatasetChange}
+            onSelectedDatasetChange={setSelectedDatasetId}
             onFileSelect={handleFileSelect}
           />
 
@@ -541,7 +510,12 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         </Box>
       </Box>
 
-      <StickyActionsFooter canSubmit={stagedItems.length > 0 && !isSubmitting} isSubmitting={isSubmitting} onSubmit={handleSubmit} />
+      <StickyActionsFooter
+        canSubmit={stagedItems.length > 0 && Boolean(toolName.trim())}
+        isSubmitting={isSubmitting}
+        onBack={handleBack}
+        onSubmit={handleSubmit}
+      />
     </Box>
   );
 };

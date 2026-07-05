@@ -22,3 +22,7 @@ class ValidationPayload(BaseModel):
 
     def convert_to_json(self) -> str:
         return self.model_dump_json(exclude_none=True)
+
+
+class CheckStagedResultsRequest(BaseModel):
+    stage_ids: list[str]

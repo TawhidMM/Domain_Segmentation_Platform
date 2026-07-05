@@ -3,6 +3,8 @@ import { Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmiss
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
+import { usePipelineStore } from '@/stores/pipeline';
+import { useUIStore } from '@/store/useUIStore';
 
 const TOOL_WORKFLOW_STORAGE_KEY = 'select-tool-workflow-state-v1';
 const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
@@ -84,14 +86,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setExperiments((prev) => [...prev, experiment]);
     setActiveExperimentId(experiment.id);
-    setWorkspaceMode('focus');
   }, []);
 
   const setActiveExperiment = useCallback((id: string | null) => {
     setActiveExperimentId(id);
-    if (id) {
-      setWorkspaceMode('focus');
-    }
   }, []);
 
   const removeExperiment = useCallback((id: string) => {
@@ -253,11 +251,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       window.sessionStorage.removeItem(BUILDER_STATE_STORAGE_KEY);
       window.sessionStorage.removeItem(TOOL_WORKFLOW_STORAGE_KEY);
     }
+
     setParameterDrafts({});
     setSelectedDatasetIds([]);
     setFocusDatasetId(null);
     setDatasetAnnotationMap({});
-    setWorkspaceMode('builder');
+    usePipelineStore.getState().resetPipeline();
+    useUIStore.getState().setWorkspaceView('builder');
     setActiveExperimentId(null);
   }, []);
 
