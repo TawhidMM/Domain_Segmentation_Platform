@@ -95,7 +95,6 @@ const FocusPage: React.FC = () => {
         const runStatus = await fetchRunStatus(selectedRunId, accessToken);
         setStatus(runStatus.status);
 
-        // If finished, fetch results and metrics
         if (runStatus.status === 'finished') {
           const [resultData, metricsData] = await Promise.all([
             fetchExperimentResult(selectedRunId, accessToken),
@@ -104,13 +103,55 @@ const FocusPage: React.FC = () => {
           setResult(resultData);
           setMetrics(metricsData);
           setIsPolling(false);
+          
+          // Update the run status in experimentData so the left panel reflects it
+          setExperimentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              datasets: prev.datasets.map(ds => ({
+                ...ds,
+                runs: ds.runs.map(r =>
+                  r.run_id === selectedRunId ? { ...r, status: runStatus.status } : r
+                )
+              }))
+            };
+          });
         } else if (runStatus.status === 'queued' || runStatus.status === 'running') {
+          // Update the run status in experimentData (for cases where initial fetch shows queued/running)
+          setExperimentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              datasets: prev.datasets.map(ds => ({
+                ...ds,
+                runs: ds.runs.map(r =>
+                  r.run_id === selectedRunId ? { ...r, status: runStatus.status } : r
+                )
+              }))
+            };
+          });
+          
           // Start polling
           setIsPolling(true);
           pollingInterval = setInterval(async () => {
             try {
               const updatedStatus = await fetchRunStatus(selectedRunId, accessToken);
               setStatus(updatedStatus.status);
+
+              // Update experimentData for any status change during polling
+              setExperimentData(prev => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  datasets: prev.datasets.map(ds => ({
+                    ...ds,
+                    runs: ds.runs.map(r =>
+                      r.run_id === selectedRunId ? { ...r, status: updatedStatus.status } : r
+                    )
+                  }))
+                };
+              });
 
               if (updatedStatus.status === 'finished') {
                 const [resultData, metricsData] = await Promise.all([
@@ -120,6 +161,7 @@ const FocusPage: React.FC = () => {
                 setResult(resultData);
                 setMetrics(metricsData);
                 setIsPolling(false);
+                
                 if (pollingInterval) clearInterval(pollingInterval);
               } else if (updatedStatus.status === 'failed') {
                 setIsPolling(false);
@@ -409,189 +451,189 @@ const FocusPage: React.FC = () => {
               )}
             </Typography>
 
-        {/* Status Chip and Copy Link */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          {status && getStatusIcon(status) && (
-            <Chip
-              icon={getStatusIcon(status) as React.ReactElement}
-              label={status.charAt(0).toUpperCase() + status.slice(1)}
-              color={getStatusColor(status) as any}
-              variant="outlined"
-            />
-          )}
+          {/* Status Chip and Copy Link */}
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            {status && getStatusIcon(status) && (
+              <Chip
+                icon={getStatusIcon(status) as React.ReactElement}
+                label={status.charAt(0).toUpperCase() + status.slice(1)}
+                color={getStatusColor(status) as any}
+                variant="outlined"
+              />
+            )}
 
-          {isPolling && (
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Polling for updates...
-            </Typography>
-          )}
+            {isPolling && (
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Polling for updates...
+              </Typography>
+            )}
 
-          <Tooltip title="Copy job link">
-            <Button
-              startIcon={<Copy size={16} />}
-              variant="outlined"
-              size="small"
-              onClick={copyLink}
-            >
-              Copy Link
-            </Button>
-          </Tooltip>
+            <Tooltip title="Copy job link">
+              <Button
+                startIcon={<Copy size={16} />}
+                variant="outlined"
+                size="small"
+                onClick={copyLink}
+              >
+                Copy Link
+              </Button>
+            </Tooltip>
+
+            {status === 'finished' && (
+              <>
+                <Tooltip title={isInBasket ? 'Remove from comparison' : 'Add to comparison'}>
+                  <Button
+                    startIcon={isInBasket ? <Check size={16} /> : <Plus size={16} />}
+                    variant={isInBasket ? 'contained' : 'outlined'}
+                    size="small"
+                    onClick={handleAddToCompare}
+                    color={isInBasket ? 'success' : 'primary'}
+                  >
+                    {isInBasket ? '✓ In Comparison' : 'Add to Compare'}
+                  </Button>
+                </Tooltip>
+
+              </>
+            )}
+          </Box>
+
+          {/* Share Instructions */}
+          {status && (status === 'queued' || status === 'running') && (
+            <Alert severity="info" sx={{ mt: 3 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                Job is processing...
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                You can share or bookmark the link above to check back on progress anytime. The link remains valid until
+                the job completes.
+              </Typography>
+            </Alert>
+          )}
 
           {status === 'finished' && (
-            <>
-              <Tooltip title={isInBasket ? 'Remove from comparison' : 'Add to comparison'}>
-                <Button
-                  startIcon={isInBasket ? <Check size={16} /> : <Plus size={16} />}
-                  variant={isInBasket ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={handleAddToCompare}
-                  color={isInBasket ? 'success' : 'primary'}
-                >
-                  {isInBasket ? '✓ In Comparison' : '+ Add to Compare'}
-                </Button>
-              </Tooltip>
+            <Alert severity="success" sx={{ mt: 3 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                Job completed successfully!
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                Results are displayed below. You can bookmark this link to revisit results anytime.
+              </Typography>
+            </Alert>
+          )}
 
-            </>
+          {status === 'failed' && (
+            <Alert severity="error" sx={{ mt: 3 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                Job failed to complete
+              </Typography>
+            </Alert>
           )}
         </Box>
 
-        {/* Share Instructions */}
-        {status && (status === 'queued' || status === 'running') && (
-          <Alert severity="info" sx={{ mt: 3 }}>
-            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-              Job is processing...
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-              You can share or bookmark the link above to check back on progress anytime. The link remains valid until
-              the job completes.
-            </Typography>
-          </Alert>
-        )}
+        <Divider sx={{ my: 4 }} />
 
-        {status === 'finished' && (
-          <Alert severity="success" sx={{ mt: 3 }}>
-            <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-              Job completed successfully!
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-              Results are displayed below. You can bookmark this link to revisit results anytime.
-            </Typography>
-          </Alert>
-        )}
+        {/* Results Section */}
+        {status === 'finished' && result ? (
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Results
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
+                <Tooltip title="Rotate 90°">
+                  <IconButton size="small" onClick={() => setRotation((prev) => (prev + 90) % 360)}>
+                    <RotateCw size={18} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Mirror Horizontal">
+                  <IconButton
+                    size="small"
+                    onClick={() => setMirrorX((prev) => !prev)}
+                    sx={{ color: mirrorX ? 'primary.main' : 'inherit' }}
+                  >
+                    <FlipHorizontal size={18} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Mirror Vertical">
+                  <IconButton
+                    size="small"
+                    onClick={() => setMirrorY((prev) => !prev)}
+                    sx={{ color: mirrorY ? 'primary.main' : 'inherit' }}
+                  >
+                    <FlipVertical size={18} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+            <SpatialPlot
+              result={result}
+              metrics={metrics}
+              title="Spatial Domain Analysis"
+              height={600}
+              rotation={rotation}
+              mirrorX={mirrorX}
+              mirrorY={mirrorY}
+              jobId={selectedRunId || ''}
+              accessToken={accessToken}
+              hasHistology={result?.has_histology}
+            />
 
-        {status === 'failed' && (
-          <Alert severity="error" sx={{ mt: 3 }}>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              Job failed to complete
-            </Typography>
-          </Alert>
-        )}
-      </Box>
-
-      <Divider sx={{ my: 4 }} />
-
-      {/* Results Section */}
-      {status === 'finished' && result ? (
-        <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Results
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
-              <Tooltip title="Rotate 90°">
-                <IconButton size="small" onClick={() => setRotation((prev) => (prev + 90) % 360)}>
-                  <RotateCw size={18} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Mirror Horizontal">
-                <IconButton
-                  size="small"
-                  onClick={() => setMirrorX((prev) => !prev)}
-                  sx={{ color: mirrorX ? 'primary.main' : 'inherit' }}
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
+                Downloads
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                <Button
+                  startIcon={<DownloadIcon size={16} />}
+                  variant="outlined"
+                  onClick={handleDownloadSVG}
+                  disabled={isExporting}
                 >
-                  <FlipHorizontal size={18} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Mirror Vertical">
-                <IconButton
-                  size="small"
-                  onClick={() => setMirrorY((prev) => !prev)}
-                  sx={{ color: mirrorY ? 'primary.main' : 'inherit' }}
+                  {isExporting ? 'Downloading...' : 'Download Spatial Plot'}
+                </Button>
+                <Button
+                  startIcon={<DownloadIcon size={16} />}
+                  variant="outlined"
+                  onClick={handleDownloadUmap}
+                  disabled={isExportingUmap}
                 >
-                  <FlipVertical size={18} />
-                </IconButton>
-              </Tooltip>
+                  {isExportingUmap ? 'Downloading...' : 'Download UMAP'}
+                </Button>
+              </Box>
             </Box>
           </Box>
-          <SpatialPlot
-            result={result}
-            metrics={metrics}
-            title="Spatial Domain Analysis"
-            height={600}
-            rotation={rotation}
-            mirrorX={mirrorX}
-            mirrorY={mirrorY}
-            jobId={selectedRunId || ''}
-            accessToken={accessToken}
-            hasHistology={result?.has_histology}
-          />
-
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
-              Downloads
+        ) : status === 'queued' || status === 'running' ? (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <CircularProgress size={56} sx={{ mb: 3 }} />
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
+              {status === 'queued' ? 'Job is queued' : 'Job is running'}
             </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-              <Button
-                startIcon={<DownloadIcon size={16} />}
-                variant="outlined"
-                onClick={handleDownloadSVG}
-                disabled={isExporting}
-              >
-                {isExporting ? 'Downloading...' : 'Download Spatial Plot'}
-              </Button>
-              <Button
-                startIcon={<DownloadIcon size={16} />}
-                variant="outlined"
-                onClick={handleDownloadUmap}
-                disabled={isExportingUmap}
-              >
-                {isExportingUmap ? 'Downloading...' : 'Download UMAP'}
-              </Button>
-            </Box>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+              {status === 'queued'
+                ? 'Your job is waiting to be processed. This page will update automatically.'
+                : 'Your job is being processed. This page will update automatically.'}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Checking for updates every 5 seconds...
+            </Typography>
           </Box>
-        </Box>
-      ) : status === 'queued' || status === 'running' ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <CircularProgress size={56} sx={{ mb: 3 }} />
-          <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-            {status === 'queued' ? 'Job is queued' : 'Job is running'}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-            {status === 'queued'
-              ? 'Your job is waiting to be processed. This page will update automatically.'
-              : 'Your job is being processed. This page will update automatically.'}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Checking for updates every 5 seconds...
-          </Typography>
-        </Box>
-      ) : status === 'failed' ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <AlertCircle size={56} style={{ color: '#EF4444', marginBottom: 24 }} />
-          <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-            Job Failed
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-            The job encountered an error during processing. Please try again or contact support if the problem
-            persists.
-          </Typography>
-          <Button variant="contained" href="/">
-            Create New Job
-          </Button>
-        </Box>
-      ) : null}
+        ) : status === 'failed' ? (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <AlertCircle size={56} style={{ color: '#EF4444', marginBottom: 24 }} />
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
+              Job Failed
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+              The job encountered an error during processing. Please try again or contact support if the problem
+              persists.
+            </Typography>
+            <Button variant="contained" href="/">
+              Create New Job
+            </Button>
+          </Box>
+        ) : null}
 
-          <FloatingCompareBar />
+        <FloatingCompareBar />
         </Container>
       </Box>
     </Box>
