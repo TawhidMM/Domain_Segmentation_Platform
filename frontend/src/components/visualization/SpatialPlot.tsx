@@ -38,6 +38,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   const [histologyMode, setHistologyMode] = useState<HistologyMode>(hasHistology ? 'overlay' : 'spots');
   const [overlayOpacity, setOverlayOpacity] = useState(0.7);
   const [loadedHistologyUrl, setLoadedHistologyUrl] = useState<string | null>(null);
+  const [loadedHistologyImage, setLoadedHistologyImage] = useState<HTMLImageElement | null>(null);
   const [histologySize, setHistologySize] = useState<{ width: number; height: number } | null>(null);
   const [histologyStatus, setHistologyStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const histologyUrl = useMemo(() => {
@@ -56,6 +57,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
     if (!hasHistology || !histologyUrl) {
       setHistologyStatus('idle');
       setLoadedHistologyUrl(null);
+      setLoadedHistologyImage(null);
       setHistologySize(null);
       return;
     }
@@ -63,12 +65,14 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
     let isActive = true;
     setHistologyStatus('loading');
     setLoadedHistologyUrl(null);
+    setLoadedHistologyImage(null);
     setHistologySize(null);
 
     const image = new Image();
     image.onload = () => {
       if (!isActive) return;
       setLoadedHistologyUrl(histologyUrl);
+      setLoadedHistologyImage(image);
       setHistologySize({ width: image.naturalWidth, height: image.naturalHeight });
       setHistologyStatus('loaded');
     };
@@ -83,12 +87,119 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
     };
   }, [hasHistology, histologyUrl]);
 
+  const transformedHistologyUrl = useMemo(() => {
+    if (!loadedHistologyImage || !histologySize) return loadedHistologyUrl;
+
+    const { width, height } = histologySize;
+    const rad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const sourceCorners = [
+      { x: 0, y: 0 },
+      { x: width, y: 0 },
+      { x: 0, y: height },
+      { x: width, y: height },
+    ];
+
+    const transformedCorners = sourceCorners.map(({ x, y }) => {
+      let transformedX = x;
+      let transformedY = y;
+
+      if (mirrorX) transformedX = -transformedX;
+      if (mirrorY) transformedY = -transformedY;
+
+      return {
+        x: transformedX * cos - transformedY * sin,
+        y: transformedX * sin + transformedY * cos,
+      };
+    });
+
+    const xs = transformedCorners.map((corner) => corner.x);
+    const ys = transformedCorners.map((corner) => corner.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(maxX - minX));
+    canvas.height = Math.max(1, Math.ceil(maxY - minY));
+
+    const context = canvas.getContext('2d');
+    if (!context) return loadedHistologyUrl;
+
+    const xScale = mirrorX ? -1 : 1;
+    const yScale = mirrorY ? -1 : 1;
+    context.setTransform(xScale * cos, xScale * sin, -yScale * sin, yScale * cos, -minX, -minY);
+    context.drawImage(loadedHistologyImage, 0, 0);
+
+    try {
+      return canvas.toDataURL('image/png');
+    } catch {
+      return loadedHistologyUrl;
+    }
+  }, [loadedHistologyImage, histologySize, rotation, mirrorX, mirrorY, loadedHistologyUrl]);
+
   const formatMetric = (value?: number | null) => (value === null || value === undefined ? '—' : value.toFixed(3));
   const containerHeight = height ?? 500;
   const canShowHistology = hasHistology && histologyStatus === 'loaded' && !!loadedHistologyUrl && !!histologySize;
   const effectiveMode: HistologyMode = canShowHistology ? histologyMode : 'spots';
   const showImage = canShowHistology && (effectiveMode === 'overlay' || effectiveMode === 'histology');
   const showSpots = effectiveMode === 'spots' || effectiveMode === 'overlay';
+
+  // Memo to compute transformed image layout (matches spot transformations)
+  const imageLayout = useMemo(() => {
+    if (!histologySize) return null;
+
+    const { width, height } = histologySize;
+    
+    // Transform all four corners of the image
+    const corners = [
+      { x: 0, y: 0 },
+      { x: width, y: 0 },
+      { x: 0, y: height },
+      { x: width, y: height },
+    ];
+
+    // Apply same transform as spots: mirrorX -> mirrorY -> rotation
+    const transformed = corners.map(({ x, y }) => {
+      let newX = x;
+      let newY = y;
+
+      if (mirrorX) newX = -newX;
+      if (mirrorY) newY = -newY;
+
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      return {
+        x: newX * cos - newY * sin,
+        y: newX * sin + newY * cos,
+      };
+    });
+
+    // Find bounding box
+    const xs = transformed.map(c => c.x);
+    const ys = transformed.map(c => c.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+
+    // Determine which corner contains origin (0,0) to set anchors
+    // With autorange: 'reversed', Y=0 appears at top of plot
+    // Floating point tolerance for -0 comparison
+    const isZero = (v: number) => Math.abs(v) < 1e-10;
+    const originIsLeft = isZero(minX);   // x=0 is at left edge (minX) → xanchor='left'
+    const originIsTop = isZero(minY);    // y=0 is at top edge (minY) with reversed Y → yanchor='top'
+
+    return {
+      sizex: maxX - minX,
+      sizey: maxY - minY,
+      xanchor: originIsLeft ? 'left' as const : 'right' as const,
+      yanchor: originIsTop ? 'top' as const : 'bottom' as const,
+    };
+  }, [histologySize, rotation, mirrorX, mirrorY]);
 
   const plotData: Data[] = useMemo(() => {
     if (!result || !result.spots) {
@@ -166,7 +277,12 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   }, [result, compact, rotation, mirrorX, mirrorY, effectiveMode, overlayOpacity]);
 
   const layout: Partial<Layout> = useMemo(() => {
-    const hasImage = showImage && histologySize && loadedHistologyUrl;
+    const hasImage = showImage && histologySize && transformedHistologyUrl;
+
+    // Use transformed image layout or defaults
+    const imgLayout = imageLayout
+      ? imageLayout
+      : { sizex: histologySize?.width ?? 0, sizey: histologySize?.height ?? 0, xanchor: 'left' as const, yanchor: 'top' as const };
 
     return {
       autosize: true,
@@ -201,18 +317,18 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
       images: hasImage
         ? [
             {
-              source: loadedHistologyUrl as string,
+              source: transformedHistologyUrl as string,
               xref: 'x',
               yref: 'y',
               x: 0,
               y: 0,
-              sizex: histologySize?.width ?? 0,
-              sizey: histologySize?.height ?? 0,
+              sizex: imgLayout.sizex,
+              sizey: imgLayout.sizey,
               sizing: 'stretch',
               opacity: 1,
               layer: 'below',
-              xanchor: 'left',
-              yanchor: 'top',
+              xanchor: imgLayout.xanchor,
+              yanchor: imgLayout.yanchor,
             },
           ]
         : undefined,
@@ -225,7 +341,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
       },
       hovermode: 'closest',
     };
-  }, [title, showLegend, compact, showImage, histologySize, loadedHistologyUrl, showSpots]);
+  }, [title, showLegend, compact, showImage, histologySize, transformedHistologyUrl, showSpots, imageLayout]);
 
   const config: Partial<Config> = {
     responsive: true,
@@ -256,13 +372,6 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
       </Box>
     );
   }
-
-  // Generate a stable key based on data to force re-render
-  const plotKey = useMemo(
-    () =>
-      `plot-${result?.jobId || 'empty'}-${rotation}-${mirrorX}-${mirrorY}-${histologyMode}-${histologyStatus}`,
-    [result?.jobId, rotation, mirrorX, mirrorY, histologyMode, histologyStatus]
-  );
 
   return (
     <Box
@@ -380,7 +489,6 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         )}
       </Box>
       <Plot
-        key={plotKey}
         data={plotData}
         layout={layout}
         config={config}
