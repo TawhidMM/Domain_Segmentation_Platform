@@ -104,7 +104,7 @@ class SpatialPlotExporter:
             "run_id": self.run_id,
             "tool": self.tool_name,
             "parameters": self.parameters,
-            "exported_at": self.exported_at,
+            "exported_at": self.exported_at.isoformat(),
             "dataset": self.dataset_id,
             "export_format": "svg"
         }
@@ -117,7 +117,7 @@ class SpatialPlotExporter:
             "run_id": self.run_id,
             "tool": self.tool_name,
             "parameters": self.parameters,
-            "exported_at": self.exported_at,
+            "exported_at": self.exported_at.isoformat(),
             "dataset": self.dataset_id,
             "export_format": "svg"
         }
