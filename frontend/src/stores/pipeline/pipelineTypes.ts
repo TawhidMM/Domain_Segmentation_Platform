@@ -1,4 +1,4 @@
-import { ToolSchema, ToolRequirements } from '@/types';
+import { ToolSchema, ToolRequirements, Experiment } from '@/types';
 
 export interface PipelineConfiguration {
   selectedTool: string | null;
@@ -34,6 +34,8 @@ export interface PipelineActions {
   setActiveStep: (step: number) => void;
   recordCreatedExperiment: (snapshot: CreatedExperimentSnapshot) => void;
   resetPipeline: () => void;
+  loadExperimentForEditing: (experiment: Experiment, schema?: ToolSchema) => void;
+  handleStepBack: () => void;
 }
 
 export type PipelineStore = PipelineState & PipelineActions;

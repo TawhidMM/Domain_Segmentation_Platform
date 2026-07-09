@@ -3,3 +3,4 @@ docker/
 ss/
 .env
 tast.txt
+.vscode
