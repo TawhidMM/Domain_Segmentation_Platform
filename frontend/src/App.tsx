@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import FocusPage from "./pages/FocusPage";
 import ComparePage from "./pages/ComparePage";
 import AnnotationPage from "./pages/AnnotationPage";
+import HowToUsePage from "./pages/HowToUsePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/how-to-use" element={<HowToUsePage />} />
               <Route path="/experiment/:experimentId" element={<FocusPage />} />
               <Route path="/compare" element={<ComparePage />} />
               <Route path="/annotation-workspace" element={<AnnotationPage />} />

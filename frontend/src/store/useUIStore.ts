@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type WorkspaceView = 'upload' | 'builder';
+export type WorkspaceView = 'upload' | 'builder' | 'focus' | 'comparison';
 export type WorkspaceTab = 'pipeline' | 'import';
 
 interface UIState {

@@ -1,8 +1,11 @@
 import React from 'react';
 import { AppBar, Toolbar, Typography, Box, IconButton, Chip } from '@mui/material';
 import { Settings, HelpOutline, AccountCircle } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const TopNavBar: React.FC = () => {
+  const navigate = useNavigate();
+
   return (
     <AppBar
       position="static"
@@ -57,7 +60,7 @@ const TopNavBar: React.FC = () => {
         <Box sx={{ flexGrow: 1 }} />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton size="small" sx={{ color: 'text.secondary' }}>
+          <IconButton size="small" sx={{ color: 'text.secondary' }} onClick={() => navigate('/how-to-use')}>
             <HelpOutline fontSize="small" />
           </IconButton>
           <IconButton size="small" sx={{ color: 'text.secondary' }}>

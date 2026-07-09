@@ -1,36 +1,34 @@
-import React, { useMemo, useState } from 'react';
-import { Box, Typography, ToggleButtonGroup, ToggleButton, Button, Chip, Paper, Divider, IconButton, Tooltip, Alert } from '@mui/material';
-import { Download, GridView, CenterFocusWeak, Schedule, PlayArrow, Check, Refresh, RotateRight, FlipToFront, Flip } from '@mui/icons-material';
+import React, { useMemo, useState, useCallback } from 'react';
+import { Box, Typography, ToggleButtonGroup, ToggleButton, Button, Chip, Paper, IconButton, Tooltip, Alert } from '@mui/material';
+import { Download, GridView, CenterFocusWeak, Schedule, PlayArrow, Check, Refresh, RotateRight, FlipToFront, Flip, ArrowBack, OpenInNew } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { useDatasetStore } from '@/stores/dataset';
+import { usePipelineStore } from '@/stores/pipeline';
+import { useUIStore } from '@/store/useUIStore';
 import { Experiment } from '@/types';
-import SpatialPlot from './SpatialPlot';
-import SubmitModal from '../modals/SubmitModal';
-import DatasetAnnotationTable from '../experiment/DatasetAnnotationTable';
+import SpatialPlot from '@/components/visualization/SpatialPlot';
+import SubmitModal from '@/components/modals/SubmitModal';
+import DatasetAnnotationTable from './DatasetAnnotationTable';
 import { checkDependsOn } from '@/utils/dependsOn';
+import { toolService } from '@/services/toolService';
 
-interface FocusViewProps {
+interface ExperimentDetailViewProps {
   experiment: Experiment;
 }
 
-const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
+const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment }) => {
   const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const {
-    setWorkspaceMode,
     experiments,
-    comparisonExperimentIds,
-    toggleComparisonExperiment,
-    refreshExperimentResult,
     datasetAnnotationMap,
+    setSelectedDatasetIds,
+    setActiveExperiment,
   } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
-  const [mirrorX, setMirrorX] = useState(false);
-  const [mirrorY, setMirrorY] = useState(false);
 
   const completedExperiments = experiments.filter((e) => e.status === 'completed');
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
@@ -107,24 +105,28 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
 
   const statusInfo = getStatusInfo();
 
-  const handleRefreshResult = async () => {
-    // if (!experiment.jobId) return;
-    // setIsRefreshing(true);
-    // await refreshExperimentResult(experiment.id);
-    // setIsRefreshing(false);
-  };
 
-  const handleRotate = () => {
-    setRotation((prev) => (prev + 90) % 360);
-  };
-
-  const handleMirrorX = () => {
-    setMirrorX((prev) => !prev);
-  };
-
-  const handleMirrorY = () => {
-    setMirrorY((prev) => !prev);
-  };
+  const handleEditParameters = useCallback(async () => {
+    // Check if the tool schema is already available in the pipeline store
+    // If not, fetch it for proper parameter rendering
+    const pipelineStore = usePipelineStore.getState();
+    let toolSchema = pipelineStore.configuration.selectedToolSchema;
+    
+    if (!toolSchema || toolSchema.tool_id !== experiment.toolId) {
+      toolSchema = await toolService.fetchToolSchema(experiment.toolId);
+    }
+    
+    // Use the atomic action to load experiment for editing
+    // This handles setting the configuration and switching to builder view atomically
+    pipelineStore.loadExperimentForEditing(experiment, toolSchema);
+    
+    // Restore selected datasets using context setter
+    setSelectedDatasetIds(experiment.datasetIds);
+    
+    // Clear active experiment to ensure we don't stay in focus mode
+    // This is needed because MainWorkspace checks activeExperimentId
+    setActiveExperiment(null);
+  }, [experiment, setSelectedDatasetIds, setActiveExperiment]);
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -166,53 +168,38 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
                 <CenterFocusWeak sx={{ mr: 0.5, fontSize: 18 }} />
                 Focus
               </ToggleButton>
-              <ToggleButton value="comparison" onClick={() => setWorkspaceMode('comparison')}>
+              <ToggleButton value="comparison" onClick={() => useUIStore.getState().setWorkspaceView('comparison')}>
                 <GridView sx={{ mr: 0.5, fontSize: 18 }} />
                 Compare
               </ToggleButton>
             </ToggleButtonGroup>
           )}
 
-          {experiment.status === 'completed' && (
-            <>
-              <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
-                <Tooltip title="Rotate 90°">
-                  <IconButton size="small" onClick={handleRotate}>
-                    <RotateRight fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Mirror Horizontal">
-                  <IconButton size="small" onClick={handleMirrorX} color={mirrorX ? 'primary' : 'default'}>
-                    <Flip fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Mirror Vertical">
-                  <IconButton size="small" onClick={handleMirrorY} color={mirrorY ? 'primary' : 'default'}>
-                    <FlipToFront fontSize="small" sx={{ transform: 'rotate(90deg)' }} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              <Button variant="outlined" startIcon={<Download />} onClick={handleDownloadCSV} size="small">
-                Download CSV
-              </Button>
-            </>
-          )}
-
-          {experiment.jobId && experiment.status !== 'completed' && (
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={handleRefreshResult}
-              size="small"
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? 'Refreshing…' : 'Check Result'}
+          {experiment.status === 'not-submitted' && (
+            <Button variant="outlined" startIcon={<ArrowBack />} onClick={handleEditParameters} size="small">
+              Edit Parameters
             </Button>
           )}
 
           {unsubmittedCount > 0 && (
             <Button variant="contained" onClick={() => setSubmitModalOpen(true)} size="small" disabled={!allRequiredDatasetsAnnotated}>
               Submit ({unsubmittedCount})
+            </Button>
+          )}
+
+          {experiment.jobId && experiment.accessToken && (
+            <Button
+              variant="outlined"
+              startIcon={<OpenInNew />}
+              onClick={() =>
+                window.open(
+                  `${window.location.origin}/experiment/${experiment.jobId}?t=${experiment.accessToken}`,
+                  '_blank'
+                )
+              }
+              size="small"
+            >
+              Open Result Page
             </Button>
           )}
         </Box>
@@ -227,55 +214,6 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
             </Alert>
             <DatasetAnnotationTable items={annotationDatasetItems} onAnnotate={handleAnnotateDataset} />
           </Box>
-        )}
-
-        {experiment.status === 'completed' && experiment.result ? (
-          <SpatialPlot
-            result={experiment.result}
-            metrics={experiment.metrics}
-            height={550}
-            rotation={rotation}
-            mirrorX={mirrorX}
-            mirrorY={mirrorY}
-          />
-        ) : (
-          <Paper
-            sx={{
-              p: 6,
-              textAlign: 'center',
-              backgroundColor: '#FAFAFA',
-              border: '1px dashed',
-              borderColor: 'divider',
-            }}
-          >
-            <Box
-              sx={{
-                width: 64,
-                height: 64,
-                borderRadius: '50%',
-                bgcolor: `${statusInfo.color}20`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mx: 'auto',
-                mb: 2,
-              }}
-            >
-              {React.cloneElement(statusInfo.icon, { sx: { fontSize: 32, color: statusInfo.color } })}
-            </Box>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              {experiment.status === 'not-submitted'
-                ? 'Experiment Not Submitted'
-                : experiment.status === 'queued'
-                ? 'Waiting in Queue'
-                : 'Analysis Running'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {experiment.status === 'not-submitted'
-                ? 'Submit this experiment to start the analysis'
-                : 'Results will appear here once the analysis is complete'}
-            </Typography>
-          </Paper>
         )}
 
         {/* Parameters Summary */}
@@ -302,4 +240,4 @@ const FocusView: React.FC<FocusViewProps> = ({ experiment }) => {
   );
 };
 
-export default FocusView;
+export default ExperimentDetailView;

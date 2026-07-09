@@ -6,37 +6,48 @@ import { usePipelineStore } from '@/stores/pipeline';
 import { useUIStore } from '@/store/useUIStore';
 import DatasetUpload from '../dataset/DatasetUpload';
 import ExperimentBuilder from '@/components/experiment/ExperimentBuilder';
-import FocusView from '../visualization/FocusView';
+import ExperimentDetailView from '@/components/experiment/ExperimentDetailView';
+import ComparisonView from '@/components/visualization/ComparisonView';
 
 const MainWorkspace: React.FC = () => {
   const { experiments, activeExperimentId } = useApp();
   const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const lastCreatedExperiment = usePipelineStore((state) => state.lastCreatedExperiment);
-  const currentView = useUIStore((state) => state.currentView);
+  const workspaceMode = useUIStore((state) => state.currentView);
 
-  // Resolve the actual Experiment object for FocusView (from AppContext's live experiments)
+  // Resolve the actual Experiment object for ExperimentDetailView (from AppContext's live experiments)
   const experimentForFocus = lastCreatedExperiment
     ? experiments.find((e) => e.id === activeExperimentId) ?? null
     : null;
 
   const renderContent = () => {
-    // Guardrail 1: No datasets loaded
+    // Hard Safety Guardrail: If data doesn't exist, force the Upload interface
     if (!uploadedDatasets || uploadedDatasets.length === 0) {
       return <DatasetUpload />;
     }
 
-    // Guardrail 2: Active experiment exists (derived from context + snapshot)
-    if (experimentForFocus) {
-      return <FocusView experiment={experimentForFocus} />;
-    }
+    // Authoritative State Machine Core Routing
+    switch (workspaceMode) {
+      case 'upload':
+        return <DatasetUpload />;
 
-    // User preference view
-    if (currentView === 'upload') {
-      return <DatasetUpload />;
-    }
+      case 'builder':
+        return <ExperimentBuilder />;
 
-    // Default: builder view (shows pipeline or import tracks)
-    return <ExperimentBuilder />;
+      case 'focus':
+        // Render detail view if data exists; otherwise fallback gracefully
+        return experimentForFocus ? (
+          <ExperimentDetailView experiment={experimentForFocus} />
+        ) : (
+          <DatasetUpload />
+        );
+
+      case 'comparison':
+        return <ComparisonView />;
+
+      default:
+        return <DatasetUpload />;
+    }
   };
 
   return (

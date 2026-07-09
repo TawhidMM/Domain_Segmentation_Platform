@@ -6,7 +6,7 @@ import { useImportResultsStore } from '@/stores/import-results';
 import { useUIStore } from '@/store/useUIStore';
 import { useBootstrapStore } from './bootstrapStore';
 
-export type RestoredWorkspaceMode = 'upload' | 'builder' | 'focus' | undefined;
+export type RestoredWorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison' | undefined;
 
 /**
  * Singleton workspace restoration hook.
@@ -104,17 +104,25 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
 
       setPhase('restoring');
 
+      // Read the rehydrated store mode directly out of the UI store
+      const rehydratedMode = useUIStore.getState().currentView;
       const lastExperiment = usePipelineStore.getState().lastCreatedExperiment;
 
       await useImportResultsStore.getState().validateStagedItems();
 
-      const persistedUserView = useUIStore.getState().currentView;
-
       let restoredMode: RestoredWorkspaceMode;
-      if (lastExperiment) {
-        restoredMode = 'focus';
+      if (rehydratedMode === 'focus') {
+        // Integrity check: only allow 'focus' layout if the snapshot database records match up
+        if (lastExperiment) {
+          restoredMode = 'focus';
+        } else {
+          // Self-healing fallback: snapshot data missing, break out of layout lock
+          useUIStore.getState().setWorkspaceView('builder');
+          restoredMode = 'builder';
+        }
       } else {
-        restoredMode = persistedUserView;
+        // Explicitly preserves 'builder' or 'upload' views matching exactly where they refreshed
+        restoredMode = rehydratedMode;
       }
 
       setPhase('completed');

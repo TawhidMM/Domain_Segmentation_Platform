@@ -1,5 +1,6 @@
 import type { PipelineStore, PipelineState } from './pipelineTypes';
 import type { ToolSchema } from '@/types';
+import { useUIStore } from '@/store/useUIStore';
 
 export const createPipelineActions = (
   set: (partial: Partial<PipelineState> | ((prev: PipelineState) => Partial<PipelineState>)) => void,
@@ -57,6 +58,37 @@ export const createPipelineActions = (
       activeStep: 0,
       lastCreatedExperiment: null,
     });
+  },
+
+  /**
+   * Atomic action to load an experiment for editing.
+   * Restores all configuration and switches to builder view in one operation.
+   */
+  loadExperimentForEditing: (experiment: import('@/types').Experiment, schema?: ToolSchema) => {
+    set((prev) => ({
+      configuration: {
+        ...prev.configuration,
+        selectedTool: experiment.toolId,
+        selectedToolSchema: schema ?? prev.configuration.selectedToolSchema,
+        parameters: experiment.parameters,
+        numberOfRuns: experiment.numberOfRuns,
+        lastUpdated: Date.now(),
+      },
+      activeStep: 1, // Go to parameters step for editing
+      lastCreatedExperiment: null, // Clear so restoration works correctly
+    }));
+
+    useUIStore.getState().setWorkspaceView('builder');
+  },
+
+  handleStepBack: () => {
+    const currentStep = get().activeStep;
+    
+    if (currentStep > 0) {
+      set({ activeStep: currentStep - 1 });
+    } else {
+      useUIStore.getState().setWorkspaceView('upload');
+    }
   },
 });
 

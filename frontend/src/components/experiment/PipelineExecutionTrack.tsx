@@ -20,6 +20,7 @@ interface PipelineExecutionTrackProps {
 const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availableDatasets }) => {
   const {
     createExperiment,
+    setActiveExperiment,
     selectedDatasetIds,
     focusDatasetId,
     setSelectedDatasetIds,
@@ -27,12 +28,15 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
     resetParameterDrafts,
   } = useApp();
 
+  const setWorkspaceView = useUIStore((state) => state.setWorkspaceView);
   const configuration = usePipelineStore((state) => state.configuration);
   const activeStep = usePipelineStore((state) => state.activeStep);
   const setSelectedTool = usePipelineStore((state) => state.setSelectedTool);
   const setParameters = usePipelineStore((state) => state.setParameters);
   const setNumberOfRuns = usePipelineStore((state) => state.setNumberOfRuns);
   const setActiveStep = usePipelineStore((state) => state.setActiveStep);
+  const handleStepBack = usePipelineStore((state) => state.handleStepBack);
+  const recordCreatedExperiment = usePipelineStore((state) => state.recordCreatedExperiment);
 
   const selectedToolSchema = configuration.selectedToolSchema;
   const parameters = configuration.parameters;
@@ -42,8 +46,6 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
     setSelectedTool(schema);
     resetParameterDrafts();
   }, [resetParameterDrafts, setSelectedTool]);
-
-  const recordCreatedExperiment = usePipelineStore((state) => state.recordCreatedExperiment);
 
   const handleCreateExperiment = useCallback(() => {
     if (!selectedToolSchema) {
@@ -71,7 +73,10 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
       selectedDatasetIds,
       selectedToolSchema.requirements,
     );
-  }, [createExperiment, numberOfRuns, parameters, selectedDatasetIds, selectedToolSchema, recordCreatedExperiment]);
+    
+    // Switch to focus view after creating experiment
+    setWorkspaceView('focus');
+  }, [createExperiment, numberOfRuns, parameters, selectedDatasetIds, selectedToolSchema, recordCreatedExperiment, setWorkspaceView]);
 
   const focusedDatasetName = useMemo(
     () => availableDatasets.find((dataset) => dataset.id === focusDatasetId)?.name ?? null,
@@ -154,14 +159,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
             <Button
               variant="outlined"
               startIcon={<ArrowBack />}
-              onClick={() => {
-                if (activeStep > 0) {
-                  setActiveStep(activeStep - 1);
-                  return;
-                }
-
-                useUIStore.getState().setWorkspaceView('upload');
-              }}
+              onClick={handleStepBack}
             >
               Back
             </Button>
