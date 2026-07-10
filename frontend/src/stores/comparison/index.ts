@@ -1,2 +1,2 @@
 export { useComparisonStore } from './comparisonStore';
-export type { ComparisonJob } from './comparisonTypes';
+export type { ComparisonExperiment } from './comparisonTypes';

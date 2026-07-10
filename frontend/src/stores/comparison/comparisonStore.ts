@@ -1,17 +1,17 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { ComparisonJob } from './comparisonTypes';
+import { ComparisonExperiment } from './comparisonTypes';
 
 const BASKET_STORAGE_KEY = 'comparison_basket';
 
 export interface ComparisonState {
-  basket: ComparisonJob[];
+  basket: ComparisonExperiment[];
 }
 
 export interface ComparisonActions {
-  addJob: (id: string, token: string, toolName?: string) => void;
-  removeJob: (id: string) => void;
-  isJobInBasket: (id: string) => boolean;
+  addExperiment: (id: string, token: string, toolName?: string) => void;
+  removeExperiment: (id: string) => void;
+  isExperimentInBasket: (id: string) => boolean;
   getCompareUrl: () => string;
   clear: () => void;
 }
@@ -23,29 +23,29 @@ export const useComparisonStore = create<ComparisonStore>()(
     (set, get) => ({
       basket: [],
 
-      addJob: (id: string, token: string, toolName?: string) => {
+      addExperiment: (id: string, token: string, toolName?: string) => {
         set((state) => {
-          if (state.basket.some((job) => job.id === id)) {
+          if (state.basket.some((exp) => exp.id === id)) {
             return state;
           }
           return { basket: [...state.basket, { id, token, toolName }] };
         });
       },
 
-      removeJob: (id: string) => {
+      removeExperiment: (id: string) => {
         const { basket } = get();
-        set({ basket: basket.filter((job) => job.id !== id) });
+        set({ basket: basket.filter((exp) => exp.id !== id) });
       },
 
-      isJobInBasket: (id: string): boolean => {
-        return get().basket.some((job) => job.id === id);
+      isExperimentInBasket: (id: string): boolean => {
+        return get().basket.some((exp) => exp.id === id);
       },
 
       getCompareUrl: () => {
         const { basket } = get();
         if (basket.length < 2) return '';
-        const ids = basket.map((job) => job.id).join(',');
-        const tokens = basket.map((job) => job.token).join(',');
+        const ids = basket.map((exp) => exp.id).join(',');
+        const tokens = basket.map((exp) => exp.token).join(',');
         return `/compare?jobs=${ids}&tokens=${tokens}`;
       },
 
@@ -61,16 +61,12 @@ export const useComparisonStore = create<ComparisonStore>()(
   )
 );
 
-// --- Cross-tab sync ---
-// zustand's persist writes to localStorage but doesn't listen for changes
-// made by OTHER tabs. The native `storage` event only fires in tabs that
-// did NOT make the change, so this won't create loops.
+//  Cross-tab sync 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
     if (event.key !== BASKET_STORAGE_KEY) return;
 
     if (event.newValue === null) {
-      // basket was cleared / key removed in another tab
       useComparisonStore.setState({ basket: [] });
       return;
     }
@@ -80,7 +76,6 @@ if (typeof window !== 'undefined') {
       const basket = parsed?.state?.basket ?? [];
       useComparisonStore.setState({ basket });
     } catch {
-      // malformed data, ignore
     }
   });
 }

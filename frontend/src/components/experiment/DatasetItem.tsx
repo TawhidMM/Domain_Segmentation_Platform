@@ -65,7 +65,7 @@ const DatasetItem: React.FC<DatasetItemProps> = ({
           )}
         </Box>
 
-        {/* Dataset Icon and ID */}
+        {/* Dataset Icon and Name */}
         <Database size={14} style={{ flexShrink: 0, color: '#6b7280' }} />
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
           <Typography
@@ -78,8 +78,24 @@ const DatasetItem: React.FC<DatasetItemProps> = ({
               textOverflow: 'ellipsis',
             }}
           >
-            {dataset.dataset_id}
+            {dataset.dataset_name || dataset.dataset_id}
           </Typography>
+          {dataset.dataset_name && (
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                display: 'block',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {dataset.dataset_id}
+            </Typography>
+          )}
         </Box>
 
         {/* Run Count Badge */}

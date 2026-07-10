@@ -10,7 +10,7 @@ const FloatingCompareBar: React.FC = () => {
   const count = basket.length;
   const getCompareUrl = useComparisonStore((state) => state.getCompareUrl);
   const clear = useComparisonStore((state) => state.clear);
-  const removeJob = useComparisonStore((state) => state.removeJob);
+  const removeExperiment = useComparisonStore((state) => state.removeExperiment);
   const navigate = useNavigate();
 
   if (count < 2) {
@@ -74,11 +74,11 @@ const FloatingCompareBar: React.FC = () => {
         }}
       >
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {basket.map((job) => (
+          {basket.map((exp) => (
             <Chip
-              key={job.id}
-              label={job.toolName || job.id}
-              onDelete={() => removeJob(job.id)}
+              key={exp.id}
+              label={exp.toolName || exp.id}
+              onDelete={() => removeExperiment(exp.id)}
               deleteIcon={
                 <X size={14} style={{ color: 'text.secondary' }} />
               }

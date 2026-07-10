@@ -26,11 +26,11 @@ const FocusPage: React.FC = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
   const [searchParams] = useSearchParams();
   const accessToken = searchParams.get('t');
-  const addJob = useComparisonStore((state) => state.addJob);
-  const removeJob = useComparisonStore((state) => state.removeJob);
+  const addExperiment = useComparisonStore((state) => state.addExperiment);
+  const removeExperiment = useComparisonStore((state) => state.removeExperiment);
   // Compute the boolean directly so React re-renders when basket changes
-  const isInBasket = useComparisonStore((state) => 
-    experimentId ? state.basket.some((job) => job.id === experimentId) : false
+  const isInBasket = useComparisonStore((state) =>
+    experimentId ? state.basket.some((exp) => exp.id === experimentId) : false
   );
   const [rotation, setRotation] = useState(0);
   const [mirrorX, setMirrorX] = useState(false);
@@ -220,13 +220,13 @@ const FocusPage: React.FC = () => {
     if (!experimentId || !accessToken) return;
 
     if (isInBasket) {
-      removeJob(experimentId);
+      removeExperiment(experimentId);
       toast.success('Removed from comparison');
     } else {
-      addJob(experimentId, accessToken, experimentData?.tool_name);
+      addExperiment(experimentId, accessToken, experimentData?.tool_name);
       toast.success('Added to comparison');
     }
-  }, [experimentId, accessToken, isInBasket, addJob, removeJob, experimentData?.tool_name]);
+  }, [experimentId, accessToken, isInBasket, addExperiment, removeExperiment, experimentData?.tool_name]);
 
   const handleDownloadSVG = useCallback(async () => {
     if (!selectedRunId || !accessToken) return;
@@ -443,9 +443,23 @@ const FocusPage: React.FC = () => {
         <Container maxWidth="lg" sx={{ py: 4, pb: 12, flex: 1 }}>
           {/* Header */}
           <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-              Run Results
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                Run Results
+              </Typography>
+              {experimentData?.tool_name && (
+                <Chip
+                  label={experimentData.tool_name}
+                  size="small"
+                  sx={{
+                    bgcolor: 'primary.light',
+                    color: 'white',
+                    fontWeight: 600,
+                    height: 24,
+                  }}
+                />
+              )}
+            </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
               {selectedRunId ? (
                 <>Viewing results for run <code>{selectedRunId.substring(0, 12)}...</code></>
