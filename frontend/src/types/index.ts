@@ -212,6 +212,7 @@ export interface RunDetail {
 
 export interface DatasetGroup {
   dataset_id: string;
+  dataset_name: string;
   runs: RunDetail[];
 }
 
