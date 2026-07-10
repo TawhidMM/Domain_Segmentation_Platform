@@ -86,12 +86,12 @@ SCRIBBLEDOM_MANIFEST = {
             },
             "ui_group": "advanced",
         },
-        "seed_options": {
-            "type": "int_list",
-            "label": "Random seeds",
-            "default": [4],
-            "ui_group": "advanced",
-        },
+        # "seed_options": {
+        #     "type": "int_list",
+        #     "label": "Random seeds",
+        #     "default": [4],
+        #     "ui_group": "advanced",
+        # },
         "lr_options": {
             "type": "float_list",
             "label": "Learning rates",

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -23,8 +23,7 @@ class DatasetConfigRequest(BaseModel):
 class ExperimentSubmitRequest(BaseModel):
     dataset_configs: List[DatasetConfigRequest] = Field(min_length=1)
     tool_name: str
-    number_of_runs: int = Field(default=1, ge=1)
-    seed_list: Optional[List[int]] = None
+    seed_list: List[int] = Field(min_length=1)
 
 class ImportResultsDatasetRequest(BaseModel):
     dataset_id: str

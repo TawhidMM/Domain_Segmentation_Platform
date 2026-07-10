@@ -5,6 +5,7 @@ export interface PipelineConfiguration {
   selectedToolSchema: ToolSchema | null;
   parameters: Record<string, unknown>;
   numberOfRuns: number;
+  seedList: number[];
   lastUpdated: number;
 }
 
@@ -13,6 +14,7 @@ export interface CreatedExperimentSnapshot {
   parameters: Record<string, unknown>;
   toolLabel: string;
   numberOfRuns: number;
+  seedList: number[];
   datasetIds: string[];
   requirements?: ToolRequirements;
   createdAt: number;
@@ -30,7 +32,7 @@ export interface PipelineState {
 export interface PipelineActions {
   setSelectedTool: (schema: ToolSchema | null) => void;
   setParameters: (params: Record<string, unknown>) => void;
-  setNumberOfRuns: (count: number) => void;
+  setSeedList: (seedList: number[]) => void;
   setActiveStep: (step: number) => void;
   recordCreatedExperiment: (snapshot: CreatedExperimentSnapshot) => void;
   resetPipeline: () => void;

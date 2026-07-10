@@ -135,7 +135,6 @@ async def submit_experiment(
         db=db,
         dataset_param_configs=request.dataset_configs,
         tool_name=request.tool_name,
-        number_of_runs=request.number_of_runs,
         seed_list=request.seed_list
     )
 

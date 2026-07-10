@@ -1,4 +1,3 @@
-import random
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -7,9 +6,7 @@ from typing import List, Optional, Tuple, Dict
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.workspace import ExperimentWorkspace
-from app.models import Dataset
 from app.models.experiment import Experiment, ExperimentStatus
 from app.models.run import Run
 from app.models.run_config import RunConfig
@@ -19,23 +16,6 @@ from app.services.dataset_service import require_dataset
 from app.utils.security import generate_token_pair, verify_token
 
 
-def _validate_and_prepare_seeds(
-    number_of_runs: int,
-    seed_list: Optional[List[int]] = None
-) -> List[int]:
-
-    if seed_list is not None:
-        if len(seed_list) != number_of_runs:
-            raise HTTPException(
-                status_code=400,
-                detail=f"seed_list length ({len(seed_list)}) must match number_of_runs ({number_of_runs})"
-            )
-        return seed_list
-
-
-    return [random.randint(0, 2**31 - 1) for _ in range(number_of_runs)]
-
-
 def _create_run_config_entity(
     run_config_id: str,
     experiment_id: str,
@@ -43,6 +23,7 @@ def _create_run_config_entity(
     params_dict: dict,
     annotation_id: Optional[str] = None,
 ) -> RunConfig:
+
     """Create a RunConfig that stores dataset-specific params."""
     run_config_kwargs = {
         "id": run_config_id,
@@ -128,7 +109,6 @@ def _prepare_run_configs(
 def _prepare_runs_for_configs(
     run_configs: List[RunConfig],
     exp_workspace: ExperimentWorkspace,
-    number_of_runs: int,
     seed_list: List[int],
 ) -> List[Run]:
     """Create Run entities for the provided RunConfig entities."""
@@ -136,7 +116,7 @@ def _prepare_runs_for_configs(
     run_ids = []
 
     for run_config in run_configs:
-        for i in range(number_of_runs):
+        for seed in seed_list:
             run_id = str(uuid.uuid4())
             run_ids.append(run_id)
 
@@ -145,7 +125,7 @@ def _prepare_runs_for_configs(
             run = _create_run_entity(
                 run_id=run_id,
                 run_config_id=run_config.id,
-                seed=seed_list[i],
+                seed=seed,
                 output_path=run_path
             )
             runs.append(run)
@@ -159,8 +139,7 @@ def create_experiment_record(
     db: Session,
     dataset_param_configs: List[DatasetConfigRequest],
     tool_name: str,
-    number_of_runs: int = 1,
-    seed_list: Optional[List[int]] = None
+    seed_list: List[int]
 ) -> Tuple[str, str]:
 
     if not dataset_param_configs:
@@ -168,9 +147,6 @@ def create_experiment_record(
 
     for dataset_config in dataset_param_configs:
         require_dataset(db, dataset_config.dataset_id)
-
-    validated_seeds = _validate_and_prepare_seeds(number_of_runs, seed_list)
-    total_runs = number_of_runs
 
     experiment_id = str(uuid.uuid4())
     access_token, token_hash = generate_token_pair()
@@ -182,7 +158,7 @@ def create_experiment_record(
         experiment_id=experiment_id,
         tool_name=tool_name,
         workspace_path=str(exp_workspace.workspace_root),
-        total_runs=total_runs,
+        total_runs=len(seed_list),
         token_hash=token_hash
     )
 
@@ -199,8 +175,7 @@ def create_experiment_record(
     runs = _prepare_runs_for_configs(
         run_configs=run_configs,
         exp_workspace=exp_workspace,
-        number_of_runs=number_of_runs,
-        seed_list=validated_seeds,
+        seed_list=seed_list,
     )
 
     run_repository.create_runs_batch(db, runs)
@@ -231,10 +206,7 @@ def build_nested_experiment_response(
 ) -> dict:
 
     # Validate access first
-    require_experiment_with_access(db, experiment_id, token)
-
-    # Fetch experiment with run_configs eagerly loaded (optimized)
-    experiment = experiment_repository.get_experiment_with_run_configs(db, experiment_id)
+    experiment = require_experiment_with_access(db, experiment_id, token)
 
     # Group runs by dataset through run_configs
     runs_by_dataset = defaultdict(list)
@@ -255,7 +227,7 @@ def build_nested_experiment_response(
         for dataset in dataset_entities
     }
     
-    # Build datasets list
+    # Build dataset list
     datasets = [
         {
             "dataset_id": dataset_id,

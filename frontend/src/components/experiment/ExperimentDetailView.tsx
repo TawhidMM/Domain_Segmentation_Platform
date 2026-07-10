@@ -162,19 +162,6 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {completedExperiments.length > 1 && (
-            <ToggleButtonGroup size="small" value="focus" exclusive>
-              <ToggleButton value="focus">
-                <CenterFocusWeak sx={{ mr: 0.5, fontSize: 18 }} />
-                Focus
-              </ToggleButton>
-              <ToggleButton value="comparison" onClick={() => useUIStore.getState().setWorkspaceView('comparison')}>
-                <GridView sx={{ mr: 0.5, fontSize: 18 }} />
-                Compare
-              </ToggleButton>
-            </ToggleButtonGroup>
-          )}
-
           {experiment.status === 'not-submitted' && (
             <Button variant="outlined" startIcon={<ArrowBack />} onClick={handleEditParameters} size="small">
               Edit Parameters
@@ -187,13 +174,13 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
             </Button>
           )}
 
-          {experiment.jobId && experiment.accessToken && (
+          {experiment.experimentId && experiment.accessToken && (
             <Button
               variant="outlined"
               startIcon={<OpenInNew />}
               onClick={() =>
                 window.open(
-                  `${window.location.origin}/experiment/${experiment.jobId}?t=${experiment.accessToken}`,
+                  `${window.location.origin}/experiment/${experiment.experimentId}?t=${experiment.accessToken}`,
                   '_blank'
                 )
               }

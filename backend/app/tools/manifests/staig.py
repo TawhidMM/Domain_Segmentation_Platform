@@ -72,11 +72,11 @@ STAIG_MANIFEST = {
             "label": "Learning rate",
             "ui_group": "advanced",
         },
-        "seed": {
-            "type": "int",
-            "label": "Random seed",
-            "ui_group": "advanced",
-        },
+        # "seed": {
+        #     "type": "int",
+        #     "label": "Random seed",
+        #     "ui_group": "advanced",
+        # },
         "num_layers": {
             "type": "int",
             "label": "GCN layers",
