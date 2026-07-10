@@ -1,12 +1,16 @@
 import React from 'react';
-import { Box, Button } from '@mui/material';
+import { Box, Button, Chip, Typography } from '@mui/material';
 import { GridView } from '@mui/icons-material';
 import { X } from 'lucide-react';
-import { useComparisonBasket } from '@/hooks/useComparisonBasket';
+import { useComparisonStore } from '@/stores/comparison';
 import { useNavigate } from 'react-router-dom';
 
 const FloatingCompareBar: React.FC = () => {
-  const { basket, count, getCompareUrl, clear } = useComparisonBasket();
+  const { basket } = useComparisonStore();
+  const count = basket.length;
+  const getCompareUrl = useComparisonStore((state) => state.getCompareUrl);
+  const clear = useComparisonStore((state) => state.clear);
+  const removeJob = useComparisonStore((state) => state.removeJob);
   const navigate = useNavigate();
 
   if (count < 2) {
@@ -23,83 +27,111 @@ const FloatingCompareBar: React.FC = () => {
   return (
     <Box
       sx={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        backgroundColor: '#1F2937',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        position: 'sticky',
+        bottom: 0,
+        left: 0,
+        width: '100%',
+        backgroundColor: 'white',
+        borderTop: '1px solid',
+        borderColor: 'divider',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 2,
         px: 3,
         py: 1.5,
-        zIndex: 1000,
-        animation: 'slideUpRight 0.3s ease-in-out',
-        '@keyframes slideUpRight': {
-          from: {
-            transform: 'translateY(120px) translateX(120px)',
-            opacity: 0,
-          },
-          to: {
-            transform: 'translateY(0) translateX(0)',
-            opacity: 1,
-          },
-        },
+        zIndex: 1050,
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <GridView sx={{ color: '#10B981', flexShrink: 0, fontSize: 20 }} />
-        <Box sx={{ color: 'white' }}>
-          <Box sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{count} jobs selected</Box>
-          <Box sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>Ready to compare</Box>
+      {/* Left: Icon + Count */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+        <GridView sx={{ color: 'primary.main', fontSize: 20 }} />
+        <Typography
+          variant="body2"
+          sx={{ color: 'text.primary', fontWeight: 600 }}
+        >
+          {count} experiment{count !== 1 ? 's' : ''} selected
+        </Typography>
+      </Box>
+
+      {/* Middle: Scrollable chips */}
+      <Box
+        sx={{
+          flex: 1,
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          whiteSpace: 'nowrap',
+          mx: 2,
+          py: 0.5,
+          '&::-webkit-scrollbar': {
+            height: 4,
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'divider',
+            borderRadius: 2,
+          },
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {basket.map((job) => (
+            <Chip
+              key={job.id}
+              label={job.toolName || job.id}
+              onDelete={() => removeJob(job.id)}
+              deleteIcon={
+                <X size={14} style={{ color: 'text.secondary' }} />
+              }
+              size="small"
+              sx={{
+                height: 28,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                bgcolor: 'rgba(13, 148, 136, 0.1)',
+                color: 'primary.main',
+                borderRadius: 1,
+                '& .MuiChip-deleteIcon': {
+                  color: 'text.secondary',
+                  fontSize: 14,
+                  '&:hover': {
+                    color: 'text.primary',
+                  },
+                },
+              }}
+            />
+          ))}
         </Box>
       </Box>
 
+      {/* Right: Actions */}
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
         <Button
-          onClick={handleCompareNow}
+          onClick={clear}
+          size="small"
           sx={{
             textTransform: 'none',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            px: 2.5,
-            py: 0.75,
-            backgroundColor: '#10B981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
+            fontSize: '0.8125rem',
+            fontWeight: 500,
+            color: 'text.secondary',
             '&:hover': {
-              backgroundColor: '#059669',
+              color: 'text.primary',
+              backgroundColor: 'rgba(0, 0, 0, 0.04)',
             },
-            transition: 'background-color 0.2s',
+          }}
+        >
+          Clear all
+        </Button>
+        <Button
+          onClick={handleCompareNow}
+          variant="contained"
+          size="small"
+          sx={{
+            textTransform: 'none',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
           }}
         >
           Compare Now
-        </Button>
-        <Button
-          onClick={clear}
-          sx={{
-            minWidth: 'auto',
-            p: 0.5,
-            backgroundColor: 'transparent',
-            color: '#9CA3AF',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            '&:hover': {
-              backgroundColor: '#374151',
-              color: 'white',
-            },
-            transition: 'all 0.2s',
-          }}
-        >
-          <X size={18} style={{ color: 'currentColor' }} />
         </Button>
       </Box>
     </Box>

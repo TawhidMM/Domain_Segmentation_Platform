@@ -14,7 +14,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { Copy, CheckCircle, AlertCircle, Clock, Zap, Plus, Check, RotateCw, FlipHorizontal, FlipVertical, Download as DownloadIcon } from 'lucide-react';
-import { useComparisonBasket } from '@/hooks/useComparisonBasket';
+import { useComparisonStore } from '@/stores/comparison';
 import FloatingCompareBar from '@/components/visualization/FloatingCompareBar';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
 import { DatasetExplorer } from '@/components/experiment';
@@ -26,7 +26,12 @@ const FocusPage: React.FC = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
   const [searchParams] = useSearchParams();
   const accessToken = searchParams.get('t');
-  const { addJob, removeJob, isJobInBasket } = useComparisonBasket();
+  const addJob = useComparisonStore((state) => state.addJob);
+  const removeJob = useComparisonStore((state) => state.removeJob);
+  // Compute the boolean directly so React re-renders when basket changes
+  const isInBasket = useComparisonStore((state) => 
+    experimentId ? state.basket.some((job) => job.id === experimentId) : false
+  );
   const [rotation, setRotation] = useState(0);
   const [mirrorX, setMirrorX] = useState(false);
   const [mirrorY, setMirrorY] = useState(false);
@@ -46,8 +51,6 @@ const FocusPage: React.FC = () => {
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
-
-  const isInBasket = experimentId && isJobInBasket(experimentId);
 
   // Load experiment structure on mount
   useEffect(() => {
@@ -220,10 +223,10 @@ const FocusPage: React.FC = () => {
       removeJob(experimentId);
       toast.success('Removed from comparison');
     } else {
-      addJob(experimentId, accessToken);
+      addJob(experimentId, accessToken, experimentData?.tool_name);
       toast.success('Added to comparison');
     }
-  }, [experimentId, accessToken, isInBasket, addJob, removeJob]);
+  }, [experimentId, accessToken, isInBasket, addJob, removeJob, experimentData?.tool_name]);
 
   const handleDownloadSVG = useCallback(async () => {
     if (!selectedRunId || !accessToken) return;
@@ -489,7 +492,7 @@ const FocusPage: React.FC = () => {
                     onClick={handleAddToCompare}
                     color={isInBasket ? 'success' : 'primary'}
                   >
-                    {isInBasket ? '✓ In Comparison' : 'Add to Compare'}
+                    {isInBasket ? 'In Comparison' : 'Add to Compare'}
                   </Button>
                 </Tooltip>
 
@@ -573,7 +576,7 @@ const FocusPage: React.FC = () => {
               rotation={rotation}
               mirrorX={mirrorX}
               mirrorY={mirrorY}
-              jobId={selectedRunId || ''}
+              runId={selectedRunId || ''}
               accessToken={accessToken}
               hasHistology={result?.has_histology}
             />
@@ -633,8 +636,8 @@ const FocusPage: React.FC = () => {
           </Box>
         ) : null}
 
-        <FloatingCompareBar />
         </Container>
+        <FloatingCompareBar />
       </Box>
     </Box>
   );

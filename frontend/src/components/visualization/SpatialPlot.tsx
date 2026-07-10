@@ -14,7 +14,7 @@ interface SpatialPlotProps {
   rotation?: number;
   mirrorX?: boolean;
   mirrorY?: boolean;
-  experimentId?: string;
+  runId?: string;
   accessToken?: string | null;
   hasHistology?: boolean;
 }
@@ -31,7 +31,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   rotation = 0,
   mirrorX = false,
   mirrorY = false,
-  experimentId,
+  runId,
   accessToken,
   hasHistology = false,
 }) => {
@@ -42,10 +42,10 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   const [histologySize, setHistologySize] = useState<{ width: number; height: number } | null>(null);
   const [histologyStatus, setHistologyStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const histologyUrl = useMemo(() => {
-    if (!experimentId || !accessToken) return null;
+    if (!runId || !accessToken) return null;
     const encodedToken = encodeURIComponent(accessToken);
-    return `/api/datasets/${experimentId}/histology?token=${encodedToken}`;
-  }, [experimentId, accessToken]);
+    return `/api/datasets/${runId}/histology?token=${encodedToken}`;
+  }, [runId, accessToken]);
 
   useEffect(() => {
     if (!hasHistology) {

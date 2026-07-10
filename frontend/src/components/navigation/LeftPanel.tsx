@@ -4,7 +4,7 @@ import { Add, CloudUpload, Science, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useDatasetStore } from '@/stores/dataset';
 import { useUIStore } from '@/store/useUIStore';
-import { useComparisonBasket } from '@/hooks/useComparisonBasket';
+import { useComparisonStore } from '@/stores/comparison';
 import ExperimentsList from './ExperimentsList';
 
 const LeftPanel: React.FC = () => {
@@ -12,7 +12,7 @@ const LeftPanel: React.FC = () => {
   const isDatasetReady = useDatasetStore((state) => state.isDatasetReady);
   const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const { startNewExperiment, experiments } = useApp();
-  const { count } = useComparisonBasket();
+  const count = useComparisonStore((state) => state.basket.length);
 
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
   const completedCount = experiments.filter((e) => e.status === 'completed').length;
