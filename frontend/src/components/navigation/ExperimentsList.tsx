@@ -2,53 +2,66 @@ import React from 'react';
 import { Box, Typography, List, ListItemButton, ListItemText, IconButton, Tooltip } from '@mui/material';
 import { DeleteOutline, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
-import { useComparisonBasket } from '@/hooks/useComparisonBasket';
+import { useComparisonStore } from '@/stores/comparison';
 import StatusIndicator from './StatusIndicator';
+
+interface CompareIconButtonProps {
+  exp: {
+    id: string;
+    experimentId?: string;
+    accessToken?: string;
+    toolName: string;
+    status: string;
+  };
+  selected: boolean;
+}
+
+const CompareIconButton: React.FC<CompareIconButtonProps> = ({ exp, selected }) => {
+  const basket = useComparisonStore((state) => state.basket);
+  const addJob = useComparisonStore((state) => state.addJob);
+  const removeJob = useComparisonStore((state) => state.removeJob);
+  
+  const isInBasket = exp.experimentId ? basket.some((job) => job.id === exp.experimentId) : false;
+  
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!exp.experimentId || !exp.accessToken) return;
+    if (isInBasket) {
+      removeJob(exp.experimentId);
+    } else {
+      addJob(exp.experimentId, exp.accessToken, exp.toolName);
+    }
+  };
+  
+  // Only show for completed experiments with experimentId
+  if (exp.status !== 'completed' || !exp.experimentId) {
+    return null;
+  }
+  
+  return (
+    <Tooltip title={isInBasket ? "Remove from comparison" : "Add to comparison"}>
+      <IconButton
+        size="small"
+        onClick={handleClick}
+        sx={{
+          ml: 0.5,
+          color: isInBasket ? '#10B981' : selected ? '#94A3B8' : 'text.secondary',
+          '&:hover': {
+            color: isInBasket ? '#059669' : '#10B981',
+            backgroundColor: isInBasket 
+              ? 'rgba(16, 185, 129, 0.08)' 
+              : 'rgba(13, 148, 136, 0.08)',
+          },
+        }}
+      >
+        <GridView fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
+};
 
 const ExperimentsList: React.FC = () => {
   const { experiments, activeExperimentId, setActiveExperiment, removeExperiment } = useApp();
-  const { addJob, removeJob, isJobInBasket } = useComparisonBasket();
-
-  // Compare icon button component
-  const CompareIconButton = ({ exp, selected }: { exp: typeof experiments[0]; selected: boolean }) => {
-    const isInBasket = isJobInBasket(exp.experimentId || '');
-    
-    const handleClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!exp.experimentId || !exp.accessToken) return;
-      if (isInBasket) {
-        removeJob(exp.experimentId);
-      } else {
-        addJob(exp.experimentId, exp.accessToken);
-      }
-    };
-    
-    // Only show for completed experiments with experimentId
-    if (exp.status !== 'completed' || !exp.experimentId) {
-      return null;
-    }
-    
-    return (
-      <Tooltip title={isInBasket ? "Remove from comparison" : "Add to comparison"}>
-        <IconButton
-          size="small"
-          onClick={handleClick}
-          sx={{
-            ml: 0.5,
-            color: isInBasket ? '#10B981' : selected ? '#94A3B8' : 'text.secondary',
-            '&:hover': {
-              color: isInBasket ? '#059669' : '#10B981',
-              backgroundColor: isInBasket 
-                ? 'rgba(16, 185, 129, 0.08)' 
-                : 'rgba(13, 148, 136, 0.08)',
-            },
-          }}
-        >
-          <GridView fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    );
-  };
 
   if (experiments.length === 0) {
     return (
