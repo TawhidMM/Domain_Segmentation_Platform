@@ -13,6 +13,7 @@ export const createPipelineActions = (
         selectedTool: schema?.tool_id ?? null,
         selectedToolSchema: schema,
         parameters: schema ? initializeParameterValues(schema) : {},
+        // seedList stays as-is (no auto-initialization)
         lastUpdated: Date.now(),
       },
     }));
@@ -28,11 +29,12 @@ export const createPipelineActions = (
     }));
   },
 
-  setNumberOfRuns: (count: number) => {
+  setSeedList: (seedList: number[]) => {
     set((prev) => ({
       configuration: {
         ...prev.configuration,
-        numberOfRuns: count,
+        seedList,
+        numberOfRuns: seedList.length,
         lastUpdated: Date.now(),
       },
     }));
@@ -53,6 +55,7 @@ export const createPipelineActions = (
         selectedToolSchema: null,
         parameters: {},
         numberOfRuns: 1,
+        seedList: [],
         lastUpdated: Date.now(),
       },
       activeStep: 0,
@@ -72,6 +75,7 @@ export const createPipelineActions = (
         selectedToolSchema: schema ?? prev.configuration.selectedToolSchema,
         parameters: experiment.parameters,
         numberOfRuns: experiment.numberOfRuns,
+        seedList: experiment.seedList,
         lastUpdated: Date.now(),
       },
       activeStep: 1, // Go to parameters step for editing

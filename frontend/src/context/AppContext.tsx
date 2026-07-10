@@ -34,7 +34,7 @@ interface AppContextType {
   clearDatasetAnnotation: (datasetId: string) => void;
   
   // Experiment actions
-  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number, datasetIds?: string[], requirements?: ToolRequirements) => void;
+  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number, seedList?: number[], datasetIds?: string[], requirements?: ToolRequirements) => void;
   setActiveExperiment: (id: string | null) => void;
   removeExperiment: (id: string) => void;
   submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
@@ -66,6 +66,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     parameters: ParameterValue,
     toolLabel: string,
     numberOfRuns: number = 1,
+    seedList: number[] = [],
     datasetIds: string[] = [],
     requirements?: ToolRequirements,
   ) => {
@@ -77,6 +78,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       requirements,
       parameters,
       numberOfRuns,
+      seedList,
       status: 'not-submitted',
       createdAt: new Date(),
       completedAt: null,
@@ -142,7 +144,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const response = await axios.post('/experiments/submit', {
           dataset_configs: datasetConfigs,
           tool_name: exp.toolId,
-          number_of_runs: exp.numberOfRuns ?? 1
+          seed_list: exp.seedList
         });
 
         const jobSubmissionResponse = response.data as JobSubmissionResponse;
@@ -163,7 +165,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               ? {
                   ...e,
                   status: 'queued' as ExperimentStatus,
-                  jobId: experimentId,
+                  experimentId: experimentId,
                   accessToken,
                   result: null,
                   metrics: null,
@@ -188,13 +190,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshExperimentResult = useCallback(
     async (experimentId: string) => {
       const target = experiments.find((e) => e.id === experimentId);
-      if (!target?.jobId || !target.accessToken) {
+      if (!target?.experimentId || !target.accessToken) {
         console.error('No experiment id or access token found for experiment');
         return;
       }
 
       try {
-        const experimentDetails = await fetchExperimentDetails(target.jobId, target.accessToken);
+        const experimentDetails = await fetchExperimentDetails(target.experimentId, target.accessToken);
         const finishedRunId = experimentDetails.datasets
           .flatMap((dataset) => dataset.runs)
           .find((run) => run.status === 'finished')?.run_id;
@@ -218,7 +220,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   ...e,
                   status: 'completed' as ExperimentStatus,
                   completedAt: new Date(),
-                  result: { ...result, jobId: target.jobId },
+                  result: { ...result, experimentId: target.experimentId },
                   metrics,
                 }
               : e

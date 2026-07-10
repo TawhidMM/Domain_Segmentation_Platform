@@ -47,10 +47,11 @@ export interface Experiment {
   toolName: string;
   datasetIds: string[];
   requirements?: ToolRequirements;
-  jobId?: string;
+  experimentId?: string;
   accessToken?: string;
   parameters: ParameterValue;
   numberOfRuns: number;
+  seedList: number[];
   status: ExperimentStatus;
   createdAt: Date;
   completedAt: Date | null;
@@ -71,7 +72,7 @@ export interface Domain {
 }
 
 export interface ExperimentResult {
-  jobId: string;
+  experimentId: string;
   toolName?: string;
   spots: Spot[];
   domains: Domain[];
@@ -185,7 +186,7 @@ export interface ToolSchema {
   };
 }
 
-export type WorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison';
+export type WorkspaceMode = 'upload' | 'builder' | 'focus';
 
 // Job tracking types
 export type JobStatus = 'queued' | 'running' | 'finished' | 'failed';

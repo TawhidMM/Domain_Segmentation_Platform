@@ -1,15 +1,15 @@
-import React, { useCallback, useMemo } from 'react';
-import { Box, Button, Stepper, Step, StepLabel, Divider } from '@mui/material';
-import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Box, Button, Stepper, Step, StepLabel, Divider, Tooltip, Paper, Typography, IconButton } from '@mui/material';
+import { ArrowBack, ArrowForward, Add, Edit } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { usePipelineStore } from '@/stores/pipeline';
 import { useUIStore } from '@/store/useUIStore';
 import { ToolSchema } from '@/types';
 import { prepareParametersForSubmission } from '@/utils/parameterUtils';
 import ParameterConfig from './ParameterConfig';
-import ExperimentSettings from './ExperimentSettings';
 import DatasetSelectionBar from './DatasetSelectionBar';
 import ToolSelector from './ToolSelector';
+import SeedConfigDialog from './SeedConfigDialog';
 
 const steps = ['Select Tool', 'Configure Parameters'];
 
@@ -33,14 +33,16 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
   const activeStep = usePipelineStore((state) => state.activeStep);
   const setSelectedTool = usePipelineStore((state) => state.setSelectedTool);
   const setParameters = usePipelineStore((state) => state.setParameters);
-  const setNumberOfRuns = usePipelineStore((state) => state.setNumberOfRuns);
+  const setSeedList = usePipelineStore((state) => state.setSeedList);
   const setActiveStep = usePipelineStore((state) => state.setActiveStep);
   const handleStepBack = usePipelineStore((state) => state.handleStepBack);
   const recordCreatedExperiment = usePipelineStore((state) => state.recordCreatedExperiment);
 
   const selectedToolSchema = configuration.selectedToolSchema;
   const parameters = configuration.parameters;
-  const numberOfRuns = configuration.numberOfRuns;
+  const seedList = configuration.seedList;
+
+  const [seedDialogOpen, setSeedDialogOpen] = useState(false);
 
   const handleToolSelect = useCallback((schema: ToolSchema) => {
     setSelectedTool(schema);
@@ -59,7 +61,8 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
       toolId: selectedToolSchema.tool_id,
       parameters: preparedParams,
       toolLabel: selectedToolSchema.label,
-      numberOfRuns,
+      numberOfRuns: seedList.length,
+      seedList,
       datasetIds: selectedDatasetIds,
       requirements: selectedToolSchema.requirements,
       createdAt: Date.now(),
@@ -69,19 +72,23 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
       selectedToolSchema.tool_id,
       preparedParams,
       selectedToolSchema.label,
-      numberOfRuns,
+      seedList.length,
+      seedList,
       selectedDatasetIds,
       selectedToolSchema.requirements,
     );
-    
+
     // Switch to focus view after creating experiment
     setWorkspaceView('focus');
-  }, [createExperiment, numberOfRuns, parameters, selectedDatasetIds, selectedToolSchema, recordCreatedExperiment, setWorkspaceView]);
+  }, [createExperiment, seedList, parameters, selectedDatasetIds, selectedToolSchema, recordCreatedExperiment, setWorkspaceView]);
 
   const focusedDatasetName = useMemo(
     () => availableDatasets.find((dataset) => dataset.id === focusDatasetId)?.name ?? null,
     [availableDatasets, focusDatasetId]
   );
+
+  // Check if all seeds are valid (positive integers)
+  const allSeedsValid = seedList.length > 0 && seedList.every((s) => Number.isInteger(s) && s > 0);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -112,19 +119,56 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
 
           <Divider />
 
-          {selectedDatasetIds.length > 0 ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <ParameterConfig
-                toolSchema={selectedToolSchema}
-                values={parameters}
-                onChange={setParameters}
-                selectedDatasetIds={selectedDatasetIds}
-                focusDatasetId={focusDatasetId}
-                focusDatasetName={focusedDatasetName}
-              />
-
-              <ExperimentSettings numberOfRuns={numberOfRuns} onChange={setNumberOfRuns} />
+          {/* Experiment Settings - Seed Configuration (global) */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              backgroundColor: 'rgba(25, 103, 210, 0.02)',
+              border: '1px solid',
+              borderColor: seedList.length === 0 ? 'error.main' : 'primary.light',
+              borderRadius: 1,
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: seedList.length === 0 ? 'rgba(211, 47, 47, 0.04)' : 'rgba(25, 103, 210, 0.04)',
+              },
+            }}
+            onClick={() => setSeedDialogOpen(true)}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                  Global Settings
+                </Typography>
+                <Typography variant="caption" sx={{ color: seedList.length === 0 ? 'error.main' : 'text.secondary' }}>
+                  {seedList.length === 0 
+                    ? 'Required: Set seeds to create experiment' 
+                    : `${seedList.length} run${seedList.length !== 1 ? 's' : ''} configured`}
+                </Typography>
+              </Box>
+              <IconButton size="small" color={seedList.length === 0 ? 'error' : 'primary'}>
+                <Edit fontSize="small" />
+              </IconButton>
             </Box>
+          </Paper>
+
+          {/* Seed Edit Dialog */}
+          <SeedConfigDialog
+            open={seedDialogOpen}
+            onClose={() => setSeedDialogOpen(false)}
+            seedList={seedList}
+            onSeedChange={setSeedList}
+          />
+
+          {selectedDatasetIds.length > 0 ? (
+            <ParameterConfig
+              toolSchema={selectedToolSchema}
+              values={parameters}
+              onChange={setParameters}
+              selectedDatasetIds={selectedDatasetIds}
+              focusDatasetId={focusDatasetId}
+              focusDatasetName={focusedDatasetName}
+            />
           ) : (
             <Box
               sx={{
@@ -174,14 +218,18 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
               Continue
             </Button>
           ) : (
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleCreateExperiment}
-              disabled={!selectedToolSchema || selectedDatasetIds.length === 0}
-            >
-              Create Experiment
-            </Button>
+            <Tooltip title={!allSeedsValid ? "Set seed to create experiment" : undefined}>
+              <span>
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={handleCreateExperiment}
+                  disabled={!selectedToolSchema || selectedDatasetIds.length === 0 || !allSeedsValid}
+                >
+                  Create Experiment
+                </Button>
+              </span>
+            </Tooltip>
           )}
         </Box>
       </Box>

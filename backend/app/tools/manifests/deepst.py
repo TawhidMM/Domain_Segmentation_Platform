@@ -168,12 +168,12 @@ DEEPST_MANIFEST = {
             "ui_group": "advanced",
         },
 
-        "seed": {
-            "type": "int",
-            "label": "Random seed",
-            "default": 0,
-            "ui_group": "advanced",
-        },
+        # "seed": {
+        #     "type": "int",
+        #     "label": "Random seed",
+        #     "default": 0,
+        #     "ui_group": "advanced",
+        # },
     },
 
     "profiles": {

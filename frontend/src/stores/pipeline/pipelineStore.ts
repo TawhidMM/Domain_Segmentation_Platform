@@ -11,6 +11,7 @@ const initialState: PipelineState = {
     selectedToolSchema: null,
     parameters: {},
     numberOfRuns: 1,
+    seedList: [],
     lastUpdated: Date.now(),
   },
   activeStep: 0,

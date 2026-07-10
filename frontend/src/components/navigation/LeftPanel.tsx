@@ -1,9 +1,10 @@
 import React from 'react';
-import { Box, Typography, Button, Divider, Chip } from '@mui/material';
-import { Add, CloudUpload, Science } from '@mui/icons-material';
+import { Box, Typography, Button, Divider, Chip, Tooltip } from '@mui/material';
+import { Add, CloudUpload, Science, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useDatasetStore } from '@/stores/dataset';
 import { useUIStore } from '@/store/useUIStore';
+import { useComparisonBasket } from '@/hooks/useComparisonBasket';
 import ExperimentsList from './ExperimentsList';
 
 const LeftPanel: React.FC = () => {
@@ -11,8 +12,10 @@ const LeftPanel: React.FC = () => {
   const isDatasetReady = useDatasetStore((state) => state.isDatasetReady);
   const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const { startNewExperiment, experiments } = useApp();
+  const { count } = useComparisonBasket();
 
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
+  const completedCount = experiments.filter((e) => e.status === 'completed').length;
 
   return (
     <Box
@@ -85,20 +88,38 @@ const LeftPanel: React.FC = () => {
               Experiments
             </Typography>
           </Box>
-          {unsubmittedCount > 0 && (
-            <Chip
-              label={unsubmittedCount}
-              size="small"
-              sx={{
-                height: 18,
-                minWidth: 18,
-                fontSize: '0.65rem',
-                fontWeight: 600,
-                bgcolor: 'warning.main',
-                color: 'white',
-              }}
-            />
-          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {count > 0 && completedCount > 0 && (
+              <Tooltip title={`${count} experiment${count !== 1 ? 's' : ''} selected for comparison. Click 'Compare Now' in the floating bar to view.`}>
+                <Chip
+                  icon={<GridView fontSize="small" />}
+                  label={count}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    bgcolor: 'rgba(16, 185, 129, 0.15)',
+                    color: '#059669',
+                  }}
+                />
+              </Tooltip>
+            )}
+            {unsubmittedCount > 0 && (
+              <Chip
+                label={unsubmittedCount}
+                size="small"
+                sx={{
+                  height: 18,
+                  minWidth: 18,
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  bgcolor: 'warning.main',
+                  color: 'white',
+                }}
+              />
+            )}
+          </Box>
         </Box>
 
         <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>

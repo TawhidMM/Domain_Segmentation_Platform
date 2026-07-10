@@ -7,7 +7,6 @@ import { useUIStore } from '@/store/useUIStore';
 import DatasetUpload from '../dataset/DatasetUpload';
 import ExperimentBuilder from '@/components/experiment/ExperimentBuilder';
 import ExperimentDetailView from '@/components/experiment/ExperimentDetailView';
-import ComparisonView from '@/components/visualization/ComparisonView';
 
 const MainWorkspace: React.FC = () => {
   const { experiments, activeExperimentId } = useApp();
@@ -42,8 +41,9 @@ const MainWorkspace: React.FC = () => {
           <DatasetUpload />
         );
 
-      case 'comparison':
-        return <ComparisonView />;
+      // Removed 'comparison' mode - use /compare route instead
+      // The FloatingCompareBar handles selection and navigation
+
 
       default:
         return <DatasetUpload />;

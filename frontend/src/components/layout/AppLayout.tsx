@@ -24,6 +24,7 @@ const AppLayout: React.FC = () => {
           snapshot.parameters,
           snapshot.toolLabel,
           snapshot.numberOfRuns,
+          snapshot.seedList,
           snapshot.datasetIds,
           snapshot.requirements,
         );
