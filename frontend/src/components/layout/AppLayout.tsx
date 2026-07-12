@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { Box } from '@mui/material';
-import { useApp } from '@/context/AppContext';
 import { useRestoreWorkspace } from '@/stores/bootstrap';
 import { usePipelineStore } from '@/stores/pipeline';
 import TopNavBar from './TopNavBar';
@@ -9,28 +8,19 @@ import MainWorkspace from '../workspace/MainWorkspace';
 import FloatingCompareBar from '../visualization/FloatingCompareBar';
 
 const AppLayout: React.FC = () => {
-  const { createExperiment } = useApp();
   const restoredOnce = useRef(false);
 
+  /**
+   * Workspace restoration: simply ensure the active experiment ID is set correctly.
+   * Experiment data is persisted in the pipeline store, so no recreation is needed.
+   */
   useRestoreWorkspace((restoredMode) => {
     if (restoredOnce.current) return;
     restoredOnce.current = true;
 
-    if (restoredMode === 'focus') {
-      const snapshot = usePipelineStore.getState().lastCreatedExperiment;
-      if (snapshot) {
-        createExperiment(
-          snapshot.toolId,
-          snapshot.parameters,
-          snapshot.toolLabel,
-          snapshot.numberOfRuns,
-          snapshot.seedList,
-          snapshot.datasetIds,
-          snapshot.requirements,
-        );
-      }
-    }
-   
+    // Experiments are now persisted in pipeline store and restored via rehydration.
+    // We only need to set the activeExperimentId to show the correct experiment in focus view.
+    // The `lastCreatedExperiment` snapshot is kept for legacy but is no longer used for recreation.
   });
 
   return (

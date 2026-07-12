@@ -45,6 +45,7 @@ export interface Experiment {
   id: string;
   toolId: string;
   toolName: string;
+  displayName?: string;
   datasetIds: string[];
   requirements?: ToolRequirements;
   experimentId?: string;

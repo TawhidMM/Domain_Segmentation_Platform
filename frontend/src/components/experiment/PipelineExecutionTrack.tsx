@@ -4,7 +4,7 @@ import { ArrowBack, ArrowForward, Add, Edit } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { usePipelineStore } from '@/stores/pipeline';
 import { useUIStore } from '@/store/useUIStore';
-import { ToolSchema } from '@/types';
+import { ToolSchema, Experiment } from '@/types';
 import { prepareParametersForSubmission } from '@/utils/parameterUtils';
 import ParameterConfig from './ParameterConfig';
 import DatasetSelectionBar from './DatasetSelectionBar';
@@ -19,16 +19,16 @@ interface PipelineExecutionTrackProps {
 
 const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availableDatasets }) => {
   const {
-    createExperiment,
-    setActiveExperiment,
+    resetParameterDrafts,
     selectedDatasetIds,
     focusDatasetId,
     setSelectedDatasetIds,
     setFocusDatasetId,
-    resetParameterDrafts,
   } = useApp();
 
   const setWorkspaceView = useUIStore((state) => state.setWorkspaceView);
+  
+  // Get config from pipeline store
   const configuration = usePipelineStore((state) => state.configuration);
   const activeStep = usePipelineStore((state) => state.activeStep);
   const setSelectedTool = usePipelineStore((state) => state.setSelectedTool);
@@ -37,6 +37,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
   const setActiveStep = usePipelineStore((state) => state.setActiveStep);
   const handleStepBack = usePipelineStore((state) => state.handleStepBack);
   const recordCreatedExperiment = usePipelineStore((state) => state.recordCreatedExperiment);
+  const addExperiment = usePipelineStore((state) => state.addExperiment);
 
   const selectedToolSchema = configuration.selectedToolSchema;
   const parameters = configuration.parameters;
@@ -68,19 +69,28 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
       createdAt: Date.now(),
     });
 
-    createExperiment(
-      selectedToolSchema.tool_id,
-      preparedParams,
-      selectedToolSchema.label,
-      seedList.length,
+    // Create the experiment object and add it to the pipeline store
+    const experiment: Experiment = {
+      id: crypto.randomUUID(),
+      toolId: selectedToolSchema.tool_id,
+      toolName: selectedToolSchema.label,
+      datasetIds: selectedDatasetIds,
+      requirements: selectedToolSchema.requirements,
+      parameters: preparedParams,
+      numberOfRuns: seedList.length,
       seedList,
-      selectedDatasetIds,
-      selectedToolSchema.requirements,
-    );
+      status: 'not-submitted',
+      createdAt: new Date(),
+      completedAt: null,
+      result: null,
+      metrics: null,
+    };
+
+    addExperiment(experiment);
 
     // Switch to focus view after creating experiment
     setWorkspaceView('focus');
-  }, [createExperiment, seedList, parameters, selectedDatasetIds, selectedToolSchema, recordCreatedExperiment, setWorkspaceView]);
+  }, [selectedToolSchema, parameters, seedList, selectedDatasetIds, recordCreatedExperiment, addExperiment, setWorkspaceView]);
 
   const focusedDatasetName = useMemo(
     () => availableDatasets.find((dataset) => dataset.id === focusDatasetId)?.name ?? null,

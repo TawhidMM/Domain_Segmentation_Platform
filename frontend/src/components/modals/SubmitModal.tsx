@@ -47,7 +47,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
     setIsSubmitting(true);
     try {
       const redirectInfo = await submitExperiments(email);
-      
+
       setEmail('');
       setEmailError('');
       onClose();
@@ -98,7 +98,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
                 <Science sx={{ fontSize: 20, color: 'primary.main' }} />
               </ListItemIcon>
               <ListItemText
-                primary={exp.toolName}
+                primary={exp.displayName ?? exp.toolName}
                 secondary={`${exp.parameters.n_clusters} clusters`}
                 primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
                 secondaryTypographyProps={{ variant: 'caption' }}
