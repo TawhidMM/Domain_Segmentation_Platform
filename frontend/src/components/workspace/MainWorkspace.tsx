@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { useApp } from '@/context/AppContext';
 import { useDatasetStore } from '@/stores/dataset';
 import { usePipelineStore } from '@/stores/pipeline';
 import { useUIStore } from '@/store/useUIStore';
@@ -9,15 +8,16 @@ import ExperimentBuilder from '@/components/experiment/ExperimentBuilder';
 import ExperimentDetailView from '@/components/experiment/ExperimentDetailView';
 
 const MainWorkspace: React.FC = () => {
-  const { experiments, activeExperimentId } = useApp();
   const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
-  const lastCreatedExperiment = usePipelineStore((state) => state.lastCreatedExperiment);
+
+  const experiments = usePipelineStore((state) => state.experiments);
+  const activeExperimentId = usePipelineStore((state) => state.activeExperimentId);
+
   const workspaceMode = useUIStore((state) => state.currentView);
 
-  // Resolve the actual Experiment object for ExperimentDetailView (from AppContext's live experiments)
-  const experimentForFocus = lastCreatedExperiment
-    ? experiments.find((e) => e.id === activeExperimentId) ?? null
-    : null;
+  // Resolve the actual Experiment object for focus view
+  // Shows in focus mode if in focus mode AND there's an active experiment
+  const experimentForFocus = experiments.find((e) => e.id === activeExperimentId) ?? null;
 
   const renderContent = () => {
     // Hard Safety Guardrail: If data doesn't exist, force the Upload interface
@@ -43,7 +43,6 @@ const MainWorkspace: React.FC = () => {
 
       // Removed 'comparison' mode - use /compare route instead
       // The FloatingCompareBar handles selection and navigation
-
 
       default:
         return <DatasetUpload />;

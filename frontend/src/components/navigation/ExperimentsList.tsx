@@ -11,6 +11,7 @@ interface CompareIconButtonProps {
     experimentId?: string;
     accessToken?: string;
     toolName: string;
+    displayName?: string;
     status: string;
   };
   selected: boolean;
@@ -18,26 +19,26 @@ interface CompareIconButtonProps {
 
 const CompareIconButton: React.FC<CompareIconButtonProps> = ({ exp, selected }) => {
   const basket = useComparisonStore((state) => state.basket);
-  const addJob = useComparisonStore((state) => state.addJob);
-  const removeJob = useComparisonStore((state) => state.removeJob);
-  
+  const addExperiment = useComparisonStore((state) => state.addExperiment);
+  const removeExperiment = useComparisonStore((state) => state.removeExperiment);
+
   const isInBasket = exp.experimentId ? basket.some((job) => job.id === exp.experimentId) : false;
-  
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!exp.experimentId || !exp.accessToken) return;
     if (isInBasket) {
-      removeJob(exp.experimentId);
+      removeExperiment(exp.experimentId);
     } else {
-      addJob(exp.experimentId, exp.accessToken, exp.toolName);
+      addExperiment(exp.experimentId, exp.accessToken, exp.displayName ?? exp.toolName);
     }
   };
-  
+
   // Only show for completed experiments with experimentId
   if (exp.status !== 'completed' || !exp.experimentId) {
     return null;
   }
-  
+
   return (
     <Tooltip title={isInBasket ? "Remove from comparison" : "Add to comparison"}>
       <IconButton
@@ -48,8 +49,8 @@ const CompareIconButton: React.FC<CompareIconButtonProps> = ({ exp, selected }) 
           color: isInBasket ? '#10B981' : selected ? '#94A3B8' : 'text.secondary',
           '&:hover': {
             color: isInBasket ? '#059669' : '#10B981',
-            backgroundColor: isInBasket 
-              ? 'rgba(16, 185, 129, 0.08)' 
+            backgroundColor: isInBasket
+              ? 'rgba(16, 185, 129, 0.08)'
               : 'rgba(13, 148, 136, 0.08)',
           },
         }}
@@ -77,6 +78,7 @@ const ExperimentsList: React.FC = () => {
     <List sx={{ p: 0 }}>
       {experiments.map((experiment) => {
         const isSelected = experiment.id === activeExperimentId;
+        const displayText = experiment.displayName ?? experiment.toolName;
 
         return (
           <ListItemButton
@@ -105,7 +107,7 @@ const ExperimentsList: React.FC = () => {
           >
             <StatusIndicator status={experiment.status} />
             <ListItemText
-              primary={experiment.toolName}
+              primary={displayText}
               primaryTypographyProps={{
                 variant: 'body2',
                 fontWeight: 500,
@@ -119,7 +121,7 @@ const ExperimentsList: React.FC = () => {
                 event.stopPropagation();
                 removeExperiment(experiment.id);
               }}
-              aria-label={`Delete experiment ${experiment.toolName}`}
+              aria-label={`Delete experiment ${displayText}`}
               sx={{
                 ml: 0.5,
                 color: isSelected ? 'rgba(255, 255, 255, 0.85)' : 'text.secondary',

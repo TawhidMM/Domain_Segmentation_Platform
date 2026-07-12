@@ -77,16 +77,16 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
 
   const handleDownloadCSV = () => {
     if (!experiment.result || !experiment.result.spots) return;
-    
+
     const csvContent = experiment.result.spots
       .map((spot) => `${spot.barcode},${spot.x},${spot.y},${spot.domain}`)
       .join('\n');
-    
+
     const blob = new Blob([`barcode,x,y,domain\n${csvContent}`], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${experiment.toolName}_clusters.csv`;
+    a.download = `${experiment.displayName ?? experiment.toolName}_clusters.csv`;
     a.click();
   };
 
@@ -111,22 +111,25 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
     // If not, fetch it for proper parameter rendering
     const pipelineStore = usePipelineStore.getState();
     let toolSchema = pipelineStore.configuration.selectedToolSchema;
-    
+
     if (!toolSchema || toolSchema.tool_id !== experiment.toolId) {
       toolSchema = await toolService.fetchToolSchema(experiment.toolId);
     }
-    
+
     // Use the atomic action to load experiment for editing
     // This handles setting the configuration and switching to builder view atomically
     pipelineStore.loadExperimentForEditing(experiment, toolSchema);
-    
+
     // Restore selected datasets using context setter
     setSelectedDatasetIds(experiment.datasetIds);
-    
+
     // Clear active experiment to ensure we don't stay in focus mode
     // This is needed because MainWorkspace checks activeExperimentId
     setActiveExperiment(null);
   }, [experiment, setSelectedDatasetIds, setActiveExperiment]);
+
+  // Use displayName if available, otherwise fall back to toolName
+  const displayText = experiment.displayName ?? experiment.toolName;
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -146,7 +149,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" fontWeight={600}>
-            {experiment.toolName}
+            {displayText}
           </Typography>
           <Chip
             icon={statusInfo.icon}

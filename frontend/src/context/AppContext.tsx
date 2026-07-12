@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Experiment, WorkspaceMode, ExperimentStatus, ParameterValue, JobSubmissionResponse, ToolRequirements } from '@/types';
+import { WorkspaceMode, JobSubmissionResponse } from '@/types';
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
@@ -15,11 +15,13 @@ interface JobRedirectInfo {
 }
 
 interface AppContextType {
-  experiments: Experiment[];
+  experiments: import('@/types').Experiment[];
   activeExperimentId: string | null;
-  workspaceMode: WorkspaceMode;
-  comparisonExperimentIds: string[];
-  
+
+  // Experiment actions - passthrough to pipeline store
+  setActiveExperiment: (id: string | null) => void;
+  removeExperiment: (id: string) => void;
+
   // Multi-dataset parameter management
   parameterDrafts: Record<string, Record<string, any>>;
   selectedDatasetIds: string[];
@@ -32,16 +34,13 @@ interface AppContextType {
   resetParameterDrafts: () => void;
   setDatasetAnnotation: (datasetId: string, annotationId: string) => void;
   clearDatasetAnnotation: (datasetId: string) => void;
-  
-  // Experiment actions
-  createExperiment: (toolId: string, parameters: Record<string, unknown>, toolLabel?: string, numberOfRuns?: number, seedList?: number[], datasetIds?: string[], requirements?: ToolRequirements) => void;
-  setActiveExperiment: (id: string | null) => void;
-  removeExperiment: (id: string) => void;
+
+  // Submit action
   submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
   refreshExperimentResult: (experimentId: string) => Promise<void>;
   toggleComparisonExperiment: (id: string) => void;
   clearComparisonExperiments: () => void;
-  
+
   // Workspace actions
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   startNewExperiment: () => void;
@@ -50,60 +49,21 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [experiments, setExperiments] = useState<Experiment[]>([]);
-  const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null);
+  // Experiments now come directly from pipeline store (persistent source of truth)
+  const experiments = usePipelineStore((state) => state.experiments);
+  const activeExperimentId = usePipelineStore((state) => state.activeExperimentId);
+  const removeExperimentFromStore = usePipelineStore((state) => state.removeExperiment);
+  const setActiveExperimentInStore = usePipelineStore((state) => state.setActiveExperiment);
+
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('upload');
   const [comparisonExperimentIds, setComparisonExperimentIds] = useState<string[]>([]);
-  
+
   // Multi-dataset parameter management
   const [parameterDrafts, setParameterDrafts] = useState<Record<string, Record<string, any>>>({});
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
   const [focusDatasetId, setFocusDatasetId] = useState<string | null>(null);
   const [datasetAnnotationMap, setDatasetAnnotationMap] = useState<Record<string, string>>({});
   const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
-  const createExperiment = useCallback((
-    toolId: string,
-    parameters: ParameterValue,
-    toolLabel: string,
-    numberOfRuns: number = 1,
-    seedList: number[] = [],
-    datasetIds: string[] = [],
-    requirements?: ToolRequirements,
-  ) => {
-    const experiment: Experiment = {
-      id: crypto.randomUUID(),
-      toolId,
-      toolName: toolLabel,
-      datasetIds,
-      requirements,
-      parameters,
-      numberOfRuns,
-      seedList,
-      status: 'not-submitted',
-      createdAt: new Date(),
-      completedAt: null,
-      result: null,
-      metrics: null,
-    };
-
-    setExperiments((prev) => [...prev, experiment]);
-    setActiveExperimentId(experiment.id);
-  }, []);
-
-  const setActiveExperiment = useCallback((id: string | null) => {
-    setActiveExperimentId(id);
-  }, []);
-
-  const removeExperiment = useCallback((id: string) => {
-    setExperiments((prev) => {
-      const nextExperiments = prev.filter((experiment) => experiment.id !== id);
-      setActiveExperimentId((currentActiveId) => (
-        currentActiveId === id ? nextExperiments[0]?.id ?? null : currentActiveId
-      ));
-      return nextExperiments;
-    });
-    setComparisonExperimentIds((prev) => prev.filter((experimentId) => experimentId !== id));
-  }, []);
 
   const submitExperiments = useCallback(async (email: string): Promise<JobRedirectInfo | null> => {
     if (successfulDatasets.length === 0) {
@@ -111,19 +71,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return null;
     }
 
-    const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
-    
+    const currentExperiments = usePipelineStore.getState().experiments;
+    const unsubmittedExperiments = currentExperiments.filter((e) => e.status === 'not-submitted');
+
     if (unsubmittedExperiments.length === 0) {
       console.log('No experiments to submit');
       return null;
     }
 
     // Update status to queued
-    setExperiments((prev) =>
-      prev.map((e) =>
-        e.status === 'not-submitted' ? { ...e, status: 'queued' as ExperimentStatus } : e
-      )
-    );
+    usePipelineStore.setState((prev) => ({
+      experiments: prev.experiments.map((e) =>
+        e.status === 'not-submitted' ? { ...e, status: 'queued' as import('@/types').ExperimentStatus } : e
+      ),
+    }));
 
     let firstJobRedirect: JobRedirectInfo | null = null;
 
@@ -150,7 +111,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const jobSubmissionResponse = response.data as JobSubmissionResponse;
         const experimentId = jobSubmissionResponse.experiment_id;
         const accessToken = jobSubmissionResponse.access_token;
-        
+
         console.log(`Experiment ${exp.id} submitted with experiment_id: ${experimentId}`);
 
         // Store redirect info from first submission
@@ -159,37 +120,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // Update experiment with experimentId and queued status
-        setExperiments((prev) =>
-          prev.map((e) =>
+        usePipelineStore.setState((prev) => ({
+          experiments: prev.experiments.map((e) =>
             e.id === exp.id
               ? {
                   ...e,
-                  status: 'queued' as ExperimentStatus,
+                  status: 'queued' as import('@/types').ExperimentStatus,
                   experimentId: experimentId,
                   accessToken,
                   result: null,
                   metrics: null,
                 }
               : e
-          )
-        );
+          ),
+        }));
       } catch (error) {
         console.error(`Failed to submit experiment ${exp.id}:`, error);
         // Mark as failed
-        setExperiments((prev) =>
-          prev.map((e) =>
-            e.id === exp.id ? { ...e, status: 'not-submitted' as ExperimentStatus } : e
-          )
-        );
+        usePipelineStore.setState((prev) => ({
+          experiments: prev.experiments.map((e) =>
+            e.id === exp.id ? { ...e, status: 'not-submitted' as import('@/types').ExperimentStatus } : e
+          ),
+        }));
       }
     }
 
     return firstJobRedirect;
-  }, [datasetAnnotationMap, experiments, successfulDatasets, parameterDrafts]);
+  }, [datasetAnnotationMap, successfulDatasets, parameterDrafts]);
 
   const refreshExperimentResult = useCallback(
     async (experimentId: string) => {
-      const target = experiments.find((e) => e.id === experimentId);
+      const currentExperiments = usePipelineStore.getState().experiments;
+      const target = currentExperiments.find((e) => e.id === experimentId);
       if (!target?.experimentId || !target.accessToken) {
         console.error('No experiment id or access token found for experiment');
         return;
@@ -213,25 +175,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } catch (metricsError) {
           console.error(`Failed to fetch metrics for experiment ${experimentId}:`, metricsError);
         }
-        setExperiments((prev) =>
-          prev.map((e) =>
+        usePipelineStore.setState((prev) => ({
+          experiments: prev.experiments.map((e) =>
             e.id === experimentId
               ? {
                   ...e,
-                  status: 'completed' as ExperimentStatus,
+                  status: 'completed' as import('@/types').ExperimentStatus,
                   completedAt: new Date(),
                   result: { ...result, experimentId: target.experimentId },
                   metrics,
                 }
               : e
-          )
-        );
+          ),
+        }));
       } catch (error) {
         // If result not ready (404), keep current status
         console.error(`Failed to fetch result for experiment ${experimentId}:`, error);
       }
     },
-    [experiments]
+    []
   );
 
   const toggleComparisonExperiment = useCallback((id: string) => {
@@ -258,9 +220,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSelectedDatasetIds([]);
     setFocusDatasetId(null);
     setDatasetAnnotationMap({});
-    usePipelineStore.getState().resetPipeline();
+    // Use resetBuilderState to preserve already-created experiments, only reset builder state
+    usePipelineStore.getState().resetBuilderState();
     useUIStore.getState().setWorkspaceView('builder');
-    setActiveExperimentId(null);
   }, []);
 
   // Multi-dataset parameter management callbacks
@@ -311,21 +273,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
+  // Experiment action passthroughs to pipeline store
+  const setActiveExperiment = useCallback((id: string | null) => {
+    setActiveExperimentInStore(id);
+  }, [setActiveExperimentInStore]);
+
+  const removeExperiment = useCallback((id: string) => {
+    removeExperimentFromStore(id);
+    setComparisonExperimentIds((prev) => prev.filter((expId) => expId !== id));
+  }, [removeExperimentFromStore]);
+
   return (
     <AppContext.Provider
       value={{
         successfulDatasets,
         experiments,
         activeExperimentId,
-        workspaceMode,
-        comparisonExperimentIds,
+        setActiveExperiment,
+        removeExperiment,
         parameterDrafts,
         selectedDatasetIds,
         focusDatasetId,
         datasetAnnotationMap,
-        createExperiment,
-        setActiveExperiment,
-        removeExperiment,
         submitExperiments,
         refreshExperimentResult,
         toggleComparisonExperiment,

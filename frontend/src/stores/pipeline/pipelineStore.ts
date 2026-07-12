@@ -16,6 +16,8 @@ const initialState: PipelineState = {
   },
   activeStep: 0,
   lastCreatedExperiment: null,
+  experiments: [],
+  activeExperimentId: null,
 };
 
 export const usePipelineStore = create<PipelineStore>()(
@@ -35,6 +37,8 @@ export const usePipelineStore = create<PipelineStore>()(
         configuration: state.configuration,
         activeStep: state.activeStep,
         lastCreatedExperiment: state.lastCreatedExperiment,
+        experiments: state.experiments,
+        activeExperimentId: state.activeExperimentId,
       }),
     }
   )
