@@ -101,8 +101,6 @@ async def delete_staged_result(stage_id: str):
         redis_key = get_result_validation_key(stage_id)
         redis_client.delete(redis_key)
 
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete staged result: {str(e)}")
 

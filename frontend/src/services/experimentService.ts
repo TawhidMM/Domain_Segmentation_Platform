@@ -6,11 +6,12 @@ import {
   ConsensusResponse,
   ExperimentDetails,
   RunStatus,
+  Run,
   ExperimentRequest,
   ComparisonDatasetsResponse,
 } from '@/types';
 import { DomainComparisonResponse } from '@/components/visualization/domainComparison/types';
-import { JobSubmissionResponse } from '@/types';
+import { JobSubmissionResponse, ExperimentSubmitResponse } from '@/types';
 
 export interface OverlayDomainMapSpot {
   spot_id: string;
@@ -196,4 +197,33 @@ export async function submitImportedResult(
 ): Promise<JobSubmissionResponse> {
   const res = await axios.post<JobSubmissionResponse>(`/experiments/submit-imported`, request);
   return res.data;
+}
+
+/**
+ * Map experiment details to flat Run array.
+ * Each run is tagged with datasetId and seed from the frontend seedList.
+ * The seedList is applied per-dataset (each dataset runs through all seeds).
+ * Status is mapped from backend ('finished' -> 'completed').
+ */
+export function mapDetailsToRuns(details: ExperimentDetails, seedList: number[]): Run[] {
+  return details.datasets.flatMap((dataset) =>
+    dataset.runs.map((run, index) => ({
+      runId: run.run_id,
+      datasetId: dataset.dataset_id,
+      seed: seedList[index] ?? run.seed,
+      status: mapRunStatus(run.status) as Run['status'],
+      result: null,
+    }))
+  );
+}
+
+/**
+ * Map backend run status to frontend Run status type.
+ * 'finished' becomes 'completed' to match ExperimentStatus.
+ */
+function mapRunStatus(status: string): string {
+  if (status === 'finished') {
+    return 'completed';
+  }
+  return status;
 }

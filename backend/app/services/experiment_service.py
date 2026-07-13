@@ -1,9 +1,10 @@
+import shutil
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple, Dict
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.workspace import ExperimentWorkspace
@@ -11,7 +12,7 @@ from app.models.experiment import Experiment, ExperimentStatus
 from app.models.run import Run
 from app.models.run_config import RunConfig
 from app.repositories import dataset_repository, experiment_repository, run_config_repository, run_repository
-from app.schemas.experiment import DatasetConfigRequest, ImportResultsDatasetRequest
+from app.schemas.experiment import DatasetConfigRequest, DatasetRunMapping, ImportResultsDatasetRequest
 from app.services.dataset_service import require_dataset
 from app.utils.security import generate_token_pair, verify_token
 
@@ -110,10 +111,15 @@ def _prepare_runs_for_configs(
     run_configs: List[RunConfig],
     exp_workspace: ExperimentWorkspace,
     seed_list: List[int],
-) -> List[Run]:
-    """Create Run entities for the provided RunConfig entities."""
+) -> Tuple[List[Run], List[Tuple[str, str]]]:
+    """Create Run entities for the provided RunConfig entities.
+    
+    Returns a tuple of (runs, run_dataset_pairs) where run_dataset_pairs is a list
+    of (run_id, dataset_id) tuples for mapping runs to their datasets.
+    """
     runs = []
     run_ids = []
+    run_dataset_pairs = []
 
     for run_config in run_configs:
         for seed in seed_list:
@@ -129,10 +135,11 @@ def _prepare_runs_for_configs(
                 output_path=run_path
             )
             runs.append(run)
+            run_dataset_pairs.append((run_id, run_config.dataset_id))
 
     _create_run_folders(exp_workspace, run_ids)
 
-    return runs
+    return runs, run_dataset_pairs
 
 
 def create_experiment_record(
@@ -140,7 +147,7 @@ def create_experiment_record(
     dataset_param_configs: List[DatasetConfigRequest],
     tool_name: str,
     seed_list: List[int]
-) -> Tuple[str, str]:
+) -> Tuple[str, str, List[DatasetRunMapping]]:
 
     if not dataset_param_configs:
         raise HTTPException(status_code=400, detail="At least one dataset config is required")
@@ -158,7 +165,7 @@ def create_experiment_record(
         experiment_id=experiment_id,
         tool_name=tool_name,
         workspace_path=str(exp_workspace.workspace_root),
-        total_runs=len(seed_list),
+        total_runs=len(seed_list) * len(dataset_param_configs),
         token_hash=token_hash
     )
 
@@ -172,15 +179,25 @@ def create_experiment_record(
 
     run_config_repository.create_run_configs_batch(db, run_configs)
 
-    runs = _prepare_runs_for_configs(
+    runs, run_dataset_pairs = _prepare_runs_for_configs(
         run_configs=run_configs,
         exp_workspace=exp_workspace,
         seed_list=seed_list,
     )
 
     run_repository.create_runs_batch(db, runs)
-    
-    return experiment_id, access_token
+
+    # Group run_ids by dataset_id
+    runs_by_dataset = defaultdict(list)
+    for run_id, dataset_id in run_dataset_pairs:
+        runs_by_dataset[dataset_id].append(run_id)
+
+    runs_by_dataset_list = [
+        DatasetRunMapping(dataset_id=ds_id, run_ids=rids)
+        for ds_id, rids in runs_by_dataset.items()
+    ]
+
+    return experiment_id, access_token, runs_by_dataset_list
 
 
 def require_experiment_with_access(
@@ -199,7 +216,7 @@ def require_experiment_with_access(
     return experiment
 
 
-def build_nested_experiment_response(
+def build_experiment_details(
     db: Session,
     experiment_id: str,
     token: str
@@ -215,6 +232,7 @@ def build_nested_experiment_response(
         for run in run_config.runs:
             runs_by_dataset[run_config.dataset_id].append({
                 "run_id": run.id,
+                "seed": run.seed,
                 "status": run.status.value,
                 "started_at": run.started_at,
                 "finished_at": run.finished_at
@@ -240,6 +258,7 @@ def build_nested_experiment_response(
     return {
         "experiment_id": experiment.id,
         "tool_name": experiment.tool_name,
+        "experiment_status": experiment.status.value,
         "started_at": experiment.started_at,
         "finished_at": experiment.finished_at,
         "datasets": datasets
@@ -331,3 +350,33 @@ def _prepare_imported_run_components(
         )
 
     return run_configs, runs, staging_data
+
+
+def delete_experiment(
+    db: Session,
+    experiment_id: str,
+    token: str
+):
+    experiment = require_experiment_with_access(db, experiment_id, token)
+    workspace = ExperimentWorkspace(experiment_id)
+
+    db.delete(experiment)
+
+    if workspace.workspace_root.exists():
+        try:
+            shutil.rmtree(workspace.workspace_root)
+        except Exception:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to clean up experiment assets. Action aborted."
+            )
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error occurred."
+        )

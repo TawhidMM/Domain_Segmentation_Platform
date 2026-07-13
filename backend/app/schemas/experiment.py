@@ -3,10 +3,25 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
+class ResultSubmitResponse(BaseModel):
+    experiment_id: str
+    access_token: str
+    status: str
+
+
+class DatasetRunMapping(BaseModel):
+    dataset_id: str
+    run_ids: List[str]
+
+    class Config:
+        from_attributes = True
+
+
 class ExperimentSubmitResponse(BaseModel):
     experiment_id: str
     access_token: str
     status: str
+    runs_by_dataset: List[DatasetRunMapping]
 
 class DataSetRequest(BaseModel):
     dataset_id: str
@@ -55,6 +70,7 @@ class DatasetWithRunsResponse(BaseModel):
 class ExperimentStatusResponse(BaseModel):
     experiment_id: str
     tool_name: str
+    experiment_status: str
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     datasets: List[DatasetWithRunsResponse]

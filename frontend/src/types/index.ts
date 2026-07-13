@@ -1,4 +1,4 @@
-export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'completed';
+export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'finished' | 'completed';
 
 export type DatasetUploadStatus = 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
 
@@ -58,6 +58,8 @@ export interface Experiment {
   completedAt: Date | null;
   result: ExperimentResult | null;
   metrics?: ExperimentMetrics | null;
+  runs?: Run[];
+  datasetParams?: Record<string, Record<string, unknown>>;
 }
 
 export interface Spot {
@@ -206,6 +208,7 @@ export interface JobStatusResponse {
 // Experiment Details Page Types
 export interface RunDetail {
   run_id: string;
+  seed: number;
   status: string;
   started_at: string | null;
   finished_at: string | null;
@@ -220,6 +223,7 @@ export interface DatasetGroup {
 export interface ExperimentDetails {
   experiment_id: string;
   tool_name: string;
+  experiment_status: JobStatus;
   started_at: string | null;
   finished_at: string | null;
   datasets: DatasetGroup[];
@@ -233,6 +237,26 @@ export interface RunStatus {
 }
 
 export type RunStatusValue = 'queued' | 'running' | 'finished' | 'failed';
+
+export interface Run {
+  runId: string;
+  datasetId: string;
+  seed: number;
+  status: RunStatusValue | 'completed' | 'not-submitted';
+  result?: ExperimentResult | null;
+}
+
+export interface DatasetRunMapping {
+  dataset_id: string;
+  run_ids: string[];
+}
+
+export interface ExperimentSubmitResponse {
+  experiment_id: string;
+  access_token: string;
+  status: string;
+  runs_by_dataset: DatasetRunMapping[];
+}
 
 // Comparison datasets types
 export interface ComparisonDatasetTool {
@@ -258,4 +282,25 @@ export interface ComparisonDataset {
 
 export interface ComparisonDatasetsResponse {
   datasets: ComparisonDatasetResponse[];
+}
+
+export interface RunStatusValueFrontend {
+  queued: number;
+  running: number;
+  completed: number;
+  failed: number;
+  notSubmitted: number;
+  total: number;
+}
+
+export function countRunsByStatus(runs: Run[] | undefined): RunStatusValueFrontend {
+  const allRuns = runs ?? [];
+  return {
+    queued: allRuns.filter((r) => r.status === 'queued').length,
+    running: allRuns.filter((r) => r.status === 'running').length,
+    completed: allRuns.filter((r) => r.status === 'finished').length,
+    failed: allRuns.filter((r) => r.status === 'failed').length,
+    notSubmitted: allRuns.filter((r) => r.status === 'not-submitted').length,
+    total: allRuns.length,
+  };
 }

@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.core.storage_space import DatasetSpace
 from app.repositories.dataset_repository import get_valid_dataset_ids
 from app.schemas.experiment import DataSetRequest, DataSetRequests
 from app.services import spatial_data_service
-from app.services.dataset_service import create_dataset
+from app.services.dataset_service import create_dataset, delete_dataset
 from app.services.run_service import require_run_with_access, build_run_context
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
@@ -108,6 +108,14 @@ def get_histology(
             "Content-Type": "image/png"
         }
     )
+
+@router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete(
+    request: DataSetRequest,
+    db: Session = Depends(get_db)
+):
+
+    delete_dataset(db, request.dataset_id)
 
 @router.post("/spatial-data")
 def get_spatial_data(

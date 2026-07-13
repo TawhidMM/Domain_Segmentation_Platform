@@ -1,4 +1,4 @@
-import { ToolSchema, ToolRequirements, Experiment } from '@/types';
+import { ToolSchema, ToolRequirements, Experiment, ExperimentStatus } from '@/types';
 
 export interface PipelineConfiguration {
   selectedTool: string | null;
@@ -48,6 +48,12 @@ export interface PipelineActions {
   addExperiment: (experiment: Experiment) => void;
   removeExperiment: (id: string) => void;
   setActiveExperiment: (id: string | null) => void;
+  /** Update runs for an experiment (used for polling updates) */
+  updateExperimentRuns: (experimentId: string, runs: import('@/types').Run[]) => void;
+  /** Fill run IDs after submit response */
+  fillRunIds: (experimentId: string, runsByDataset: import('@/types').DatasetRunMapping[]) => void;
+  /** Update experiment status */
+  updateExperimentStatus: (experimentId: string, status: ExperimentStatus) => void;
 }
 
 export type PipelineStore = PipelineState & PipelineActions;

@@ -19,7 +19,7 @@ interface PipelineExecutionTrackProps {
 
 const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availableDatasets }) => {
   const {
-    resetParameterDrafts,
+    resetDatasetParamOverrides,
     selectedDatasetIds,
     focusDatasetId,
     setSelectedDatasetIds,
@@ -47,8 +47,8 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
 
   const handleToolSelect = useCallback((schema: ToolSchema) => {
     setSelectedTool(schema);
-    resetParameterDrafts();
-  }, [resetParameterDrafts, setSelectedTool]);
+    resetDatasetParamOverrides();
+  }, [resetDatasetParamOverrides, setSelectedTool]);
 
   const handleCreateExperiment = useCallback(() => {
     if (!selectedToolSchema) {
