@@ -1,13 +1,39 @@
 import { ToolSchema, ToolParameterSchema, FloatRangeDefault } from '@/types';
 
 /**
+ * Resolve effective parameters for a specific dataset.
+ * Per-dataset overrides take precedence; falls back to global parameters.
+ * This is the single source of truth for parameter resolution.
+ */
+export const resolveDatasetParameters = (
+  datasetId: string,
+  overrides: Record<string, Record<string, unknown>> | undefined,
+  globalParameters: Record<string, unknown>,
+): Record<string, unknown> => {
+  return overrides?.[datasetId] ?? globalParameters;
+};
+
+/**
+ * Check if a dataset has any parameters to display.
+ * Useful for gating UI elements like the "View Params" button.
+ */
+export const hasDatasetParameters = (
+  datasetId: string,
+  overrides: Record<string, Record<string, unknown>> | undefined,
+  globalParameters: Record<string, unknown>,
+): boolean => {
+  const resolved = resolveDatasetParameters(datasetId, overrides, globalParameters);
+  return Object.keys(resolved).length > 0;
+};
+
+/**
  * Initialize parameter values from tool schema defaults
  */
 export const resolveDefaultValue = (
   paramKey: string,
   param: ToolParameterSchema,
   currentValues: Record<string, any>,
-  toolSchema?: ToolSchema
+  toolSchema?: ToolSchema,
 ): any => {
   // Check for profile-based overrides
   if (toolSchema?.profiles && currentValues.profile) {
@@ -48,7 +74,7 @@ export const applyDependentDefaults = (
   toolSchema: ToolSchema,
   prevValues: Record<string, any>,
   nextValues: Record<string, any>,
-  changedKey?: string
+  changedKey?: string,
 ): Record<string, any> => {
   const updated = { ...nextValues };
 
@@ -91,12 +117,12 @@ export const initializeParameterValues = (toolSchema: ToolSchema): Record<string
 export const expandFloatRange = (range: FloatRangeDefault): number[] => {
   const { min, max, step } = range;
   const values: number[] = [];
-  
+
   for (let val = min; val <= max; val += step) {
     // Round to avoid floating point precision issues
     values.push(Math.round(val * 1000) / 1000);
   }
-  
+
   return values;
 };
 

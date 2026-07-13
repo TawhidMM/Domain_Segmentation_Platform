@@ -2,11 +2,11 @@ import { useCallback, useRef, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 
 /**
- * Custom hook for managing parameter drafts with debouncing
+ * Custom hook for managing parameter overrides with debouncing
  * Handles dual-layer state: local form state + global AppContext sync
  */
-export const useParameterDrafts = (debounceMs: number = 300) => {
-  const { parameterDrafts, selectedDatasetIds, focusDatasetId, updateParameterDraft } = useApp();
+export const useDatasetParamOverrides = (debounceMs: number = 300) => {
+  const { datasetParamOverrides, selectedDatasetIds, focusDatasetId, updateDatasetParamOverride } = useApp();
   const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   /**
@@ -15,9 +15,9 @@ export const useParameterDrafts = (debounceMs: number = 300) => {
   const resolveParameterValue = useCallback(
     (paramKey: string): any => {
       if (!focusDatasetId) return undefined;
-      return parameterDrafts[focusDatasetId]?.[paramKey];
+      return datasetParamOverrides[focusDatasetId]?.[paramKey];
     },
-    [focusDatasetId, parameterDrafts]
+    [focusDatasetId, datasetParamOverrides]
   );
 
   /**
@@ -33,11 +33,11 @@ export const useParameterDrafts = (debounceMs: number = 300) => {
 
       // Set new debounce timer
       debounceTimerRef.current[paramKey] = setTimeout(() => {
-        updateParameterDraft(datasetIds, paramKey, value);
+        updateDatasetParamOverride(datasetIds, paramKey, value);
         delete debounceTimerRef.current[paramKey];
       }, debounceMs);
     },
-    [debounceMs, updateParameterDraft]
+    [debounceMs, updateDatasetParamOverride]
   );
 
   /**
@@ -65,9 +65,9 @@ export const useParameterDrafts = (debounceMs: number = 300) => {
       }
 
       // Immediate sync on blur
-      updateParameterDraft(selectedDatasetIds, paramKey, value);
+      updateDatasetParamOverride(selectedDatasetIds, paramKey, value);
     },
-    [selectedDatasetIds, updateParameterDraft]
+    [selectedDatasetIds, updateDatasetParamOverride]
   );
 
   /**
@@ -79,7 +79,7 @@ export const useParameterDrafts = (debounceMs: number = 300) => {
   );
 
   return {
-    parameterDrafts,
+    datasetParamOverrides,
     selectedDatasetIds,
     focusDatasetId,
     resolveParameterValue: memoizedResolveParameterValue,

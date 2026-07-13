@@ -29,6 +29,11 @@ const statusConfig: Record<ExperimentStatus, { color: string; icon: React.ReactN
     icon: <Check sx={{ fontSize: 16 }} />,
     label: 'Completed',
   },
+  finished: {
+    color: '#16A34A',
+    icon: <Check sx={{ fontSize: 16 }} />,
+    label: 'Completed',
+  },
 };
 
 const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, size = 'small' }) => {

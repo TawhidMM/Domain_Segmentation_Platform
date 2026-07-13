@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any, List
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, BackgroundTasks, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from app.schemas.experiment import (
     DomainComparisonItem,
     ExperimentRequest,
     ExperimentSubmitRequest,
+    ResultSubmitResponse,
     ExperimentSubmitResponse,
     ExperimentStatusResponse,
     ImportResultRequest
@@ -30,6 +31,7 @@ from app.services import experiment_service
 from app.services import export_service
 from app.services import metrics_service
 from app.services import spatial_data_service
+from app.services.experiment_service import delete_experiment
 from app.tasks.experiment_tasks import run_task
 from app.tasks.result_processing_task import process_imported_results
 
@@ -131,7 +133,7 @@ async def submit_experiment(
     request: ExperimentSubmitRequest,
     db: Session = Depends(get_db)
 ):
-    experiment_id, access_token = experiment_service.create_experiment_record(
+    experiment_id, access_token, runs_by_dataset = experiment_service.create_experiment_record(
         db=db,
         dataset_param_configs=request.dataset_configs,
         tool_name=request.tool_name,
@@ -145,17 +147,18 @@ async def submit_experiment(
     return ExperimentSubmitResponse(
         experiment_id=experiment_id,
         access_token=access_token,
-        status="queued"
+        status="queued",
+        runs_by_dataset=runs_by_dataset
     )
 
 
-@router.post("/submit-imported", response_model=ExperimentSubmitResponse)
+@router.post("/submit-imported", response_model=ResultSubmitResponse)
 async def submit_imported_experiment(
     request: ImportResultRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    print("hitting api")
+
     experiment_id, access_token, staging_data = experiment_service.create_imported_experiment_record(
         db=db,
         results=request.results,
@@ -167,7 +170,7 @@ async def submit_imported_experiment(
         staging_data=staging_data
     )
 
-    return ExperimentSubmitResponse(
+    return ResultSubmitResponse(
         experiment_id=experiment_id,
         access_token=access_token,
         status="queued"
@@ -175,18 +178,27 @@ async def submit_imported_experiment(
 
 
 @router.post("/details", response_model=ExperimentStatusResponse)
-def get_experiment_status(
+def experiment_details(
     request: ExperimentRequest,
     db: Session = Depends(get_db)
 ):
 
-    response_data = experiment_service.build_nested_experiment_response(
+    response_data = experiment_service.build_experiment_details(
         db,
         request.experiment_id,
         request.token,
     )
 
     return ExperimentStatusResponse(**response_data)
+
+
+@router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete(
+    request: ExperimentRequest,
+    db: Session = Depends(get_db)
+):
+
+    delete_experiment(db, request.experiment_id, request.token)
 
 
 @router.post("/best-run")

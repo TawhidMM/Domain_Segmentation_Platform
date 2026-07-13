@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { WorkspaceMode, JobSubmissionResponse } from '@/types';
+import { WorkspaceMode, JobSubmissionResponse, ExperimentSubmitResponse } from '@/types';
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
@@ -23,15 +23,15 @@ interface AppContextType {
   removeExperiment: (id: string) => void;
 
   // Multi-dataset parameter management
-  parameterDrafts: Record<string, Record<string, any>>;
+  datasetParamOverrides: Record<string, Record<string, any>>;
   selectedDatasetIds: string[];
   focusDatasetId: string | null;
   datasetAnnotationMap: Record<string, string>;
   successfulDatasets: import('@/stores/dataset').UploadedDataset[];
-  updateParameterDraft: (datasetIds: string[], paramKey: string, value: any) => void;
+  updateDatasetParamOverride: (datasetIds: string[], paramKey: string, value: any) => void;
   setSelectedDatasetIds: (ids: string[]) => void;
   setFocusDatasetId: (id: string | null) => void;
-  resetParameterDrafts: () => void;
+  resetDatasetParamOverrides: () => void;
   setDatasetAnnotation: (datasetId: string, annotationId: string) => void;
   clearDatasetAnnotation: (datasetId: string) => void;
 
@@ -59,7 +59,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [comparisonExperimentIds, setComparisonExperimentIds] = useState<string[]>([]);
 
   // Multi-dataset parameter management
-  const [parameterDrafts, setParameterDrafts] = useState<Record<string, Record<string, any>>>({});
+  const [datasetParamOverrides, setDatasetParamOverrides] = useState<Record<string, Record<string, any>>>({});
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
   const [focusDatasetId, setFocusDatasetId] = useState<string | null>(null);
   const [datasetAnnotationMap, setDatasetAnnotationMap] = useState<Record<string, string>>({});
@@ -96,9 +96,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           : successfulDatasets.map((item) => item.datasetId!).filter(Boolean);
 
         // Build per-dataset configs: use draft config if available, otherwise fall back to global
+        // Also store dataset-specific params in datasetParams
         const datasetConfigs = datasetIds.map((datasetId) => ({
           dataset_id: datasetId,
-          params: parameterDrafts[datasetId] ?? exp.parameters,
+          params: datasetParamOverrides[datasetId] ?? exp.parameters,
           annotation_id: datasetAnnotationMap[datasetId] ?? undefined,
         }));
 
@@ -108,9 +109,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           seed_list: exp.seedList
         });
 
-        const jobSubmissionResponse = response.data as JobSubmissionResponse;
-        const experimentId = jobSubmissionResponse.experiment_id;
-        const accessToken = jobSubmissionResponse.access_token;
+        const submitResponse = response.data as ExperimentSubmitResponse;
+        const experimentId = submitResponse.experiment_id;
+        const accessToken = submitResponse.access_token;
 
         console.log(`Experiment ${exp.id} submitted with experiment_id: ${experimentId}`);
 
@@ -119,7 +120,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           firstJobRedirect = { experimentId, accessToken };
         }
 
-        // Update experiment with experimentId and queued status
+        // Build datasetParams map for this experiment
+        const datasetParamsMap: Record<string, Record<string, unknown>> = {};
+        datasetIds.forEach((datasetId) => {
+          if (datasetParamOverrides[datasetId]) {
+            datasetParamsMap[datasetId] = datasetParamOverrides[datasetId];
+          }
+        });
+
+        // Fill run IDs using the store action
+        usePipelineStore.getState().fillRunIds(exp.id, submitResponse.runs_by_dataset);
+
+        // Update experiment with additional metadata
         usePipelineStore.setState((prev) => ({
           experiments: prev.experiments.map((e) =>
             e.id === exp.id
@@ -130,6 +142,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   accessToken,
                   result: null,
                   metrics: null,
+                  datasetParams: datasetParamsMap,
                 }
               : e
           ),
@@ -146,7 +159,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     return firstJobRedirect;
-  }, [datasetAnnotationMap, successfulDatasets, parameterDrafts]);
+  }, [datasetAnnotationMap, successfulDatasets, datasetParamOverrides]);
 
   const refreshExperimentResult = useCallback(
     async (experimentId: string) => {
@@ -216,7 +229,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       window.sessionStorage.removeItem(TOOL_WORKFLOW_STORAGE_KEY);
     }
 
-    setParameterDrafts({});
+    setDatasetParamOverrides({});
     setSelectedDatasetIds([]);
     setFocusDatasetId(null);
     setDatasetAnnotationMap({});
@@ -226,8 +239,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   // Multi-dataset parameter management callbacks
-  const updateParameterDraft = useCallback((datasetIds: string[], paramKey: string, value: any) => {
-    setParameterDrafts((prev) => {
+  const updateDatasetParamOverride = useCallback((datasetIds: string[], paramKey: string, value: any) => {
+    setDatasetParamOverrides((prev) => {
       const updated = { ...prev };
       datasetIds.forEach((datasetId) => {
         if (!updated[datasetId]) {
@@ -239,8 +252,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
-  const resetParameterDrafts = useCallback(() => {
-    setParameterDrafts({});
+  const resetDatasetParamOverrides = useCallback(() => {
+    setDatasetParamOverrides({});
     setSelectedDatasetIds([]);
     setFocusDatasetId(null);
     setDatasetAnnotationMap({});
@@ -291,7 +304,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeExperimentId,
         setActiveExperiment,
         removeExperiment,
-        parameterDrafts,
+        datasetParamOverrides,
         selectedDatasetIds,
         focusDatasetId,
         datasetAnnotationMap,
@@ -301,10 +314,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clearComparisonExperiments,
         setWorkspaceMode,
         startNewExperiment,
-        updateParameterDraft,
+        updateDatasetParamOverride,
         setSelectedDatasetIds,
         setFocusDatasetId,
-        resetParameterDrafts,
+        resetDatasetParamOverrides,
         setDatasetAnnotation,
         clearDatasetAnnotation,
       }}

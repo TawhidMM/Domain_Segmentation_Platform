@@ -9,7 +9,7 @@ import { Tune } from '@mui/icons-material';
 import { ToolSchema, ToolParameterSchema, DependsOnCondition } from '@/types';
 import { applyDependentDefaults } from '@/utils/parameterUtils';
 import { checkDependsOn } from '@/utils/dependsOn';
-import { useParameterDrafts } from '@/hooks/useParameterDrafts';
+import { useDatasetParamOverrides } from '@/hooks/useParameterDrafts';
 import { useApp } from '@/context/AppContext';
 import { ParameterInput } from './ParameterFields';
 
@@ -40,8 +40,8 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [focusPulse, setFocusPulse] = useState(false);
-  const { resolveParameterValue } = useParameterDrafts();
-  const { updateParameterDraft } = useApp();
+  const { resolveParameterValue } = useDatasetParamOverrides();
+  const { updateDatasetParamOverride } = useApp();
 
   useEffect(() => {
     if (!focusDatasetId) return;
@@ -62,7 +62,7 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({
       );
 
       changedKeys.forEach((key) => {
-        updateParameterDraft(selectedDatasetIds, key, updatedValues[key]);
+        updateDatasetParamOverride(selectedDatasetIds, key, updatedValues[key]);
       });
     }
   };
