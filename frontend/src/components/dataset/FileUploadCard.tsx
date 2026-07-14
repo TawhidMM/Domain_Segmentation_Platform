@@ -38,6 +38,10 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
   const successfulFiles = uploadedFiles.filter((file) => file.status === 'SUCCESS').length;
   const failedFiles = uploadedFiles.filter((file) => file.status === 'ERROR').length;
   const activeUpload = uploadedFiles.find((file) => file.status === 'UPLOADING');
+  const hasActiveUpload = uploadedFiles.some((file) => file.status === 'UPLOADING');
+  const isAllComplete = uploadedFiles.every(
+    (file) => file.status === 'SUCCESS' || file.status === 'ERROR'
+  );
   const aggregateProgress =
     totalFiles > 0
       ? Math.round(
@@ -120,7 +124,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
             borderRadius: 2,
             backgroundColor: disabled
               ? 'action.disabledBackground'
-              : hasError
+              : hasError && !hasActiveUpload
               ? 'error.main'
               : hasUploads
               ? 'primary.main'
@@ -133,7 +137,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         >
           {disabled ? (
             <Lock sx={{ fontSize: 24, color: 'text.disabled' }} />
-          ) : hasError ? (
+          ) : hasError && !hasActiveUpload ? (
             <ErrorIcon sx={{ fontSize: 24, color: 'white' }} />
           ) : hasUploads ? (
             <Check sx={{ fontSize: 24, color: 'white' }} />
@@ -171,11 +175,13 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
                 {successfulFiles}/{totalFiles} uploaded
                 {failedFiles > 0 ? ` • ${failedFiles} failed` : ''}
               </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={aggregateProgress}
-                sx={{ height: 6, borderRadius: 999, mb: 0.75 }}
-              />
+              {!isAllComplete && (
+                <LinearProgress
+                  variant="determinate"
+                  value={aggregateProgress}
+                  sx={{ height: 6, borderRadius: 999, mb: 0.75 }}
+                />
+              )}
               {activeUpload && (
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
                   Uploading {activeUpload.name} ({activeUpload.uploadProgress}%)
@@ -185,7 +191,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
           ) : (
             <Typography variant="caption" sx={{ color: 'text.disabled' }}>
               {acceptedFormats.join(', ')}
-              {multiple ? ' - multiple files supported' : ''}
+              {multiple ? ' — upload multiple datasets, one file at a time' : ''}
             </Typography>
           )}
         </Box>

@@ -36,7 +36,7 @@ SCRIBBLEDOM_MANIFEST = {
         "n_cluster_for_auto_scribble": {
             "type": "int",
             "label": "Clusters for auto scribble",
-            "default": 2,
+            "default": 7,
             "min": 2,
             "max": 10,
             "ui_group": "basic",
@@ -44,8 +44,8 @@ SCRIBBLEDOM_MANIFEST = {
         "max_iter": {
             "type": "int",
             "label": "Maximum iterations",
-            "default": 10,
-            "ui_group": "advanced",
+            "default": 300,
+            "ui_group": "basic",
         },
         "nConv": {
             "type": "int",

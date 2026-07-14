@@ -12,18 +12,12 @@ export interface UploadedDataset {
   error?: string;
 }
 
-export interface DatasetSummary {
-  spotCount: number;
-  geneCount: number;
-}
-
 export interface DatasetStoreState {
   // Internal state (not persisted)
   uploadQueue: DatasetUploadQueueItem[];
   isQueueProcessing: boolean;
 
   // Persisted state (survives browser refresh)
-  summary: DatasetSummary | null;
   uploadId: string | null;
   uploadedDatasets: UploadedDataset[];
 }

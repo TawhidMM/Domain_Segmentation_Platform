@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Alert,
   Box,
@@ -162,7 +163,7 @@ const StagedResultsPanel: React.FC<{
 }> = ({ items, onRemove }) => {
   return (
     <EntityList
-      title={`Staged Bundles (${items?.length ?? 0})`}
+      title={`Staged Results (${items?.length ?? 0})`}
       maxHeight={420}
       panelSx={{
         backgroundColor: 'background.paper',
@@ -327,7 +328,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         setSelectedFile(null);
         setUploadedFiles([
           {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             name: file.name,
             uploadProgress: 0,
             status: 'ERROR',
@@ -341,7 +342,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
       setSubmitFeedback(null);
       setUploadedFiles([
         {
-          id: crypto.randomUUID(),
+          id: uuidv4(),
           name: file.name,
           uploadProgress: 0,
           status: 'PENDING',
@@ -457,6 +458,24 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Typography
+          component="a"
+          href="/how-to-use#uploading-precomputed-results"
+          target="_blank"
+          rel="noopener"
+          variant="caption"
+          sx={{
+            color: 'primary.main',
+            textDecoration: 'none',
+            cursor: 'pointer',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          How to Import Pre-computed Results ?
+        </Typography>
+      </Box>
+
       <TextField
         label="Tool Name"
         value={toolName}
@@ -464,7 +483,6 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         fullWidth
         placeholder="my tool"
       />
-
       <Box
         sx={{
           display: 'flex',

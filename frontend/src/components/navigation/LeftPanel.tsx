@@ -8,7 +8,6 @@ import { useComparisonStore } from '@/stores/comparison';
 import ExperimentsList from './ExperimentsList';
 
 const LeftPanel: React.FC = () => {
-  const summary = useDatasetStore((state) => state.summary);
   const isDatasetReady = useDatasetStore((state) => state.isDatasetReady);
   const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const { startNewExperiment, experiments } = useApp();
@@ -54,26 +53,17 @@ const LeftPanel: React.FC = () => {
             },
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CloudUpload sx={{ fontSize: 18, color: isDatasetReady() ? 'primary.main' : 'text.secondary' }} />
-            <Typography variant="body2" fontWeight={500}>
-              {isDatasetReady() ? 'Dataset Ready' : 'Upload Required'}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CloudUpload sx={{ fontSize: 18, color: isDatasetReady() ? 'primary.main' : 'text.secondary' }} />
+              <Typography variant="body2" fontWeight={500}>
+                {isDatasetReady() ? 'Dataset Ready' : 'Upload Required'}
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.65rem' }}>
+              Manage
             </Typography>
           </Box>
-          {summary && (
-            <Box sx={{ mt: 1, display: 'flex', gap: 0.5 }}>
-              <Chip
-                label={`${summary.spotCount.toLocaleString()} spots`}
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', bgcolor: 'rgba(13, 148, 136, 0.15)', color: 'primary.dark' }}
-              />
-              <Chip
-                label={`${(summary.geneCount / 1000).toFixed(1)}k genes`}
-                size="small"
-                sx={{ height: 20, fontSize: '0.65rem', bgcolor: 'rgba(37, 99, 235, 0.15)', color: 'secondary.dark' }}
-              />
-            </Box>
-          )}
         </Box>
       </Box>
 

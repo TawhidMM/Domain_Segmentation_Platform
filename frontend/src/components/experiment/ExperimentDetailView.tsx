@@ -14,6 +14,7 @@ import { fetchExperimentDetails, mapDetailsToRuns } from '@/services/experimentS
 import { checkDependsOn } from '@/utils/dependsOn';
 import { resolveDatasetParameters } from '@/utils/parameterUtils';
 import { toolService } from '@/services/toolService';
+import DatasetParamsDialog from './DatasetParamsDialog';
 
 interface ExperimentDetailViewProps {
   experiment: Experiment;
@@ -32,8 +33,8 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
   const location = useLocation();
   const navigate = useNavigate();
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
-  const [, setParamsDialogOpen] = useState(false);
-  const [, setParamsDialogDataset] = useState<{ id: string; name: string; params: Record<string, unknown> } | null>(null);
+  const [paramsDialogOpen, setParamsDialogOpen] = useState(false);
+  const [paramsDialogDataset, setParamsDialogDataset] = useState<{ id: string; name: string; params: Record<string, unknown> } | null>(null);
 
   const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
 
@@ -105,6 +106,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
     const datasetName = uploadedDatasets.find((d) => d.datasetId === datasetId)?.datasetName ?? datasetId;
     // Use the single resolver function for consistent parameter lookup
     const params = resolveDatasetParameters(datasetId, experiment.datasetParams, experiment.parameters);
+    console.log('Resolved parameters for dataset', datasetId, params);
     setParamsDialogDataset({ id: datasetId, name: datasetName, params });
     setParamsDialogOpen(true);
   };
@@ -293,6 +295,14 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
       </Box>
 
       <SubmitModal open={submitModalOpen} onClose={() => setSubmitModalOpen(false)} />
+      {paramsDialogDataset && (
+        <DatasetParamsDialog
+          open={paramsDialogOpen}
+          onClose={() => setParamsDialogOpen(false)}
+          datasetName={paramsDialogDataset.name}
+          params={paramsDialogDataset.params}
+        />
+      )}
     </Box>
   );
 };

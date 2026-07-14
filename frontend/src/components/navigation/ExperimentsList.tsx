@@ -3,6 +3,7 @@ import { Box, Typography, List, ListItemButton, ListItemText, IconButton, Toolti
 import { DeleteOutline, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useComparisonStore } from '@/stores/comparison';
+import { useUIStore } from '@/store/useUIStore';
 import StatusIndicator from './StatusIndicator';
 
 interface CompareIconButtonProps {
@@ -84,7 +85,10 @@ const ExperimentsList: React.FC = () => {
           <ListItemButton
             key={experiment.id}
             selected={isSelected}
-            onClick={() => setActiveExperiment(experiment.id)}
+            onClick={() => {
+              setActiveExperiment(experiment.id);
+              useUIStore.getState().setWorkspaceView('focus');
+            }}
             sx={{
               py: 1,
               px: 2,
