@@ -1,5 +1,6 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useEffect } from 'react';
+import { Box, Typography, Link, Alert } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { useDatasetStore } from '@/stores/dataset';
 import FileUploadCard from './FileUploadCard';
 import DatasetUploadTable from './DatasetUploadTable';
@@ -14,21 +15,32 @@ const DatasetUpload: React.FC = () => {
 
   const isUploadInProgress = uploadQueue.some((item) => item.status === 'UPLOADING');
 
+  useEffect(() => {
+    if (isUploadInProgress) {
+      const handler = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+      };
+      window.addEventListener('beforeunload', handler);
+      return () => window.removeEventListener('beforeunload', handler);
+    }
+  }, [isUploadInProgress]);
+
   return (
-    <Box sx={{ p: 4, maxWidth: 900, mx: 'auto', minHeight: '100vh', overflowY: 'auto' }}>
+    <Box sx={{ p: 4, width: 900, mx: 'auto', minHeight: '100vh', overflowY: 'auto' }}>
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
           Upload Your Dataset
         </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-          Upload your spatial transcriptomics data to begin domain segmentation analysis
+        <Typography variant="body1" sx={{ color: 'primary.main', fontWeight: 500 }}>
+          Upload one or more spatial transcriptomics datasets. You can add as many as you like before proceeding.
         </Typography>
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <FileUploadCard
-          title="Gene Expression Matrix"
-          description="Upload your gene expression count matrix. Each row should represent a spot/cell and each column a gene."
+          title="Spatial Transcriptomics Dataset"
+          description="Upload your spatial transcriptomics daatset in correct format."
           acceptedFormats={['.zip']}
           multiple
           required
@@ -42,14 +54,41 @@ const DatasetUpload: React.FC = () => {
           }))}
           onFileSelect={uploadDataset}
         />
-      </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 1 }}>
+          <Link
+            component={RouterLink}
+            to="/how-to-use#preparing-datasets"
+            target="_blank"
+            underline="hover"
+            sx={{ fontSize: '0.8rem', color: 'text.secondary' }}
+          >
+            What format should my dataset be in?
+          </Link>
+          <Link
+            component={RouterLink}
+            to="/how-to-use#uploading-dataset"
+            target="_blank"
+            underline="hover"
+            sx={{ fontSize: '0.8rem', color: 'text.secondary' }}
+          >
+            How does uploading work?
+          </Link>
+        </Box>
 
-      <DatasetUploadTable
-        items={uploadedDatasets}
-        onUpdateName={updateDatasetName}
-        onRetry={retryUpload}
-        onDelete={removeUploadedDataset}
-      />
+        {isUploadInProgress && (
+          <Alert severity="warning" sx={{ '& .MuiAlert-message': { fontSize: '0.875rem' } }}>
+            <strong>Don't close or refresh this tab.</strong> Your upload is in progress.
+            Closing the browser tab will cancel the upload and you'll need to re-upload the file.
+          </Alert>
+        )}
+
+        <DatasetUploadTable
+          items={uploadedDatasets}
+          onUpdateName={updateDatasetName}
+          onRetry={retryUpload}
+          onDelete={removeUploadedDataset}
+        />
+      </Box>
     </Box>
   );
 };

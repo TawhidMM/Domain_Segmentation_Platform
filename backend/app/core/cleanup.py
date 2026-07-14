@@ -89,7 +89,7 @@ def purge_old_staging_files(days_to_keep: int = 3) -> int:
                         f"Disk Cleaned: Expired staging folder {stage_folder.name} (Age: {age_seconds / 86400:.1f} days)")
                     purged_count += 1
                 except Exception as e:
-                    logger.error(f"❌ Failed to delete staging folder {stage_folder.name}: {str(e)}")
+                    logger.error(f"Failed to delete staging folder {stage_folder.name}: {str(e)}")
 
     return purged_count
 

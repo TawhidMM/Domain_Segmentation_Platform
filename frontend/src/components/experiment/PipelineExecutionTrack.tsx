@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Box, Button, Stepper, Step, StepLabel, Divider, Tooltip, Paper, Typography, IconButton } from '@mui/material';
 import { ArrowBack, ArrowForward, Add, Edit } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
@@ -71,7 +72,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
 
     // Create the experiment object and add it to the pipeline store
     const experiment: Experiment = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       toolId: selectedToolSchema.tool_id,
       toolName: selectedToolSchema.label,
       datasetIds: selectedDatasetIds,
@@ -109,6 +110,24 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
           </Step>
         ))}
       </Stepper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <Typography
+          component="a"
+          href="/how-to-use#creating-analysis"
+          target="_blank"
+          rel="noopener"
+          variant="caption"
+          sx={{
+            color: 'primary.main',
+            textDecoration: 'none',
+            cursor: 'pointer',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          How to Create Analysis ?
+        </Typography>
+      </Box>
 
       {activeStep === 0 && (
         <ToolSelector selectedToolId={selectedToolSchema?.tool_id ?? null} onSelectTool={handleToolSelect} />

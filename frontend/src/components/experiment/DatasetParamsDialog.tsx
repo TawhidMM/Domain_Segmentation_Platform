@@ -29,9 +29,7 @@ const DatasetParamsDialog: React.FC<DatasetParamsDialogProps> = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Typography variant="h6" fontWeight={600}>
           Parameters for {datasetName}
-        </Typography>
       </DialogTitle>
       <DialogContent dividers>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>

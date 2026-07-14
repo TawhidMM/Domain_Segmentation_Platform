@@ -21,7 +21,7 @@ const DatasetUploadTable: React.FC<DatasetUploadTableProps> = ({
   }
 
   return (
-    <EntityList title="Uploaded Dataset" maxHeight={400} panelSx={{ mt: 4 }}>
+    <EntityList title="Uploaded Dataset" maxHeight={400}>
       {items.map((item) => (
         <DatasetUploadRow
           key={item.id}

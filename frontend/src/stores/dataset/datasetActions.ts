@@ -1,6 +1,6 @@
+import { v4 as uuidv4 } from 'uuid';
 import { uploadGeneExpressionFile } from '@/services/uploadService';
 import { validateDatasetExistence } from '@/services/uploadService';
-import { generateMockDatasetSummary } from '@/data/mockData';
 import { DatasetUploadQueueItem } from '@/types';
 import type { DatasetStore, DatasetStoreState } from './datasetTypes';
 
@@ -77,7 +77,6 @@ export const processUploadQueue = async (
                 }
               : item
           ),
-          summary: prev.summary || generateMockDatasetSummary(),
           uploadedDatasets: [...prev.uploadedDatasets, savedEntry],
         }));
       } catch (err) {
@@ -160,7 +159,7 @@ export const createDatasetActions = (
     if (!files.length) return;
 
     const queueItems: DatasetUploadQueueItem[] = files.map((file) => ({
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       file,
       fileName: file.name,
       datasetName: getDatasetNameFromFile(file.name),
@@ -228,33 +227,20 @@ export const createDatasetActions = (
   },
 
   removeUploadedDataset: (idOrDatasetId: string) => {
-    const currentQueue = get().uploadQueue;
-    const removedDatasetIds: string[] = [];
-
-    currentQueue.forEach((item) => {
-      if ((item.datasetId === idOrDatasetId || item.id === idOrDatasetId) && item.datasetId) {
-        removedDatasetIds.push(item.datasetId);
-      }
-    });
-
     set((prev) => ({
       uploadQueue: prev.uploadQueue.filter(
         (item) => item.datasetId !== idOrDatasetId && item.id !== idOrDatasetId
       ),
+      uploadedDatasets: prev.uploadedDatasets.filter(
+        (item) => item.datasetId !== idOrDatasetId
+      ),
     }));
-
-    removedDatasetIds.forEach((datasetId) => {
-      set((state) => ({
-        uploadedDatasets: state.uploadedDatasets.filter((item) => item.datasetId !== datasetId),
-      }));
-    });
   },
 
   resetDatasetState: () => {
     set({
       uploadQueue: [],
       isQueueProcessing: false,
-      summary: null,
       uploadId: null,
       uploadedDatasets: [],
     });

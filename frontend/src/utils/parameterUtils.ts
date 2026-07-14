@@ -10,7 +10,9 @@ export const resolveDatasetParameters = (
   overrides: Record<string, Record<string, unknown>> | undefined,
   globalParameters: Record<string, unknown>,
 ): Record<string, unknown> => {
-  return overrides?.[datasetId] ?? globalParameters;
+  const datasetOverrides = overrides?.[datasetId];
+  if (!datasetOverrides) return globalParameters;
+  return { ...globalParameters, ...datasetOverrides };
 };
 
 /**
