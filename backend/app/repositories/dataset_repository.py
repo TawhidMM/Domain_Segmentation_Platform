@@ -29,3 +29,12 @@ def get_valid_dataset_ids(db: Session, dataset_ids: List[str]) -> List[str]:
     valid_datasets = get_datasets_by_ids(db, dataset_ids)
     return [dataset.dataset_id for dataset in valid_datasets]
 
+
+def update_dataset_name(db: Session, dataset_id: str, new_name: str) -> Optional[Dataset]:
+    dataset = db.query(Dataset).filter(Dataset.dataset_id == dataset_id).first()
+    if not dataset:
+        return None
+    dataset.dataset_name = new_name
+    db.commit()
+    db.refresh(dataset)
+    return dataset

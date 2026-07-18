@@ -62,6 +62,27 @@ def delete_dataset(
         )
 
 
+def update_dataset_name(
+    db: Session,
+    dataset_id: str,
+    new_name: str
+) -> Dataset:
+    normalized = new_name.strip()
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Dataset name cannot be empty"
+        )
+
+    dataset = dataset_repository.update_dataset_name(db, dataset_id, normalized)
+    if not dataset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found"
+        )
+    return dataset
+
+
 def require_dataset(
     db: Session,
     dataset_id: str

@@ -30,7 +30,7 @@ export interface DatasetStoreActions {
   saveUploadedDataset: (uploadedDataset: UploadedDataset) => void;
   updateUploadedDatasetName: (datasetId: string, datasetName: string) => void;
   removeDatasetById: (datasetId: string) => void;
-  validateDatasetsWithBackend: (apiClient: AxiosInstance) => Promise<boolean>;
+  validateDatasetsWithBackend: () => Promise<boolean>;
   isDatasetReady: () => boolean;
   uploadSpatialCoordinates: (file: File) => void;
   uploadTissueImage: (file: File) => void;
