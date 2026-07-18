@@ -11,8 +11,9 @@ const validateSpaceRangerZip = (file: File) => {
   }
 };
 
-export async function uploadGeneExpressionFile(
+export async function uploadStDataset(
   file: File,
+  datasetName: string,
   onProgress: (pct: number) => void
 ): Promise<string> {
   // Validate file format
@@ -48,12 +49,18 @@ export async function uploadGeneExpressionFile(
   // 3) finalize upload
   const finalizeFormData = new FormData();
   finalizeFormData.append('upload_id', upload_id);
+  finalizeFormData.append('dataset_name', datasetName);
   
   const finalizeRes = await axios.post('/datasets/finalize-upload', finalizeFormData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
   return finalizeRes.data.dataset_id;
+}
+
+
+export async function updateDatasetName(datasetId: string, datasetName: string): Promise<void> {
+  await axios.patch(`/datasets/${datasetId}/name`, { dataset_name: datasetName });
 }
 
 

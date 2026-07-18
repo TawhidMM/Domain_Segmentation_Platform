@@ -9,7 +9,6 @@ const STORAGE_KEY = 'dataset-store-v1';
 const initialState: DatasetStoreState = {
   uploadQueue: [],
   isQueueProcessing: false,
-  summary: null,
   uploadId: null,
   uploadedDatasets: [],
 };
@@ -58,7 +57,6 @@ export const useDatasetStore = create<DatasetStore>()(
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        summary: state.summary,
         uploadId: state.uploadId,
         uploadedDatasets: state.uploadedDatasets,
       }),

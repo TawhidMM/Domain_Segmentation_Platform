@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
-import { uploadGeneExpressionFile } from '@/services/uploadService';
+import { v4 as uuid4 } from 'uuid';
+import { uploadStDataset, updateDatasetName as updateDatasetNameApi } from '@/services/uploadService';
 import { validateDatasetExistence } from '@/services/uploadService';
 import { DatasetUploadQueueItem } from '@/types';
 import type { DatasetStore, DatasetStoreState } from './datasetTypes';
@@ -42,15 +42,17 @@ export const processUploadQueue = async (
       }));
 
       try {
-        const datasetId = await uploadGeneExpressionFile(nextItem.file, (progress) => {
-          set((prev) => ({
-            uploadQueue: prev.uploadQueue.map((item) =>
-              item.id === nextItem.id ? { ...item, uploadProgress: progress } : item
-            ),
-          }));
-        });
-
         const datasetName = nextItem.datasetName?.trim() || getDatasetNameFromFile(nextItem.fileName);
+        const datasetId = await uploadStDataset(
+          nextItem.file, 
+          datasetName, 
+            (progress) => {
+            set((prev) => ({
+              uploadQueue: prev.uploadQueue.map((item) =>
+                item.id === nextItem.id ? { ...item, uploadProgress: progress } : item
+              ),
+            }));
+        });
 
         // Build the persisted entry
         const savedEntry = {
@@ -106,7 +108,6 @@ export const processUploadQueue = async (
  * Validate persisted datasets against the backend.
  */
 export const validateDatasetsWithBackend = async (
-  apiClient: { post: (url: string, data?: unknown) => Promise<{ data: { valid_ids: string[] } }> },
   get: () => DatasetStore,
   set: (partial: Partial<DatasetStoreState> | ((prev: DatasetStoreState) => Partial<DatasetStoreState>)) => void,
 ): Promise<boolean> => {
@@ -159,7 +160,7 @@ export const createDatasetActions = (
     if (!files.length) return;
 
     const queueItems: DatasetUploadQueueItem[] = files.map((file) => ({
-      id: uuidv4(),
+      id: uuid4(),
       file,
       fileName: file.name,
       datasetName: getDatasetNameFromFile(file.name),
@@ -184,19 +185,24 @@ export const createDatasetActions = (
     }));
   },
 
-  updateDatasetName: (datasetId: string, datasetName: string) => {
+  updateDatasetName: async (datasetId: string, datasetName: string) => {
     if (!datasetId) return;
     const normalizedName = datasetName.trim();
     if (!normalizedName) return;
 
-    set((prev) => ({
-      uploadQueue: prev.uploadQueue.map((item) =>
-        item.datasetId === datasetId ? { ...item, datasetName: normalizedName } : item
-      ),
-      uploadedDatasets: prev.uploadedDatasets.map((item) =>
-        item.datasetId === datasetId ? { ...item, datasetName: normalizedName } : item
-      ),
-    }));
+    try {
+      await updateDatasetNameApi(datasetId, normalizedName);
+      set((prev) => ({
+        uploadQueue: prev.uploadQueue.map((item) =>
+          item.datasetId === datasetId ? { ...item, datasetName: normalizedName } : item
+        ),
+        uploadedDatasets: prev.uploadedDatasets.map((item) =>
+          item.datasetId === datasetId ? { ...item, datasetName: normalizedName } : item
+        ),
+      }));
+    } catch (err) {
+      console.error(`Failed to update dataset name for ${datasetId}:`, err);
+    }
   },
 
   saveUploadedDataset: (uploadedDataset) => {
@@ -220,19 +226,19 @@ export const createDatasetActions = (
     }));
   },
 
-  validateDatasetsWithBackend: (apiClient) => validateDatasetsWithBackend(apiClient, get, set),
+  validateDatasets: () => validateDatasetsWithBackend(get, set),
 
   isDatasetReady: () => {
     return get().uploadedDatasets.length > 0;
   },
 
-  removeUploadedDataset: (idOrDatasetId: string) => {
+  removeUploadedDataset: (datasetId: string) => {
     set((prev) => ({
       uploadQueue: prev.uploadQueue.filter(
-        (item) => item.datasetId !== idOrDatasetId && item.id !== idOrDatasetId
+        (item) => item.datasetId !== datasetId && item.id !== datasetId
       ),
       uploadedDatasets: prev.uploadedDatasets.filter(
-        (item) => item.datasetId !== idOrDatasetId
+        (item) => item.datasetId !== datasetId
       ),
     }));
   },

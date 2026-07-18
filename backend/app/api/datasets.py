@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -11,7 +12,7 @@ from app.core.storage_space import DatasetSpace
 from app.repositories.dataset_repository import get_valid_dataset_ids
 from app.schemas.experiment import DataSetRequest, DataSetRequests
 from app.services import spatial_data_service
-from app.services.dataset_service import create_dataset, delete_dataset
+from app.services.dataset_service import create_dataset, delete_dataset, update_dataset_name
 from app.services.run_service import require_run_with_access, build_run_context
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
@@ -20,6 +21,11 @@ from app.utils.visium import get_histology_image_path
 from app.utils.zip_utils import extract_zip
 
 router = APIRouter()
+
+
+class UpdateDatasetNameRequest(BaseModel):
+    dataset_name: str
+
 
 @router.post("/init-upload")
 def init(
@@ -68,6 +74,17 @@ def finalize(
 
     return {"dataset_id": dataset_id}
 
+
+@router.patch("/{dataset_id}/name")
+def update_name(
+    dataset_id: str,
+    request: UpdateDatasetNameRequest,
+    db: Session = Depends(get_db)
+):
+    dataset = update_dataset_name(db, dataset_id, request.dataset_name)
+    return {"dataset_id": dataset.dataset_id, "dataset_name": dataset.dataset_name}
+
+
 @router.get("/{run_id}/histology", responses={200: {"content": {"image/png": {}}}})
 def get_histology(
     run_id: str,
@@ -109,6 +126,7 @@ def get_histology(
         }
     )
 
+
 @router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
 def delete(
     request: DataSetRequest,
@@ -116,6 +134,7 @@ def delete(
 ):
 
     delete_dataset(db, request.dataset_id)
+
 
 @router.post("/spatial-data")
 def get_spatial_data(
@@ -126,6 +145,7 @@ def get_spatial_data(
         dataset_id=dataset_request.dataset_id,
         http_request=http_request,
     )
+
 
 @router.post("/check-existence")
 async def get_valid_datasets(
