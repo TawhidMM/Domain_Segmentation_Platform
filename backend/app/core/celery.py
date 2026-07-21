@@ -9,7 +9,8 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.tasks.experiment_tasks",
-        "app.tasks.cleanup_tasks"
+        "app.tasks.cleanup_tasks",
+        "app.tasks.dataset_tasks"
     ]
 )
 
