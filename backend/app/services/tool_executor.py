@@ -9,8 +9,7 @@ from app.core.workspace import RunContext
 from app.services.tools_service import resolve_config
 from app.tools.registry import TOOLS
 from app.utils.metrics import get_segmentation_metrics
-from app.utils.visium import merge_predictions_and_coords, get_color_mapped_domain, read_scale_factors, \
-    get_histology_image_path
+from app.dataset.visium import VisiumDataset
 
 
 
@@ -53,14 +52,6 @@ class ToolExecutor:
         if self.run_context.absolute_annotation_file_path is not None:
             volumes.append(f"{self.run_context.absolute_annotation_file_path}:{settings.CONTAINER_ANNOTATION_PATH}:ro")
 
-        # cmd = [
-        #     "docker", "run", "--rm", "--gpus", "all",
-        #     *[flag for v in volumes for flag in ("-v", v)],
-        #     "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/run_pipeline.py:/runner/run_pipeline.py",
-        #     "-v", f"/mnt/Drive E/Class Notes/L-4 T-2/Project/docker/scribbledom/scribbledom_adapter.py:/runner/scribbledom_adapter.py",
-        #     self.tool["image"],
-        #     "python3", "/runner/run_pipeline.py",
-        # ]
 
         cmd = [
             "docker", "run", "--rm", "--gpus", "all",
@@ -77,12 +68,13 @@ class ToolExecutor:
         spatial_dir = self.run_context.dataset_path / "spatial"
         coords_file = spatial_dir / "tissue_positions_list.csv"
 
-        scale_factors = read_scale_factors(spatial_dir)
+        visium = VisiumDataset()
+        scale_factors = visium.read_scale_factors(spatial_dir)
 
-        spots = merge_predictions_and_coords(prediction_file, coords_file, scale_factors)
-        domains = get_color_mapped_domain(spots)
+        spots = visium.merge_predictions_and_coords(prediction_file, coords_file, scale_factors)
+        domains = visium.get_color_mapped_domain(spots)
 
-        histology_path, histology_type = get_histology_image_path(spatial_dir)
+        histology_path, histology_type = visium.get_histology_image_path(spatial_dir)
         has_histology = histology_path is not None
 
         result = {

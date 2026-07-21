@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.core.storage_space import DatasetSpace
 from app.core.workspace import ExperimentWorkspace
 from app.schemas.experiment import DomainComparisonItem
-from app.utils.visium import (
+from app.dataset.visium import (
     VisiumDataset,
 )
 

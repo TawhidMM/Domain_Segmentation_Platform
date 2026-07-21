@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
 import colorsys
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 from PIL import Image
@@ -7,7 +7,7 @@ from PIL import Image
 
 class SpatialDataset(ABC):
     @abstractmethod
-    def validate_visium_input(self, input_dir: Path) -> None:
+    def validate_dataset(self, extracted_dir: Path) -> None:
         pass
 
     @abstractmethod

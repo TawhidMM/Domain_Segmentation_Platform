@@ -18,7 +18,7 @@ from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
 )
 from app.tasks.dataset_tasks import extract_dataset_task
-from app.utils.visium import get_histology_image_path
+from app.dataset.visium import VisiumDataset
 
 router = APIRouter()
 
@@ -83,7 +83,11 @@ async def get_dataset_status(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found.")
 
-    return {"dataset_id": dataset.dataset_id, "status": dataset.status}
+    return {
+        "dataset_id": dataset.dataset_id,
+        "status": dataset.status.value,
+        "error": dataset.error_message,
+    }
 
 
 @router.patch("/{dataset_id}/name")
@@ -119,7 +123,7 @@ def get_histology(
                 detail="No spatial result_directory found")
     
     # Get histology image path
-    image_path, image_type = get_histology_image_path(spatial_dir)
+    image_path, image_type = VisiumDataset().get_histology_image_path(spatial_dir)
     
     if image_path is None:
         raise HTTPException(
