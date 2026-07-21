@@ -1,8 +1,8 @@
 """experiment status trigger
 
-Revision ID: 8419c786eef3
-Revises: e71c8e6cec11
-Create Date: 2026-07-14 02:57:08.632426
+Revision ID: f2026449df1d
+Revises: b2b7eba7d204
+Create Date: 2026-07-20 18:07:34.536205
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8419c786eef3'
-down_revision: Union[str, Sequence[str], None] = 'e71c8e6cec11'
+revision: str = 'f2026449df1d'
+down_revision: Union[str, Sequence[str], None] = 'b2b7eba7d204'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -33,11 +33,11 @@ def upgrade() -> None:
                 SELECT rc.experiment_id INTO v_experiment_id
                 FROM run_configs rc
                 WHERE rc.id = COALESCE(NEW.run_config_id, OLD.run_config_id);
-            
+
                 IF v_experiment_id IS NULL THEN
                     RETURN NEW;
                 END IF;
-            
+
                 SELECT
                     COUNT(*) FILTER (WHERE r.status = 'FINISHED'),
                     COUNT(*) FILTER (WHERE r.status = 'RUNNING'),
@@ -47,7 +47,7 @@ def upgrade() -> None:
                 FROM runs r
                 JOIN run_configs rc ON rc.id = r.run_config_id
                 WHERE rc.experiment_id = v_experiment_id;
-            
+
                 IF v_running > 0 THEN
                     v_new_status := 'RUNNING';
                 ELSIF v_queued > 0 THEN
@@ -55,7 +55,7 @@ def upgrade() -> None:
                 ELSE
                     v_new_status := 'FINISHED';
                 END IF;
-            
+
                 UPDATE experiments
                 SET completed_runs = v_completed,
                     status = v_new_status::experimentstatus,
@@ -65,7 +65,7 @@ def upgrade() -> None:
                         ELSE finished_at
                     END
                 WHERE id = v_experiment_id;
-            
+
                 RETURN NEW;
             END;
             $$ LANGUAGE plpgsql;
@@ -85,3 +85,4 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.execute("DROP TRIGGER IF EXISTS trg_recompute_experiment_status ON runs;")
     op.execute("DROP FUNCTION IF EXISTS recompute_experiment_status();")
+

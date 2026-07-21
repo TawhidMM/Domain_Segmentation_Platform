@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.storage_space import DatasetSpace
-from app.repositories.dataset_repository import get_valid_dataset_ids
+from app.repositories.dataset_repository import get_valid_dataset_ids, get_dataset_by_id
 from app.schemas.experiment import DataSetRequest, DataSetRequests
 from app.services import spatial_data_service
 from app.services.dataset_service import create_dataset, delete_dataset, update_dataset_name
@@ -17,8 +17,8 @@ from app.services.run_service import require_run_with_access, build_run_context
 from app.services.upload_service import (
     init_upload, upload_chunk, finalize_upload
 )
+from app.tasks.dataset_tasks import extract_dataset_task
 from app.utils.visium import get_histology_image_path
-from app.utils.zip_utils import extract_zip
 
 router = APIRouter()
 
@@ -53,7 +53,7 @@ async def upload(
 
 
 @router.post("/finalize-upload")
-def finalize(
+async def finalize(
     upload_id: str = Form(...),
     dataset_name: Optional[str] = Form(default=None),
     db: Session = Depends(get_db)
@@ -68,11 +68,22 @@ def finalize(
         dataset_name=dataset_name,
     )
 
-    dataset_space = DatasetSpace(upload_id)
-    extraction_path = dataset_space.dataset_path
-    extract_zip(zip_path=zip_path, target_dir=extraction_path)
+    extract_dataset_task.delay(dataset_id, str(zip_path))
 
-    return {"dataset_id": dataset_id}
+    return {"dataset_id": dataset_id, "status": "processing"}
+
+
+@router.get("/{dataset_id}/status")
+async def get_dataset_status(
+    dataset_id: str,
+    db: Session = Depends(get_db)
+):
+    dataset = get_dataset_by_id(db, dataset_id)
+
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found.")
+
+    return {"dataset_id": dataset.dataset_id, "status": dataset.status}
 
 
 @router.patch("/{dataset_id}/name")

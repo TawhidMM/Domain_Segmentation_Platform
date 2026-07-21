@@ -3,7 +3,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.dataset import Dataset
+from app.models.dataset import Dataset, DatasetExtractionStatus
 
 
 def get_dataset_by_id(db: Session, dataset_id: str) -> Optional[Dataset]:
@@ -35,6 +35,16 @@ def update_dataset_name(db: Session, dataset_id: str, new_name: str) -> Optional
     if not dataset:
         return None
     dataset.dataset_name = new_name
+    db.commit()
+    db.refresh(dataset)
+    return dataset
+
+
+def update_dataset_status(db: Session, dataset_id: str, status: str) -> Optional[Dataset]:
+    dataset = db.query(Dataset).filter(Dataset.dataset_id == dataset_id).first()
+    if not dataset:
+        return None
+    dataset.status = DatasetExtractionStatus(status)
     db.commit()
     db.refresh(dataset)
     return dataset

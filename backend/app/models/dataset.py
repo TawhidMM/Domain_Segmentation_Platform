@@ -1,6 +1,14 @@
-from sqlalchemy import Column, String, DateTime
+from enum import Enum
+from sqlalchemy import Column, String, DateTime, Enum as SAEnum
 from datetime import datetime, timezone
 from app.core.database import Base
+
+
+class DatasetExtractionStatus(str, Enum):
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
+
 
 class Dataset(Base):
     __tablename__ = "datasets"
@@ -8,4 +16,5 @@ class Dataset(Base):
     dataset_id = Column(String, primary_key=True)
     dataset_name = Column(String, nullable=True)
     zip_path = Column(String, nullable=False)
+    status = Column(SAEnum(DatasetExtractionStatus), nullable=False, default=DatasetExtractionStatus.PROCESSING)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
