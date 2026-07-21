@@ -1,8 +1,8 @@
 """experiment status trigger
 
-Revision ID: f2026449df1d
-Revises: b2b7eba7d204
-Create Date: 2026-07-20 18:07:34.536205
+Revision ID: 514ab6c745c5
+Revises: 5583527f1a64
+Create Date: 2026-07-21 18:34:34.696512
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'f2026449df1d'
-down_revision: Union[str, Sequence[str], None] = 'b2b7eba7d204'
+revision: str = '514ab6c745c5'
+down_revision: Union[str, Sequence[str], None] = '5583527f1a64'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

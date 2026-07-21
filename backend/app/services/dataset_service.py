@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.storage_space import DatasetSpace
-from app.models.dataset import Dataset
+from app.models.dataset import Dataset, DatasetTechnology
 from app.repositories import dataset_repository
 
 
@@ -25,6 +25,7 @@ def create_dataset(
         dataset_id=upload_id,
         dataset_name=normalized_name,
         zip_path=str(zip_path),
+        technology=DatasetTechnology.VISIUM,
         created_at=datetime.now(timezone.utc)
     )
 

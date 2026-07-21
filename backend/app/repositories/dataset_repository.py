@@ -40,11 +40,21 @@ def update_dataset_name(db: Session, dataset_id: str, new_name: str) -> Optional
     return dataset
 
 
-def update_dataset_status(db: Session, dataset_id: str, status: str) -> Optional[Dataset]:
+def update_dataset_status(
+    db: Session,
+    dataset_id: str,
+    status: str,
+    error_message: Optional[str] = None,
+) -> Optional[Dataset]:
+
     dataset = db.query(Dataset).filter(Dataset.dataset_id == dataset_id).first()
     if not dataset:
         return None
+
     dataset.status = DatasetExtractionStatus(status)
+    dataset.error_message = error_message
+
     db.commit()
     db.refresh(dataset)
+
     return dataset
