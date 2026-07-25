@@ -70,7 +70,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
     try {
       setPhase('validating');
 
-      const datasetsAfterHydration = useDatasetStore.getState().uploadedDatasets;
+      const datasetsAfterHydration = useDatasetStore.getState().datasets.filter((d) => d.status === 'SUCCESS');
 
       if (!datasetsAfterHydration || datasetsAfterHydration.length === 0) {
         resetPipeline();
@@ -79,7 +79,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
         return;
       }
 
-      const valid = await validateDatasetsWithBackend(axios);
+      const valid = await validateDatasetsWithBackend();
 
       if (!valid) {
         resetDatasetState();
@@ -91,7 +91,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
         return;
       }
 
-      const remaining = useDatasetStore.getState().uploadedDatasets;
+      const remaining = useDatasetStore.getState().datasets.filter((d) => d.status === 'SUCCESS');
 
       if (!remaining || remaining.length === 0) {
         resetPipeline();

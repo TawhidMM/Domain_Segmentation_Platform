@@ -1,13 +1,13 @@
 import React from 'react';
 import EntityList from '@/components/shared/EntityList';
 import DatasetUploadRow from './DatasetUploadRow';
-import type { UploadedDataset } from '@/stores/dataset';
+import type { DatasetItem } from '@/types';
 
 interface DatasetUploadTableProps {
-  items: UploadedDataset[];
+  items: DatasetItem[];
   onUpdateName: (datasetId: string, name: string) => void;
   onRetry: (queueItemId: string) => void;
-  onDelete: (datasetId: string) => void;
+  onDelete: (idOrDatasetId: string) => void;
 }
 
 const DatasetUploadTable: React.FC<DatasetUploadTableProps> = ({
@@ -21,7 +21,7 @@ const DatasetUploadTable: React.FC<DatasetUploadTableProps> = ({
   }
 
   return (
-    <EntityList title="Uploaded Dataset" maxHeight={400}>
+    <EntityList title="Uploaded Datasets" maxHeight={400}>
       {items.map((item) => (
         <DatasetUploadRow
           key={item.id}

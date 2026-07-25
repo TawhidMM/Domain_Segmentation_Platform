@@ -19,6 +19,21 @@ services:
     networks:
       - backend
 
+  tusd:
+    image: tusproject/tusd:v2.5.0
+    container_name: st_project_tusd
+    restart: unless-stopped
+    command: >
+      -upload-dir /srv/tusd-data
+      -base-path /uploads/
+      -hooks-http http://api:8000/webhooks/tus
+      -hooks-enabled-events pre-create,post-finish
+    volumes:
+      - ${HOST_UPLOADS_ROOT}:/srv/tusd-data
+    networks:
+      - backend
+      - frontend
+
   chown-fix:
     image: alpine:latest
     user: "0:0"
@@ -33,10 +48,12 @@ services:
   api:
     build: ./backend
     container_name: st_project_api
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     restart: unless-stopped
     depends_on:
       - db
       - redis
+      - tusd
     env_file:
       - .env
     volumes:
@@ -65,6 +82,22 @@ services:
     networks:
       - backend
 
+  worker-io:
+    build: ./backend
+    container_name: st_project_worker_io
+    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=4 -Q io
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - ${HOST_EXPERIMENTS_ROOT}:/app/experiments
+      - ${HOST_UPLOADS_ROOT}:/app/uploads
+    networks:
+      - backend      
+
   frontend:
     build: ./frontend
     container_name: st_project_frontend
@@ -85,13 +118,21 @@ services:
     depends_on:
       - frontend
       - api
+      - tusd
     networks:
       - frontend
 
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: st_project_dozzle
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock    
+
 volumes:
   postgres_data:
-    external: true
-    name: db_postgres_data
 
 networks:
   backend:

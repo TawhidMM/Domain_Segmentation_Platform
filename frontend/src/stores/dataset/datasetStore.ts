@@ -1,16 +1,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { DatasetUploadQueueItem } from '@/types';
+import { DatasetItem } from '@/types';
 import { createDatasetActions, processUploadQueue } from './datasetActions';
 import type { DatasetStore, DatasetStoreState } from './datasetTypes';
 
 const STORAGE_KEY = 'dataset-store-v1';
 
 const initialState: DatasetStoreState = {
-  uploadQueue: [],
+  datasets: [],
   isQueueProcessing: false,
   uploadId: null,
-  uploadedDatasets: [],
 };
 
 export const useDatasetStore = create<DatasetStore>()(
@@ -22,7 +21,6 @@ export const useDatasetStore = create<DatasetStore>()(
       const originalUploadDataset = actions.uploadDataset;
       const wrappedUploadDataset = (files: File[]) => {
         originalUploadDataset(files);
-        // Queue processing will be triggered by the effect below
         setTimeout(() => {
           void processUploadQueue(get, set);
         }, 0);
@@ -38,7 +36,6 @@ export const useDatasetStore = create<DatasetStore>()(
 
       return {
         ...initialState,
-        // Override actions with wrapped versions
         uploadDataset: wrappedUploadDataset,
         retryUpload: wrappedRetryUpload,
         updateDatasetName: actions.updateDatasetName as DatasetStore['updateDatasetName'],
@@ -48,8 +45,6 @@ export const useDatasetStore = create<DatasetStore>()(
         removeDatasetById: actions.removeDatasetById as DatasetStore['removeDatasetById'],
         validateDatasetsWithBackend: actions.validateDatasetsWithBackend as DatasetStore['validateDatasetsWithBackend'],
         isDatasetReady: actions.isDatasetReady as DatasetStore['isDatasetReady'],
-        uploadSpatialCoordinates: actions.uploadSpatialCoordinates as DatasetStore['uploadSpatialCoordinates'],
-        uploadTissueImage: actions.uploadTissueImage as DatasetStore['uploadTissueImage'],
         resetDatasetState: actions.resetDatasetState as DatasetStore['resetDatasetState'],
       };
     },
@@ -58,7 +53,7 @@ export const useDatasetStore = create<DatasetStore>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         uploadId: state.uploadId,
-        uploadedDatasets: state.uploadedDatasets,
+        datasets: state.datasets.filter((d) => d.status === 'SUCCESS'),
       }),
     }
   )

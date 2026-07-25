@@ -30,6 +30,20 @@ services:
       - ${HOST_UPLOADS_ROOT}:/app/uploads
     restart: "no"    
 
+  tusd:
+    image: tusproject/tusd:v2.5.0
+    container_name: st_project_tusd
+    restart: unless-stopped
+    command: >
+      -upload-dir /srv/tusd-data
+      -base-path /uploads/
+      -hooks-http http://api:8000/webhooks/tus
+      -hooks-enabled-events pre-create,post-finish
+    volumes:
+      - ${HOST_UPLOADS_ROOT}:/srv/tusd-data
+    networks:
+      - backend
+
   api:
     container_name: st_project_api
     image: tawhidmm/st_project:api-latest
@@ -37,6 +51,7 @@ services:
     depends_on:
       - db
       - redis
+      - tusd
     env_file:
       - .env
     volumes:
@@ -64,6 +79,22 @@ services:
       - ${HOST_UPLOADS_ROOT}:/app/uploads
     networks:
       - backend
+
+  worker-io:
+      container_name: st_project_worker_io
+      image: tawhidmm/st_project:worker-latest
+      command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=4 -Q io
+      restart: unless-stopped
+      depends_on:
+        - db
+        - redis
+      env_file:
+        - .env
+      volumes:
+        - ${HOST_EXPERIMENTS_ROOT}:/app/experiments
+        - ${HOST_UPLOADS_ROOT}:/app/uploads
+      networks:
+        - backend      
 
   frontend:
     image: tawhidmm/st_project:frontend-latest

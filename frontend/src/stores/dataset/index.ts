@@ -3,5 +3,4 @@ export type {
   DatasetStore,
   DatasetStoreState,
   DatasetStoreActions,
-  UploadedDataset,
 } from './datasetTypes';

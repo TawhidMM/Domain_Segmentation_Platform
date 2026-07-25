@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { Box, Typography, Paper, Chip, LinearProgress } from '@mui/material';
-import { CloudUpload, Check, Lock, Error as ErrorIcon } from '@mui/icons-material';
+import { Box, Typography, Paper, Chip } from '@mui/material';
+import { CloudUpload, Lock } from '@mui/icons-material';
 
 interface FileUploadCardProps {
   title: string;
@@ -10,7 +10,7 @@ interface FileUploadCardProps {
   disabled?: boolean;
   readOnly?: boolean;
   multiple?: boolean;
-  uploadedFiles: {
+  uploadedFiles?: {
     id: string;
     name: string;
     uploadProgress: number;
@@ -28,30 +28,9 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
   disabled = false,
   readOnly = false,
   multiple = false,
-  uploadedFiles,
   onFileSelect,
 }) => {
   const interactive = !disabled && !readOnly;
-  const hasUploads = uploadedFiles.length > 0;
-  const hasError = uploadedFiles.some((file) => file.status === 'ERROR');
-  const totalFiles = uploadedFiles.length;
-  const successfulFiles = uploadedFiles.filter((file) => file.status === 'SUCCESS').length;
-  const failedFiles = uploadedFiles.filter((file) => file.status === 'ERROR').length;
-  const activeUpload = uploadedFiles.find((file) => file.status === 'UPLOADING');
-  const hasActiveUpload = uploadedFiles.some((file) => file.status === 'UPLOADING');
-  const isAllComplete = uploadedFiles.every(
-    (file) => file.status === 'SUCCESS' || file.status === 'ERROR'
-  );
-  const aggregateProgress =
-    totalFiles > 0
-      ? Math.round(
-          uploadedFiles.reduce((sum, file) => {
-            if (file.status === 'SUCCESS') return sum + 100;
-            if (file.status === 'UPLOADING') return sum + file.uploadProgress;
-            return sum;
-          }, 0) / totalFiles
-        )
-      : 0;
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -88,8 +67,8 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         alignSelf: 'stretch',
         p: 3,
         border: '2px dashed',
-        borderColor: disabled ? 'divider' : hasUploads ? 'primary.main' : 'divider',
-        backgroundColor: disabled ? 'action.disabledBackground' : hasUploads ? 'rgba(13, 148, 136, 0.05)' : 'white',
+        borderColor: disabled ? 'divider' : 'divider',
+        backgroundColor: disabled ? 'action.disabledBackground' : 'white',
         cursor: interactive ? 'pointer' : 'default',
         transition: 'all 0.2s',
         '&:hover': interactive
@@ -97,10 +76,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
               borderColor: 'primary.main',
               backgroundColor: 'rgba(13, 148, 136, 0.05)',
             }
-          : {
-              borderColor: disabled ? 'divider' : hasUploads ? 'primary.main' : 'divider',
-              backgroundColor: disabled ? 'action.disabledBackground' : hasUploads ? 'rgba(13, 148, 136, 0.05)' : 'white',
-            },
+          : {},
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -124,10 +100,6 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
             borderRadius: 2,
             backgroundColor: disabled
               ? 'action.disabledBackground'
-              : hasError && !hasActiveUpload
-              ? 'error.main'
-              : hasUploads
-              ? 'primary.main'
               : 'rgba(13, 148, 136, 0.1)',
             display: 'flex',
             alignItems: 'center',
@@ -137,10 +109,6 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         >
           {disabled ? (
             <Lock sx={{ fontSize: 24, color: 'text.disabled' }} />
-          ) : hasError && !hasActiveUpload ? (
-            <ErrorIcon sx={{ fontSize: 24, color: 'white' }} />
-          ) : hasUploads ? (
-            <Check sx={{ fontSize: 24, color: 'white' }} />
           ) : (
             <CloudUpload sx={{ fontSize: 24, color: 'primary.main' }} />
           )}
@@ -168,32 +136,10 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
             {description}
           </Typography>
-
-          {hasUploads ? (
-            <Box>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.75 }}>
-                {successfulFiles}/{totalFiles} uploaded
-                {failedFiles > 0 ? ` • ${failedFiles} failed` : ''}
-              </Typography>
-              {!isAllComplete && (
-                <LinearProgress
-                  variant="determinate"
-                  value={aggregateProgress}
-                  sx={{ height: 6, borderRadius: 999, mb: 0.75 }}
-                />
-              )}
-              {activeUpload && (
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                  Uploading {activeUpload.name} ({activeUpload.uploadProgress}%)
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-              {acceptedFormats.join(', ')}
-              {multiple ? ' — upload multiple datasets, one file at a time' : ''}
-            </Typography>
-          )}
+          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+            {acceptedFormats.join(', ')}
+            {multiple ? ' — you can select multiple files' : ''}
+          </Typography>
         </Box>
       </Box>
     </Paper>

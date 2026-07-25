@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Box, Typography, TextField, Button, IconButton } from '@mui/material';
-import { DeleteOutline, ErrorOutline } from '@mui/icons-material';
-import type { UploadedDataset } from '@/stores/dataset';
+import { Box, Typography, TextField, Button, IconButton, LinearProgress, Chip } from '@mui/material';
+import { DeleteOutline, ErrorOutline, HourglassEmpty } from '@mui/icons-material';
+import type { DatasetItem } from '@/types';
 
 interface DatasetUploadRowProps {
-  item: UploadedDataset;
+  item: DatasetItem;
   onUpdateName: (datasetId: string, name: string) => void;
   onRetry: (queueItemId: string) => void;
-  onDelete: (datasetId: string) => void;
+  onDelete: (idOrDatasetId: string) => void;
 }
 
 const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
@@ -29,7 +29,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
     savedTimerRef.current = setTimeout(() => setIsSaved(false), 1500);
   }, []);
 
-  const handleBlur = useCallback(() => {
+  const handleRename = useCallback(() => {
     if (isEscaping.current) {
       isEscaping.current = false;
       return;
@@ -80,7 +80,8 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
       }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minWidth: 0 }}>
-        {item.datasetId && item.status === 'SUCCESS' ? (
+        {/* Name field or display */}
+        {item.status === 'SUCCESS' && item.datasetId ? (
           <TextField
             inputRef={inputRef}
             size="small"
@@ -88,7 +89,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
             value={localName}
             onChange={(e) => setLocalName(e.target.value)}
             onFocus={() => setIsEditing(true)}
-            onBlur={handleBlur}
+            onBlur={handleRename}
             onKeyDown={handleKeyDown}
             helperText={helperText}
             sx={{
@@ -97,16 +98,47 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
                 color: isSaved ? 'success.main' : undefined,
               },
             }}
-            disabled={item.status !== 'SUCCESS'}
           />
         ) : (
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {localName}
+            {item.fileName}
           </Typography>
         )}
-        <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-          {item.datasetId ?? 'Pending dataset id'}
-        </Typography>
+
+        {/* Progress bar for uploading */}
+        {item.status === 'UPLOADING' && (
+          <Box sx={{ maxWidth: 360 }}>
+            <LinearProgress
+              variant="determinate"
+              value={item.uploadProgress}
+              sx={{ height: 6, borderRadius: 999, mb: 0.5 }}
+            />
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Uploading {item.uploadProgress}%
+            </Typography>
+          </Box>
+        )}
+
+        {/* Processing spinner */}
+        {item.status === 'PROCESSING' && (
+          <Box sx={{ maxWidth: 360, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ width: '100%' }}>
+              <LinearProgress sx={{ height: 6, borderRadius: 999 }} />
+              <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                Processing dataset...
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
+        {/* Dataset ID */}
+        {item.datasetId && (
+          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+            {item.datasetId}
+          </Typography>
+        )}
+
+        {/* Error message */}
         {item.error && (
           <Typography variant="caption" sx={{ color: 'error.main' }}>
             {item.error}
@@ -115,11 +147,29 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-        {item.status === 'UPLOADING' && (
-          <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 100 }}>
-            Uploading {item.uploadProgress}%
-          </Typography>
+        {/* PENDING badge */}
+        {item.status === 'PENDING' && (
+          <Chip
+            icon={<HourglassEmpty sx={{ fontSize: 14 }} />}
+            label="Queued"
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.75rem' }}
+          />
         )}
+
+        {/* UPLOADING badge */}
+        {item.status === 'UPLOADING' && (
+          <Chip
+            label={`${item.uploadProgress}%`}
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ fontSize: '0.75rem' }}
+          />
+        )}
+
+        {/* ERROR actions */}
         {item.status === 'ERROR' && (
           <>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'error.main' }}>
@@ -136,20 +186,13 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
             </Button>
           </>
         )}
-        {item.status === 'SUCCESS' && item.datasetId && (
+
+        {/* Delete button for SUCCESS and ERROR */}
+        {(item.status === 'SUCCESS' || item.status === 'ERROR') && (
           <IconButton
             size="small"
-            aria-label={`Remove ${item.datasetId}`}
-            onClick={() => onDelete(item.datasetId!)}
-          >
-            <DeleteOutline fontSize="small" />
-          </IconButton>
-        )}
-        {item.status === 'ERROR' && (
-          <IconButton
-            size="small"
-            aria-label="Remove failed item"
-            onClick={() => onDelete(item.id)}
+            aria-label={`Remove ${item.fileName}`}
+            onClick={() => onDelete(item.datasetId || item.id)}
           >
             <DeleteOutline fontSize="small" />
           </IconButton>

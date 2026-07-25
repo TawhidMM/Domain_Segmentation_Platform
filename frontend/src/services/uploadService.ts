@@ -1,61 +1,23 @@
-// frontend/src/services/uploadService.ts
 import axios from '@/lib/axios';
+import { UploadType, DatasetTechnology } from '@/types/upload';
+import { tusUpload } from '@/services/tusUpload';
 
-const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB
-
-// Validate that the file is a Space Ranger output zip
-const validateSpaceRangerZip = (file: File) => {
-  const isZip = file.name.toLowerCase().endsWith('.zip');
-  if (!isZip) {
-    throw new Error('Gene expression upload must be a .zip (Space Ranger output).');
-  }
-};
-
-export async function uploadStDataset(
+export async function uploadViaTus(
   file: File,
   datasetName: string,
   onProgress: (pct: number) => void
 ): Promise<string> {
-  // Validate file format
-  validateSpaceRangerZip(file);
-
-  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-  // 1) create upload session
-  const formData = new FormData();
-  formData.append('filename', file.name);
-  formData.append('total_chunks', totalChunks.toString());
-  
-  const initRes = await axios.post('/datasets/init-upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  const { promise } = tusUpload({
+    file,
+    metadata: {
+      upload_type: UploadType.DATASET,
+      dataset_name: datasetName,
+      technology: DatasetTechnology.VISIUM,
+      filename: file.name,
+    },
+    onProgress,
   });
-  const upload_id = initRes.data.upload_id;
-
-  // 2) upload chunks
-  for (let i = 0; i < totalChunks; i++) {
-    const chunk = file.slice(i * CHUNK_SIZE, Math.min((i + 1) * CHUNK_SIZE, file.size));
-    const formData = new FormData();
-    formData.append('chunk', chunk);
-    formData.append('upload_id', upload_id);
-    formData.append('chunk_index', i.toString());
-
-    await axios.post('/datasets/upload-chunk', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    onProgress(Math.round(((i + 1) / totalChunks) * 100));
-  }
-
-  // 3) finalize upload
-  const finalizeFormData = new FormData();
-  finalizeFormData.append('upload_id', upload_id);
-  finalizeFormData.append('dataset_name', datasetName);
-  
-  const finalizeRes = await axios.post('/datasets/finalize-upload', finalizeFormData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-
-  return finalizeRes.data.dataset_id;
+  return promise;
 }
 
 
@@ -69,6 +31,27 @@ export async function validateDatasetExistence(datasetIds: string[]): Promise<st
             '/datasets/check-existence', 
             { dataset_ids: datasetIds }
           );
-          
+           
   return response.data.validIds;
+}
+
+
+export interface DatasetExtractionStatusResponse {
+  dataset_id: string;
+  status: 'processing' | 'ready' | 'failed';
+  error?: string;
+}
+
+export async function getDatasetStatus(datasetId: string): Promise<DatasetExtractionStatusResponse> {
+  const response = await axios.get<DatasetExtractionStatusResponse>(
+    `/datasets/${datasetId}/status`
+  );
+  return response.data;
+}
+
+
+export async function deleteDataset(datasetId: string): Promise<void> {
+  await axios.delete('/datasets/delete', {
+    data: { dataset_id: datasetId }
+  });
 }

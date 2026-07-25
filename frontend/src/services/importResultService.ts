@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios';
-
-const CHUNK_SIZE = 50 * 1024 * 1024;
+import { UploadType } from '@/types/upload';
+import { tusUpload } from '@/services/tusUpload';
 
 export type ImportValidationStatus = 'processing' | 'success' | 'failed';
 
@@ -16,15 +16,6 @@ export interface ImportValidationPayload {
   status: ImportValidationStatus;
   message: string;
   error_type?: ImportValidationErrorType;
-}
-
-interface InitImportResponse {
-  stage_id: string;
-}
-
-interface FinalizeImportResponse {
-  stage_id: string;
-  status: ImportValidationStatus;
 }
 
 interface UploadProgressHandler {
@@ -54,39 +45,6 @@ function ensureZipFile(file: File): void {
   }
 }
 
-export async function initializeResultUpload(totalChunks: number): Promise<string> {
-  const formData = new FormData();
-  formData.append('total_chunks', String(totalChunks));
-
-  const response = await axiosInstance.post<InitImportResponse>('/import/result/init', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-
-  return response.data.stage_id;
-}
-
-export async function uploadResultChunk(stageId: string, chunk: Blob): Promise<void> {
-  const formData = new FormData();
-  formData.append('stage_id', stageId);
-  formData.append('chunk', chunk, 'import-results.zip');
-
-  await axiosInstance.post('/import/result/chunk', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-}
-
-export async function finalizeResultUpload(stageId: string, datasetId: string): Promise<FinalizeImportResponse> {
-  const formData = new FormData();
-  formData.append('stage_id', stageId);
-  formData.append('dataset_id', datasetId);
-
-  const response = await axiosInstance.post<FinalizeImportResponse>('/import/result/finalize', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-
-  return response.data;
-}
-
 export async function fetchImportResultStatus(stageId: string): Promise<ImportValidationPayload> {
   const response = await axiosInstance.get<ImportValidationPayload>(`/import/result/${stageId}/status`);
   return response.data;
@@ -99,7 +57,7 @@ export async function pollImportResultStatus(
     timeoutMs?: number;
   }
 ): Promise<ImportValidationPayload> {
-  const pollIntervalMs = options?.pollIntervalMs ?? 1500;
+  const pollIntervalMs = options?.pollIntervalMs ?? 3000;
   const timeoutMs = options?.timeoutMs ?? 10 * 60 * 1000;
   const deadline = Date.now() + timeoutMs;
 
@@ -121,38 +79,34 @@ export async function checkStagedResultsValidity(stageIds: string[]): Promise<Re
   return response.data;
 }
 
-export async function uploadResultBundle(
+export async function uploadResultBundleViaTus(
   file: File,
   datasetId: string,
-  options?: UploadAndValidateOptions,
+  options?: UploadAndValidateOptions
 ): Promise<UploadAndValidateResult> {
   ensureZipFile(file);
 
-  const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
-  const stageId = await initializeResultUpload(totalChunks);
+  const { promise } = tusUpload({
+    file,
+    metadata: {
+      upload_type: UploadType.PRE_COMPUTED_RESULT,
+      dataset_id: datasetId,
+    },
+    onProgress: options?.onProgress,
+  });
 
-  for (let index = 0; index < totalChunks; index += 1) {
-    const start = index * CHUNK_SIZE;
-    const end = Math.min(start + CHUNK_SIZE, file.size);
-    const chunk = file.slice(start, end, file.type || 'application/zip');
+  try {
+    const stageId = await promise;
 
-    await uploadResultChunk(stageId, chunk);
+    options?.onUploadComplete?.();
+    options?.onValidationStart?.();
 
-    if (options?.onProgress) {
-      options.onProgress(Math.round(((index + 1) / totalChunks) * 100));
+    const validation = await pollImportResultStatus(stageId);
+    return { stageId, validation };
+  } catch (err) {
+    if (err instanceof Error) {
+      throw err;
     }
+    throw new Error('Failed to upload result bundle.');
   }
-
-  if (options?.onUploadComplete) {
-    options.onUploadComplete();
-  }
-
-  await finalizeResultUpload(stageId, datasetId);
-
-  if (options?.onValidationStart) {
-    options.onValidationStart();
-  }
-
-  const validation = await pollImportResultStatus(stageId);
-  return { stageId, validation };
 }
