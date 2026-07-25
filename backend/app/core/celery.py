@@ -10,7 +10,9 @@ celery_app = Celery(
     include=[
         "app.tasks.experiment_tasks",
         "app.tasks.cleanup_tasks",
-        "app.tasks.dataset_tasks"
+        "app.tasks.dataset_tasks",
+        "app.tasks.result_validation_task",
+        "app.tasks.result_processing_task",
     ]
 )
 

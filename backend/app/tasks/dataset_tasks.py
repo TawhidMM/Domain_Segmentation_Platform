@@ -17,7 +17,7 @@ from app.utils.zip_utils import extract_zip
     retry_kwargs={"max_retries": 3},
     queue="io",
 )
-def extract_dataset_task(self, dataset_id: str, zip_path: str) -> None:
+def process_dataset_task(self, dataset_id: str) -> None:
     db = SessionLocal()
 
     try:
@@ -29,6 +29,7 @@ def extract_dataset_task(self, dataset_id: str, zip_path: str) -> None:
 
         dataset_space = DatasetSpace(dataset_id)
         extraction_path = dataset_space.dataset_path
+        zip_path = dataset_space.zip_path
 
         extract_zip(zip_path=Path(zip_path), target_dir=extraction_path)
 

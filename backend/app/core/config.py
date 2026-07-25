@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     CONTAINER_DATASET_PATH: ClassVar[Path] = Path("/input")
     CONTAINER_ANNOTATION_PATH: ClassVar[Path] = Path("/annotation/annotations.json")
 
+    TUSD_UPLOAD_ROOT: Path = Path("/srv/tusd-data")
+
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent.parent / ".env",
@@ -75,5 +77,5 @@ class Settings(BaseSettings):
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 
-settings = Settings()
 
+settings = Settings()

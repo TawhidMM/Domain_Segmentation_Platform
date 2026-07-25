@@ -5,6 +5,7 @@ from typing import Dict
 
 from sqlalchemy.orm import Session
 
+from app.core.celery import celery_app
 from app.core.database import SessionLocal
 from app.core.storage_space import StagingSpace
 from app.models.experiment import ExperimentStatus
@@ -14,25 +15,16 @@ from app.services.run_service import mark_finished, mark_running
 from app.services.tool_executor import ToolExecutor
 
 
-def _move_file(
-    staging_dir: Path,
-    output_dir: Path,
-    filename: str
-) -> None:
 
-    staging_file = staging_dir / filename
-    if not staging_file.exists():
-        raise FileNotFoundError(f"Required file '{filename}' not found in staging area")
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    destination_file = output_dir / filename
-    if destination_file.exists():
-        destination_file.unlink()
-
-    staging_file.rename(destination_file)
-
-
+@celery_app.task(
+    bind=True,
+    autoretry_for=(OSError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+    queue="io",
+)
 def process_imported_results(
+    self,
     staging_data: list[Dict[str, str]]
 ) -> None:
 
@@ -69,6 +61,25 @@ def process_imported_results(
         db.close()
 
 
+def _move_file(
+    staging_dir: Path,
+    output_dir: Path,
+    filename: str
+) -> None:
+
+    staging_file = staging_dir / filename
+    if not staging_file.exists():
+        raise FileNotFoundError(f"Required file '{filename}' not found in staging area")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    destination_file = output_dir / filename
+    if destination_file.exists():
+        destination_file.unlink()
+
+    # staging_file.rename(destination_file)
+    shutil.move(str(staging_file), str(destination_file))
+
+
 def _mark_experiment_completed(
     db: Session,
     experiment_id: str
@@ -94,4 +105,3 @@ def _mark_experiment_failed(
         experiment_db.status = ExperimentStatus.FAILED
         experiment_db.finished_at = datetime.now(timezone.utc)
         db.commit()
-

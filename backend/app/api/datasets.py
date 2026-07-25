@@ -14,10 +14,7 @@ from app.schemas.experiment import DataSetRequest, DataSetRequests
 from app.services import spatial_data_service
 from app.services.dataset_service import create_dataset, delete_dataset, update_dataset_name
 from app.services.run_service import require_run_with_access, build_run_context
-from app.services.upload_service import (
-    init_upload, upload_chunk, finalize_upload
-)
-from app.tasks.dataset_tasks import extract_dataset_task
+from app.tasks.dataset_tasks import process_dataset_task
 from app.dataset.visium import VisiumDataset
 
 router = APIRouter()
@@ -27,50 +24,6 @@ class UpdateDatasetNameRequest(BaseModel):
     dataset_name: str
 
 
-@router.post("/init-upload")
-def init(
-    total_chunks: int = Form(...)
-):
-    upload_id = str(uuid4())
-    upload_directory = DatasetSpace(upload_id).upload_directory
-
-    init_upload(
-        upload_id=upload_id,
-        total_chunks=total_chunks,
-        target_dir=upload_directory,
-        filename=settings.DATASET_ZIP_FILENAME
-    )
-    return {"upload_id": upload_id}
-
-
-@router.post("/upload-chunk")
-async def upload(
-    upload_id: str = Form(...),
-    chunk: UploadFile = File(...)
-):
-    upload_chunk(upload_id, await chunk.read())
-    return {"status": "ok"}
-
-
-@router.post("/finalize-upload")
-async def finalize(
-    upload_id: str = Form(...),
-    dataset_name: Optional[str] = Form(default=None),
-    db: Session = Depends(get_db)
-):
-
-    zip_path = finalize_upload(upload_id)
-
-    dataset_id = create_dataset(
-        db=db,
-        upload_id=upload_id,
-        zip_path=zip_path,
-        dataset_name=dataset_name,
-    )
-
-    extract_dataset_task.delay(dataset_id, str(zip_path))
-
-    return {"dataset_id": dataset_id, "status": "processing"}
 
 
 @router.get("/{dataset_id}/status")

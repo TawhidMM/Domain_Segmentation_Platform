@@ -155,7 +155,6 @@ async def submit_experiment(
 @router.post("/submit-imported", response_model=ResultSubmitResponse)
 async def submit_imported_experiment(
     request: ImportResultRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
 
@@ -165,8 +164,7 @@ async def submit_imported_experiment(
         tool_name=request.tool_name
     )
 
-    background_tasks.add_task(
-        process_imported_results,
+    process_imported_results.delay(
         staging_data=staging_data
     )
 
