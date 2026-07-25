@@ -1,6 +1,8 @@
 import csv
 import shutil
 from pathlib import Path
+
+from app.core.celery import celery_app
 from app.core.redis import redis_client, RESULT_VALIDATION_SESSION_TTL, get_result_validation_key
 
 from app.core.config import settings
@@ -8,17 +10,32 @@ from app.core.workspace import DatasetSpace
 from app.exceptions.result_validation_exception import ResultValidationException, MissingFilesException, \
     FileShapeMismatchException, BarcodeAlignmentException, SchemaViolationException, InvalidDataTypesException
 from app.schemas.result_validation import ValidationPayload, ValidationStatus, ValidationErrorType
+from app.utils.zip_utils import extract_zip
 
 
+@celery_app.task(
+    bind=True,
+    autoretry_for=(OSError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+    queue="io",
+)
 def validate_result_bundle(
+    self,
     stage_id: str,
+    zip_path: str,
     dataset_id: str,
-    result_directory: Path
 ) -> None:
 
     redis_key = get_result_validation_key(stage_id)
 
     try:
+        zip_path = Path(zip_path)
+        result_directory = zip_path.parent
+
+        extract_zip(zip_path=zip_path, target_dir=result_directory)
+        zip_path.unlink(missing_ok=True)
+
         _verify_structure(result_directory)
         _validate_csv_schemas(result_directory, dataset_id)
 
@@ -39,7 +56,7 @@ def validate_result_bundle(
         if result_directory.exists():
             shutil.rmtree(result_directory)
 
-    except Exception as e:
+    except OSError as e:
         payload = ValidationPayload(
             status=ValidationStatus.FAILED,
             error_type=ValidationErrorType.INTERNAL_SYSTEM_ERROR,
@@ -49,6 +66,8 @@ def validate_result_bundle(
 
         if result_directory.exists():
             shutil.rmtree(result_directory)
+
+        raise e
 
 
 def _verify_structure(

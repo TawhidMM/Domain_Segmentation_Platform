@@ -10,6 +10,7 @@ from app.api.experiments import router as experiments_router
 from app.api.result_imports import router as result_import_router
 from app.api.runs import router as runs_router
 from app.api.tools import router as tools_router
+from app.api.webhooks import router as webhooks_router
 from app.core.config import settings
 from app.core.startup import create_directories
 from app.core.storage_space import DatasetSpace
@@ -69,6 +70,12 @@ app.include_router(
     annotations_router,
     prefix="/api",
     tags=["Annotations"]
+)
+
+app.include_router(
+    webhooks_router,
+    prefix="/webhooks/tus",
+    tags=["TUS Webhooks"]
 )
 
 app.include_router(

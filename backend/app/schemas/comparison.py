@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
-# ── Unified request schema used by all /comparison/* endpoints ──────────────
+# ── Unified event schema used by all /comparison/* endpoints ──────────────
 
 class ExperimentRequestItem(BaseModel):
     experiment_id: str

@@ -13,8 +13,12 @@ class UploadSpace(abc.ABC):
         return settings.INTERNAL_UPLOAD_ROOT / self._relative_sub_path
 
     @property
-    def host_root(self) -> Path:
+    def _host_root(self) -> Path:
         return settings.HOST_UPLOADS_ROOT / self._relative_sub_path
+
+    @property
+    def _tusd_root(self) -> Path:
+        return settings.TUSD_UPLOAD_ROOT / self._relative_sub_path
 
 
 class StagingSpace(UploadSpace):
@@ -34,6 +38,14 @@ class StagingSpace(UploadSpace):
     def staging_directory(self) -> Path:
         return self.internal_root
 
+    @property
+    def upload_path(self) -> Path:
+        return self._tusd_root / settings.IMPORT_ZIP_FILENAME
+
+    @property
+    def zip_path(self) -> Path:
+        return self.internal_root / settings.IMPORT_ZIP_FILENAME
+
 
 class DatasetSpace(UploadSpace):
     _DIR_NAME = Path("datasets")
@@ -49,8 +61,12 @@ class DatasetSpace(UploadSpace):
         super().__init__(self._DIR_NAME / dataset_id)
 
     @property
-    def upload_directory(self) -> Path:
-        return self.internal_root
+    def upload_path(self) -> Path:
+        return self._tusd_root / settings.DATASET_ZIP_FILENAME
+
+    @property
+    def zip_path(self) -> Path:
+        return self.internal_root / settings.DATASET_ZIP_FILENAME
 
     @property
     def dataset_path(self) -> Path:
@@ -58,13 +74,13 @@ class DatasetSpace(UploadSpace):
 
     @property
     def host_dataset_path(self) -> Path:
-        return self.host_root / self._EXTRACTED_DIR
+        return self._host_root / self._EXTRACTED_DIR
 
     def annotation_file_path(self, annotation_id: str) -> Path:
         return self.internal_root / self._ANNOTATIONS_DIR / self._annotation_file_name(annotation_id)
 
     def host_annotation_file_path(self, annotation_id: str) -> Path:
-        return self.host_root / self._ANNOTATIONS_DIR / self._annotation_file_name(annotation_id)
+        return self._host_root / self._ANNOTATIONS_DIR / self._annotation_file_name(annotation_id)
 
     @staticmethod
     def _annotation_file_name(annotation_id: str) -> str:

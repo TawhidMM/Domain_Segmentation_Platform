@@ -1,3 +1,4 @@
+import json
 import logging
 import shutil
 from datetime import datetime, timedelta, timezone
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.storage_space import DatasetSpace, StagingSpace
 from app.core.workspace import ExperimentWorkspace
+from app.core.config import settings
 from app.models import Dataset, Experiment
 
 logger = logging.getLogger(__name__)
@@ -94,6 +96,56 @@ def purge_old_staging_files(days_to_keep: int = 3) -> int:
     return purged_count
 
 
+def reconcile_orphan_tusd_uploads(db: Session, max_age_hours: int = 1) -> int:
+    """
+    Scan the uploads root for top-level directories that are not 'datasets' or
+    'staged_results' — these are tusd's temporary upload dirs. If no matching
+    Dataset row exists and the dir is older than max_age_hours, log it.
+    """
+    upload_base = settings.INTERNAL_UPLOAD_ROOT
+
+    if not upload_base.exists():
+        logger.warning(f" Uploads base directory does not exist: {upload_base}")
+        return 0
+
+    now = time.time()
+    max_age_seconds = max_age_hours * 60 * 60
+    reconciled_count = 0
+
+    known_dirs = {"datasets", "staged_results"}
+
+    for item in upload_base.iterdir():
+        if not item.is_dir():
+            continue
+        if item.name in known_dirs:
+            continue
+
+        try:
+            info_mtime = item.stat().st_mtime
+            age_seconds = now - info_mtime
+
+            if age_seconds < max_age_seconds:
+                continue
+
+            dataset_id = item.name
+
+            existing = db.query(Dataset).filter(Dataset.dataset_id == dataset_id).first()
+            if existing:
+                continue
+
+            logger.warning(
+                f"Found orphaned tusd upload {dataset_id} (age: {age_seconds / 3600:.1f}h). "
+                "No Dataset row exists. Manual intervention may be required."
+            )
+
+            reconciled_count += 1
+
+        except Exception as e:
+            logger.error(f"Failed to reconcile upload dir {item.name}: {e}")
+
+    return reconciled_count
+
+
 def run_cleanup(db: Session) -> None:
     EXPIRE_AFTER_DAYS = 4
     limit_time = datetime.now(timezone.utc) - timedelta(days=EXPIRE_AFTER_DAYS)
@@ -103,9 +155,14 @@ def run_cleanup(db: Session) -> None:
         purged_staging_folders = purge_old_staging_files(EXPIRE_AFTER_DAYS)
         purged_exps = purge_old_experiments(db, limit_time)
         purged_data = purge_old_datasets(db, limit_time)
+        orphan_count = reconcile_orphan_tusd_uploads(db)
 
         db.commit()
-        logger.info(f" Maintenance successful. Purged {purged_exps} Experiments and {purged_data} Datasets and {purged_staging_folders} Staging Folders.")
+        logger.info(
+            f" Maintenance successful. Purged {purged_exps} Experiments, "
+            f"{purged_data} Datasets, {purged_staging_folders} Staging Folders. "
+            f"Found {orphan_count} orphaned tusd uploads."
+        )
     except Exception as e:
         db.rollback()
         logger.error(f" CRITICAL: Maintenance transaction failed and rolled back. Error: {str(e)}")
