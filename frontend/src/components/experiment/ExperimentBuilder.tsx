@@ -7,7 +7,19 @@ import ImportResultsTrack from './ImportResultsTrack';
 import PipelineExecutionTrack from './PipelineExecutionTrack';
 
 const ExperimentBuilder: React.FC = () => {
-  const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
+
+  const datasets = useDatasetStore((state) => state.datasets);
+  const availableDatasets = useMemo(
+    () =>
+      datasets
+        .filter((d) => d.status === 'SUCCESS' && Boolean(d.datasetId))
+        .map((dataset) => ({
+          id: dataset.datasetId as string,
+          name: dataset.datasetName,
+        })),
+    [datasets]
+  );
+  
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,17 +36,6 @@ const ExperimentBuilder: React.FC = () => {
     }
     navigate(location.pathname, { replace: true });
   }, [location.pathname, location.search, navigate]);
-
-  const availableDatasets = useMemo(
-    () =>
-      successfulDatasets
-        .filter((dataset) => Boolean(dataset.datasetId))
-        .map((dataset) => ({
-          id: dataset.datasetId as string,
-          name: dataset.datasetName,
-        })),
-    [successfulDatasets]
-  );
 
   const handleTabChange = useCallback(
     (_: React.SyntheticEvent, nextTab: 'pipeline' | 'import') => {

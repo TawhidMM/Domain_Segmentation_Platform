@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { WorkspaceMode, JobSubmissionResponse, ExperimentSubmitResponse } from '@/types';
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
@@ -27,7 +28,7 @@ interface AppContextType {
   selectedDatasetIds: string[];
   focusDatasetId: string | null;
   datasetAnnotationMap: Record<string, string>;
-  successfulDatasets: import('@/stores/dataset').UploadedDataset[];
+  successfulDatasets: import('@/types').DatasetItem[];
   updateDatasetParamOverride: (datasetIds: string[], paramKey: string, value: any) => void;
   setSelectedDatasetIds: (ids: string[]) => void;
   setFocusDatasetId: (id: string | null) => void;
@@ -63,7 +64,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
   const [focusDatasetId, setFocusDatasetId] = useState<string | null>(null);
   const [datasetAnnotationMap, setDatasetAnnotationMap] = useState<Record<string, string>>({});
-  const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
+  const successfulDatasets = useDatasetStore(
+    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+  );
 
   const submitExperiments = useCallback(async (email: string): Promise<JobRedirectInfo | null> => {
     if (successfulDatasets.length === 0) {

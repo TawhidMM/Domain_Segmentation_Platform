@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Box, Typography, Button, Chip, Paper, IconButton, Tooltip, Alert } from '@mui/material';
 import { Refresh, ArrowBack, OpenInNew } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,7 +22,9 @@ interface ExperimentDetailViewProps {
 }
 
 const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment }) => {
-  const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
+  const uploadedDatasets = useDatasetStore(
+    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+  );
   const updateExperimentRuns = usePipelineStore((state) => state.updateExperimentRuns);
   const updateExperimentStatus = usePipelineStore((state) => state.updateExperimentStatus);
   const {

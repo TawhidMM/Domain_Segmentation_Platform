@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Alert,
@@ -24,7 +25,7 @@ import EntityList from '@/components/shared/EntityList';
 import ImportedResultRow from './ImportedResultRow';
 import {
   ImportValidationPayload,
-  uploadResultBundle,
+  uploadResultBundleViaTus,
 } from '@/services/importResultService';
 import {
   ImportResultRequestPayload,
@@ -250,7 +251,9 @@ const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, is
 };
 
 const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatasets }) => {
-  const successfulDatasets = useDatasetStore((state) => state.uploadedDatasets);
+  const successfulDatasets = useDatasetStore(
+    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+  );
   const setWorkspaceView = useUIStore((state) => state.setWorkspaceView);
 
   // Import Results Store — single source of truth for import workflow state
@@ -353,7 +356,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
       setIsSubmitting(true);
 
       try {
-        const uploadResult = await uploadResultBundle(file, selectedDatasetId, {
+        const uploadResult = await uploadResultBundleViaTus(file, selectedDatasetId, {
           onProgress: handleUploadProgress,
           onUploadComplete: () => {
             setValidationStatus({

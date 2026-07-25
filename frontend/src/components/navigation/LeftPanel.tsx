@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Typography, Button, Divider, Chip, Tooltip } from '@mui/material';
 import { Add, CloudUpload, Science, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
@@ -9,12 +9,11 @@ import ExperimentsList from './ExperimentsList';
 
 const LeftPanel: React.FC = () => {
   const isDatasetReady = useDatasetStore((state) => state.isDatasetReady);
-  const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
   const { startNewExperiment, experiments } = useApp();
   const count = useComparisonStore((state) => state.basket.length);
 
-  const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
-  const completedCount = experiments.filter((e) => e.status === 'completed').length;
+  const unsubmittedCount = useMemo(() => experiments.filter((e) => e.status === 'not-submitted').length, [experiments]);
+  const completedCount = useMemo(() => experiments.filter((e) => e.status === 'completed').length, [experiments]);
 
   return (
     <Box

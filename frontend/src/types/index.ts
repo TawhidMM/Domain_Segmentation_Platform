@@ -2,7 +2,7 @@ export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'finishe
 
 export type DatasetUploadStatus = 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
 
-export type DatasetQueueStatus = 'PENDING' | 'UPLOADING' | 'SUCCESS' | 'ERROR';
+export type DatasetQueueStatus = 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'SUCCESS' | 'ERROR';
 
 export interface DatasetUploadEntry {
   id: string;
@@ -16,6 +16,18 @@ export interface DatasetUploadEntry {
 export interface DatasetUploadQueueItem {
   id: string;
   file: File;
+  fileName: string;
+  datasetName: string;
+  datasetId: string | null;
+  size: number;
+  uploadProgress: number;
+  status: DatasetQueueStatus;
+  error?: string;
+}
+
+export interface DatasetItem {
+  id: string;
+  file?: File;
   fileName: string;
   datasetName: string;
   datasetId: string | null;

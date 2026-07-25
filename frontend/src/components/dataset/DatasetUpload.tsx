@@ -6,14 +6,13 @@ import FileUploadCard from './FileUploadCard';
 import DatasetUploadTable from './DatasetUploadTable';
 
 const DatasetUpload: React.FC = () => {
-  const uploadQueue = useDatasetStore((state) => state.uploadQueue);
-  const uploadedDatasets = useDatasetStore((state) => state.uploadedDatasets);
+  const datasets = useDatasetStore((state) => state.datasets);
   const uploadDataset = useDatasetStore((state) => state.uploadDataset);
   const retryUpload = useDatasetStore((state) => state.retryUpload);
   const removeUploadedDataset = useDatasetStore((state) => state.removeUploadedDataset);
   const updateDatasetName = useDatasetStore((state) => state.updateDatasetName);
 
-  const isUploadInProgress = uploadQueue.some((item) => item.status === 'UPLOADING');
+  const isUploadInProgress = datasets.some((item) => item.status === 'UPLOADING');
 
   useEffect(() => {
     if (isUploadInProgress) {
@@ -40,18 +39,11 @@ const DatasetUpload: React.FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <FileUploadCard
           title="Spatial Transcriptomics Dataset"
-          description="Upload your spatial transcriptomics daatset in correct format."
+          description="Upload your spatial transcriptomics dataset in correct format."
           acceptedFormats={['.zip']}
           multiple
           required
           readOnly={false}
-          uploadedFiles={uploadQueue.map((item) => ({
-            id: item.id,
-            name: item.fileName,
-            uploadProgress: item.uploadProgress,
-            status: item.status,
-            error: item.error,
-          }))}
           onFileSelect={uploadDataset}
         />
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 1 }}>
@@ -83,7 +75,7 @@ const DatasetUpload: React.FC = () => {
         )}
 
         <DatasetUploadTable
-          items={uploadedDatasets}
+          items={datasets}
           onUpdateName={updateDatasetName}
           onRetry={retryUpload}
           onDelete={removeUploadedDataset}
