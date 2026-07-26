@@ -2,8 +2,8 @@ import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Box } from '@mui/material';
 import { useDatasetStore } from '@/stores/dataset';
-import { usePipelineStore } from '@/stores/pipeline';
-import { useUIStore } from '@/store/useUIStore';
+import { useExperimentsStore } from '@/stores/experiments';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
 import DatasetUpload from '../dataset/DatasetUpload';
 import ExperimentBuilder from '@/components/experiment/ExperimentBuilder';
 import ExperimentDetailView from '@/components/experiment/ExperimentDetailView';
@@ -13,8 +13,8 @@ const MainWorkspace: React.FC = () => {
     useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
   );
 
-  const experiments = usePipelineStore((state) => state.experiments);
-  const activeExperimentId = usePipelineStore((state) => state.activeExperimentId);
+  const experiments = useExperimentsStore((state) => state.experiments);
+  const activeExperimentId = useExperimentsStore((state) => state.activeExperimentId);
 
   const workspaceMode = useUIStore((state) => state.currentView);
 

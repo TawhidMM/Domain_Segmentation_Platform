@@ -27,10 +27,6 @@ export interface PipelineState {
   activeStep: number;
   /** Snapshot of the last experiment that was created. Persisted so it can be re-created after refresh. */
   lastCreatedExperiment: CreatedExperimentSnapshot | null;
-  /** List of all experiments. Source of truth for experiment management (replacing AppContext). */
-  experiments: Experiment[];
-  /** Currently active experiment ID. Used to track which experiment is being viewed. */
-  activeExperimentId: string | null;
 }
 
 export interface PipelineActions {
@@ -44,16 +40,6 @@ export interface PipelineActions {
   resetBuilderState: () => void;
   loadExperimentForEditing: (experiment: Experiment, schema?: ToolSchema) => void;
   handleStepBack: () => void;
-  /** Experiment management actions - source of truth for experiments */
-  addExperiment: (experiment: Experiment) => void;
-  removeExperiment: (id: string) => void;
-  setActiveExperiment: (id: string | null) => void;
-  /** Update runs for an experiment (used for polling updates) */
-  updateExperimentRuns: (experimentId: string, runs: import('@/types').Run[]) => void;
-  /** Fill run IDs after submit response */
-  fillRunIds: (experimentId: string, runsByDataset: import('@/types').DatasetRunMapping[]) => void;
-  /** Update experiment status */
-  updateExperimentStatus: (experimentId: string, status: ExperimentStatus) => void;
 }
 
 export type PipelineStore = PipelineState & PipelineActions;

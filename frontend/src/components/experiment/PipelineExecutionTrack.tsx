@@ -4,7 +4,8 @@ import { Box, Button, Stepper, Step, StepLabel, Divider, Tooltip, Paper, Typogra
 import { ArrowBack, ArrowForward, Add, Edit } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { usePipelineStore } from '@/stores/pipeline';
-import { useUIStore } from '@/store/useUIStore';
+import { useExperimentsStore } from '@/stores/experiments';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
 import { ToolSchema, Experiment } from '@/types';
 import { prepareParametersForSubmission } from '@/utils/parameterUtils';
 import ParameterConfig from './ParameterConfig';
@@ -37,8 +38,10 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
   const setSeedList = usePipelineStore((state) => state.setSeedList);
   const setActiveStep = usePipelineStore((state) => state.setActiveStep);
   const handleStepBack = usePipelineStore((state) => state.handleStepBack);
+  const setActiveExperiment = useExperimentsStore((state) => state.setActiveExperiment);
   const recordCreatedExperiment = usePipelineStore((state) => state.recordCreatedExperiment);
-  const addExperiment = usePipelineStore((state) => state.addExperiment);
+  const addExperiment = useExperimentsStore((state) => state.addExperiment);
+
 
   const selectedToolSchema = configuration.selectedToolSchema;
   const parameters = configuration.parameters;

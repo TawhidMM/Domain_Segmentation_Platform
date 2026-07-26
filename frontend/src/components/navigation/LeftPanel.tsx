@@ -3,7 +3,7 @@ import { Box, Typography, Button, Divider, Chip, Tooltip } from '@mui/material';
 import { Add, CloudUpload, Science, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useDatasetStore } from '@/stores/dataset';
-import { useUIStore } from '@/store/useUIStore';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
 import { useComparisonStore } from '@/stores/comparison';
 import ExperimentsList from './ExperimentsList';
 

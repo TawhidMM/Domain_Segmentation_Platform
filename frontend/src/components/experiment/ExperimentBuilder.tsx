@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Box, Paper, Tab, Tabs } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useDatasetStore } from '@/stores/dataset';
-import { useUIStore } from '@/store/useUIStore';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
 import ImportResultsTrack from './ImportResultsTrack';
 import PipelineExecutionTrack from './PipelineExecutionTrack';
 
