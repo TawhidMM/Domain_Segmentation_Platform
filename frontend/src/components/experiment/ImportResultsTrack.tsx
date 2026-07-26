@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuid4 } from 'uuid';
 import {
   Alert,
   Box,
@@ -18,8 +18,10 @@ import {
 } from '@mui/material';
 import { CheckCircle, CloudUpload, Error as ErrorIcon, HourglassTop } from '@mui/icons-material';
 import { useDatasetStore } from '@/stores/dataset';
+import type { Experiment } from '@/types';
 import { useImportResultsStore, type StagedResultItem } from '@/stores/import-results';
-import { useUIStore } from '@/store/useUIStore';
+import { useExperimentsStore } from '@/stores/experiments';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
 import FileUploadCard from '@/components/dataset/FileUploadCard';
 import EntityList from '@/components/shared/EntityList';
 import ImportedResultRow from './ImportedResultRow';
@@ -266,6 +268,8 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   const addStagedItem = useImportResultsStore((state) => state.addStagedItem);
   const removeStagedItem = useImportResultsStore((state) => state.removeStagedItem);
   const addSubmittedDatasetId = useImportResultsStore((state) => state.addSubmittedDatasetId);
+  const addExperiment = useExperimentsStore((state) => state.addExperiment);
+  const setActiveExperiment = useExperimentsStore((state) => state.setActiveExperiment);
 
   const datasetOptions = useMemo(
     () =>
@@ -331,7 +335,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         setSelectedFile(null);
         setUploadedFiles([
           {
-            id: uuidv4(),
+            id: uuid4(),
             name: file.name,
             uploadProgress: 0,
             status: 'ERROR',
@@ -345,7 +349,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
       setSubmitFeedback(null);
       setUploadedFiles([
         {
-          id: uuidv4(),
+          id: uuid4(),
           name: file.name,
           uploadProgress: 0,
           status: 'PENDING',
@@ -434,7 +438,28 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
 
       const jobUrl = `${window.location.origin}/experiment/${response.experiment_id}?t=${response.access_token}`;
       window.open(jobUrl, '_blank');
-      
+
+      const experiment: Experiment = {
+        id: uuid4(),
+        toolId: toolName.trim(),
+        toolName: toolName.trim(),
+        displayName: `Imported: ${toolName.trim()}`,
+        datasetIds: stagedItems.map((item) => item.datasetId),
+        experimentId: response.experiment_id,
+        accessToken: response.access_token,
+        parameters: {},
+        numberOfRuns: stagedItems.length,
+        seedList: [],
+        status: 'queued',
+        createdAt: new Date(),
+        completedAt: null,
+        result: null,
+        metrics: null,
+      };
+      addExperiment(experiment);
+      setActiveExperiment(experiment.id);
+      setWorkspaceView('focus');
+
       setSubmitFeedback({
         severity: 'success',
         message: `Imported experiment queued: ${response.experiment_id}`,
@@ -453,7 +478,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, stagedItems, toolName, submittedDatasetIds, addSubmittedDatasetId]);
+  }, [isSubmitting, stagedItems, toolName, submittedDatasetIds, addSubmittedDatasetId, addExperiment, setActiveExperiment, setWorkspaceView]);
 
   const handleBack = useCallback(() => {
     setWorkspaceView('upload');

@@ -3,7 +3,7 @@ import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
 import { usePipelineStore } from '@/stores/pipeline';
 import { useImportResultsStore } from '@/stores/import-results';
-import { useUIStore } from '@/store/useUIStore';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
 import { useBootstrapStore } from './bootstrapStore';
 
 export type RestoredWorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison' | undefined;

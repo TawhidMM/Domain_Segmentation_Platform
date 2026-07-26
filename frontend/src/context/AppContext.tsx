@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { WorkspaceMode, JobSubmissionResponse, ExperimentSubmitResponse } from '@/types';
+import { WorkspaceMode, ExperimentSubmitResponse } from '@/types';
 import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
 import { usePipelineStore } from '@/stores/pipeline';
-import { useUIStore } from '@/store/useUIStore';
+import { useExperimentsStore } from '@/stores/experiments';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
+import {useImportResultsStore} from "@/stores/import-results";
 
 const TOOL_WORKFLOW_STORAGE_KEY = 'select-tool-workflow-state-v1';
 const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
@@ -51,13 +53,13 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Experiments now come directly from pipeline store (persistent source of truth)
-  const experiments = usePipelineStore((state) => state.experiments);
-  const activeExperimentId = usePipelineStore((state) => state.activeExperimentId);
-  const removeExperimentFromStore = usePipelineStore((state) => state.removeExperiment);
-  const setActiveExperimentInStore = usePipelineStore((state) => state.setActiveExperiment);
+  const experiments = useExperimentsStore((state) => state.experiments);
+  const activeExperimentId = useExperimentsStore((state) => state.activeExperimentId);
+  const removeExperimentFromStore = useExperimentsStore((state) => state.removeExperiment);
+  const setActiveExperimentInStore = useExperimentsStore((state) => state.setActiveExperiment);
 
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('upload');
-  const [comparisonExperimentIds, setComparisonExperimentIds] = useState<string[]>([]);
+  const [, setWorkspaceMode] = useState<WorkspaceMode>('upload');
+  const [, setComparisonExperimentIds] = useState<string[]>([]);
 
   // Multi-dataset parameter management
   const [datasetParamOverrides, setDatasetParamOverrides] = useState<Record<string, Record<string, any>>>({});
@@ -74,7 +76,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return null;
     }
 
-    const currentExperiments = usePipelineStore.getState().experiments;
+    const currentExperiments = useExperimentsStore.getState().experiments;
     const unsubmittedExperiments = currentExperiments.filter((e) => e.status === 'not-submitted');
 
     if (unsubmittedExperiments.length === 0) {
@@ -83,7 +85,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     // Update status to queued
-    usePipelineStore.setState((prev) => ({
+    useExperimentsStore.setState((prev) => ({
       experiments: prev.experiments.map((e) =>
         e.status === 'not-submitted' ? { ...e, status: 'queued' as import('@/types').ExperimentStatus } : e
       ),
@@ -132,10 +134,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
 
         // Fill run IDs using the store action
-        usePipelineStore.getState().fillRunIds(exp.id, submitResponse.runs_by_dataset);
+        useExperimentsStore.getState().fillRunIds(exp.id, submitResponse.runs_by_dataset);
 
         // Update experiment with additional metadata
-        usePipelineStore.setState((prev) => ({
+        useExperimentsStore.setState((prev) => ({
           experiments: prev.experiments.map((e) =>
             e.id === exp.id
               ? {
@@ -153,7 +155,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch (error) {
         console.error(`Failed to submit experiment ${exp.id}:`, error);
         // Mark as failed
-        usePipelineStore.setState((prev) => ({
+        useExperimentsStore.setState((prev) => ({
           experiments: prev.experiments.map((e) =>
             e.id === exp.id ? { ...e, status: 'not-submitted' as import('@/types').ExperimentStatus } : e
           ),
@@ -166,7 +168,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshExperimentResult = useCallback(
     async (experimentId: string) => {
-      const currentExperiments = usePipelineStore.getState().experiments;
+      const currentExperiments = useExperimentsStore.getState().experiments;
       const target = currentExperiments.find((e) => e.id === experimentId);
       if (!target?.experimentId || !target.accessToken) {
         console.error('No experiment id or access token found for experiment');
@@ -191,7 +193,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } catch (metricsError) {
           console.error(`Failed to fetch metrics for experiment ${experimentId}:`, metricsError);
         }
-        usePipelineStore.setState((prev) => ({
+        useExperimentsStore.setState((prev) => ({
           experiments: prev.experiments.map((e) =>
             e.id === experimentId
               ? {
@@ -238,7 +240,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDatasetAnnotationMap({});
     // Use resetBuilderState to preserve already-created experiments, only reset builder state
     usePipelineStore.getState().resetBuilderState();
+    useImportResultsStore.getState().resetImportResults();
     useUIStore.getState().setWorkspaceView('builder');
+    useUIStore.getState().setWorkspaceTab('pipeline');
   }, []);
 
   // Multi-dataset parameter management callbacks

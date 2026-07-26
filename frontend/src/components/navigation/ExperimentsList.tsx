@@ -3,7 +3,7 @@ import { Box, Typography, List, ListItemButton, ListItemText, IconButton, Toolti
 import { DeleteOutline, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useComparisonStore } from '@/stores/comparison';
-import { useUIStore } from '@/store/useUIStore';
+import { useUIStore } from '@/stores/ui/uiStore.ts';
 import StatusIndicator from './StatusIndicator';
 
 interface CompareIconButtonProps {
