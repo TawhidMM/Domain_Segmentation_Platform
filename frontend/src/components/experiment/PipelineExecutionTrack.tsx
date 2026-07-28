@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuid4 } from 'uuid';
 import { Box, Button, Stepper, Step, StepLabel, Divider, Tooltip, Paper, Typography, IconButton } from '@mui/material';
 import { ArrowBack, ArrowForward, Add, Edit } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
@@ -38,9 +38,10 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
   const setSeedList = usePipelineStore((state) => state.setSeedList);
   const setActiveStep = usePipelineStore((state) => state.setActiveStep);
   const handleStepBack = usePipelineStore((state) => state.handleStepBack);
-  const setActiveExperiment = useExperimentsStore((state) => state.setActiveExperiment);
   const recordCreatedExperiment = usePipelineStore((state) => state.recordCreatedExperiment);
   const addExperiment = useExperimentsStore((state) => state.addExperiment);
+  const updateExperiment = useExperimentsStore((state) => state.updateExperiment);
+  const editingExperimentId = usePipelineStore((state) => state.editingExperimentId);
 
 
   const selectedToolSchema = configuration.selectedToolSchema;
@@ -61,40 +62,63 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
 
     const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
 
-    // Record the snapshot BEFORE creating experiment, so it's persisted even if refresh happens
-    recordCreatedExperiment({
-      toolId: selectedToolSchema.tool_id,
-      parameters: preparedParams,
-      toolLabel: selectedToolSchema.label,
-      numberOfRuns: seedList.length,
-      seedList,
-      datasetIds: selectedDatasetIds,
-      requirements: selectedToolSchema.requirements,
-      createdAt: Date.now(),
-    });
+    if (editingExperimentId) {
+      // Update the existing experiment in-place instead of creating a new one
+      updateExperiment(editingExperimentId, {
+        parameters: preparedParams,
+        seedList,
+        numberOfRuns: seedList.length,
+        datasetIds: selectedDatasetIds,
+      });
 
-    // Create the experiment object and add it to the pipeline store
-    const experiment: Experiment = {
-      id: uuidv4(),
-      toolId: selectedToolSchema.tool_id,
-      toolName: selectedToolSchema.label,
-      datasetIds: selectedDatasetIds,
-      requirements: selectedToolSchema.requirements,
-      parameters: preparedParams,
-      numberOfRuns: seedList.length,
-      seedList,
-      status: 'not-submitted',
-      createdAt: new Date(),
-      completedAt: null,
-      result: null,
-      metrics: null,
-    };
+      // Clear editing state so next save creates a new experiment
+      usePipelineStore.setState({ editingExperimentId: null });
+    } else {
+      // Record the snapshot BEFORE creating experiment, so it's persisted even if refresh happens
+      recordCreatedExperiment({
+        toolId: selectedToolSchema.tool_id,
+        parameters: preparedParams,
+        toolLabel: selectedToolSchema.label,
+        numberOfRuns: seedList.length,
+        seedList,
+        datasetIds: selectedDatasetIds,
+        requirements: selectedToolSchema.requirements,
+        createdAt: Date.now(),
+      });
 
-    addExperiment(experiment);
+      // Create the experiment object and add it to the pipeline store
+      const experiment: Experiment = {
+        id: uuid4(),
+        toolId: selectedToolSchema.tool_id,
+        toolName: selectedToolSchema.label,
+        datasetIds: selectedDatasetIds,
+        requirements: selectedToolSchema.requirements,
+        parameters: preparedParams,
+        numberOfRuns: seedList.length,
+        seedList,
+        status: 'not-submitted',
+        createdAt: new Date(),
+        completedAt: null,
+        result: null,
+        metrics: null,
+        toolSchema: selectedToolSchema,
+      };
 
-    // Switch to focus view after creating experiment
+      addExperiment(experiment);
+    }
+    // Switch to focus view after creating/updating experiment
     setWorkspaceView('focus');
-  }, [selectedToolSchema, parameters, seedList, selectedDatasetIds, recordCreatedExperiment, addExperiment, setWorkspaceView]);
+  }, [
+    selectedToolSchema,
+    parameters,
+    seedList,
+    selectedDatasetIds,
+    editingExperimentId,
+    recordCreatedExperiment,
+    addExperiment,
+    updateExperiment,
+    setWorkspaceView,
+  ]);
 
   const focusedDatasetName = useMemo(
     () => availableDatasets.find((dataset) => dataset.id === focusDatasetId)?.name ?? null,
