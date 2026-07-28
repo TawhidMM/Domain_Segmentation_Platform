@@ -59,11 +59,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
 
   const handleEditParameters = useCallback(async () => {
     const pipelineStore = usePipelineStore.getState();
-    let toolSchema = pipelineStore.configuration.selectedToolSchema;
-
-    if (!toolSchema || toolSchema.tool_id !== experiment.toolId) {
-      toolSchema = await toolService.fetchToolSchema(experiment.toolId);
-    }
+    const toolSchema = experiment.toolSchema;
 
     pipelineStore.loadExperimentForEditing(experiment, toolSchema);
     setSelectedDatasetIds(experiment.datasetIds);
@@ -175,6 +171,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
           onClose={() => setParamsDialogOpen(false)}
           datasetName={paramsDialogDataset.name}
           params={paramsDialogDataset.params}
+          toolSchema={experiment.toolSchema}
         />
       )}
     </Box>

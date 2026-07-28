@@ -14,6 +14,7 @@ export interface ExperimentsActions {
   updateExperimentRuns: (experimentId: string, runs: Run[]) => void;
   updateExperimentStatus: (experimentId: string, status: ExperimentStatus) => void;
   fillRunIds: (experimentId: string, runsByDataset: DatasetRunMapping[]) => void;
+  updateExperiment: (experimentId: string, updates: Partial<Pick<Experiment, 'parameters' | 'seedList' | 'numberOfRuns' | 'datasetIds'>>) => void;
   resetExperiments: () => void;
 }
 
@@ -93,6 +94,29 @@ export const useExperimentsStore = create<ExperimentsStore>()(
           });
           return { experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, runs: updatedRuns } : e) };
         });
+      },
+      updateExperiment: (experimentId: string, updates: Partial<Pick<Experiment, 'parameters' | 'seedList' | 'numberOfRuns' | 'datasetIds'>>) => {
+        set((prev) => ({
+          experiments: prev.experiments.map((e) => {
+            if (e.id !== experimentId) return e;
+            const next: Experiment = { ...e, ...updates };
+            if (updates.seedList || updates.datasetIds) {
+              const seedList = updates.seedList ?? e.seedList;
+              const datasetIds = updates.datasetIds ?? e.datasetIds;
+              next.runs = datasetIds.flatMap((datasetId) =>
+                seedList.map((seed) => ({
+                  runId: '',
+                  datasetId,
+                  seed,
+                  status: 'not-submitted' as const,
+                  result: null,
+                }))
+              );
+            }
+            return next;
+          }),
+          activeExperimentId: experimentId,
+        }));
       },
       resetExperiments: () => set({ experiments: [], activeExperimentId: null }),
     }),

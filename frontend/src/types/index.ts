@@ -72,6 +72,7 @@ export interface Experiment {
   metrics?: ExperimentMetrics | null;
   runs?: Run[];
   datasetParams?: Record<string, Record<string, unknown>>;
+  toolSchema: ToolSchema;
 }
 
 export interface Spot {

@@ -20,13 +20,13 @@ export interface CreatedExperimentSnapshot {
   createdAt: number;
 }
 
-export type BuilderTabValue = 'select-tool' | 'import-result';
-
 export interface PipelineState {
   configuration: PipelineConfiguration;
   activeStep: number;
   /** Snapshot of the last experiment that was created. Persisted so it can be re-created after refresh. */
   lastCreatedExperiment: CreatedExperimentSnapshot | null;
+  /** If set, the builder is editing this experiment instead of creating a new one. */
+  editingExperimentId: string | null;
 }
 
 export interface PipelineActions {

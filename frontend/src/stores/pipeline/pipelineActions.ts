@@ -1,6 +1,8 @@
 import type { PipelineStore, PipelineState } from './pipelineTypes';
 import type { ToolSchema, Experiment } from '@/types';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
+import {initializeParameterValues} from "@/utils/parameterUtils.ts";
+
 
 export const createPipelineActions = (
   set: (partial: Partial<PipelineState> | ((prev: PipelineState) => Partial<PipelineState>)) => void,
@@ -34,19 +36,24 @@ export const createPipelineActions = (
   resetPipeline: () => {
     set({
       configuration: { selectedTool: null, selectedToolSchema: null, parameters: {}, numberOfRuns: 1, seedList: [], lastUpdated: Date.now() },
-      activeStep: 0, lastCreatedExperiment: null,
+      activeStep: 0, lastCreatedExperiment: null, editingExperimentId: null,
     });
   },
   resetBuilderState: () => {
     set((prev) => ({
       configuration: { ...prev.configuration, selectedTool: null, selectedToolSchema: null, parameters: {}, numberOfRuns: 1, seedList: [], lastUpdated: Date.now() },
-      activeStep: 0, lastCreatedExperiment: null,
+      activeStep: 0, lastCreatedExperiment: null, editingExperimentId: null,
     }));
   },
-  loadExperimentForEditing: (experiment: Experiment, schema?: ToolSchema) => {
+  loadExperimentForEditing: (experiment: Experiment, schema: ToolSchema) => {
     set((prev) => ({
-      configuration: { ...prev.configuration, selectedTool: experiment.toolId, selectedToolSchema: schema ?? prev.configuration.selectedToolSchema, parameters: experiment.parameters, numberOfRuns: experiment.numberOfRuns, seedList: experiment.seedList, lastUpdated: Date.now() },
-      activeStep: 1, lastCreatedExperiment: null,
+      configuration: { ...prev.configuration, selectedTool: experiment.toolId,
+        selectedToolSchema: schema,
+        parameters: experiment.parameters, numberOfRuns: experiment.numberOfRuns,
+        seedList: experiment.seedList,
+        lastUpdated: Date.now()
+      },
+      activeStep: 1, lastCreatedExperiment: null, editingExperimentId: experiment.id,
     }));
     useUIStore.getState().setWorkspaceView('builder');
   },
@@ -56,11 +63,3 @@ export const createPipelineActions = (
     else useUIStore.getState().setWorkspaceView('upload');
   },
 });
-
-function initializeParameterValues(schema: { parameters: Record<string, { default?: unknown }> }): Record<string, unknown> {
-  const values: Record<string, unknown> = {};
-  for (const [key, meta] of Object.entries(schema.parameters)) {
-    if (meta.default !== undefined) values[key] = meta.default;
-  }
-  return values;
-}
