@@ -337,7 +337,8 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         orientation: 'v',
         x: 1.02,
         y: 1,
-        font: { size: 11 },
+        font: { size: 15 },
+        itemsizing: 'constant',
       },
       hovermode: 'closest',
     };
@@ -382,6 +383,9 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         borderColor: 'divider',
         bgcolor: 'white',
         width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <Box
@@ -488,13 +492,21 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
           </Typography>
         )}
       </Box>
-      <Plot
-        data={plotData}
-        layout={layout}
-        config={config}
-        style={{ width: '100%', minHeight: containerHeight }}
-        useResizeHandler
-      />
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          position: 'relative',
+        }}
+      >
+        <Plot
+          data={plotData}
+          layout={layout}
+          config={config}
+          style={{ width: '100%', height: '100%', minHeight: 0, position: 'absolute', top: 0, left: 0 }}
+          useResizeHandler
+        />
+      </Box>
     </Box>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -8,12 +8,13 @@ import {
   CircularProgress,
   Paper,
   Alert,
-  Divider,
   Chip,
   IconButton,
   Tooltip,
+  Menu,
+  MenuItem,
 } from '@mui/material';
-import { Copy, CheckCircle, AlertCircle, Clock, Zap, Plus, Check, RotateCw, FlipHorizontal, FlipVertical, Download as DownloadIcon } from 'lucide-react';
+import { Copy, CheckCircle, AlertCircle, Clock, Zap, Plus, Check, RotateCw, FlipHorizontal, FlipVertical, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useComparisonStore } from '@/stores/comparison';
 import FloatingCompareBar from '@/components/visualization/FloatingCompareBar';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
@@ -37,6 +38,9 @@ const FocusPage: React.FC = () => {
   const [mirrorY, setMirrorY] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingUmap, setIsExportingUmap] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const navigate = useNavigate();
 
   // Experiment and run state
   const [experimentData, setExperimentData] = useState<ExperimentDetails | null>(null);
@@ -191,10 +195,15 @@ const FocusPage: React.FC = () => {
   }, [selectedRunId, accessToken]);
 
   const handleRunSelect = (runId: string) => {
+    if (runId === selectedRunId) {
+      return;
+  }
     setSelectedRunId(runId);
     setResult(null);
     setMetrics(null);
     setStatus(null);
+    setError(null);
+    setErrorCode(undefined);
   };
 
   const handleDatasetToggle = (datasetId: string) => {
@@ -232,21 +241,24 @@ const FocusPage: React.FC = () => {
     if (!selectedRunId || !accessToken) return;
 
     setIsExporting(true);
+    const toastId = toast.loading('Exporting spatial plot...');
     try {
       const blob = await exportExperiment(selectedRunId, 'svg', accessToken);
-      
+      toast.dismiss(toastId);
+
       // Create download link
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `run_${selectedRunId}.svg`;
+      a.download = `run_${selectedRunId}_export.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       toast.success('SVG exported successfully!');
     } catch (error) {
+      toast.dismiss(toastId);
       console.error('Failed to export SVG:', error);
       toast.error('Failed to export SVG. Please try again.');
     } finally {
@@ -254,17 +266,50 @@ const FocusPage: React.FC = () => {
     }
   }, [selectedRunId, accessToken]);
 
+  const handleDownloadCsv = useCallback(() => {
+    if (!result?.spots || result.spots.length === 0) {
+      toast.error('No prediction data available to export');
+      return;
+    }
+
+    setIsExportingCsv(true);
+    try {
+      const header = 'barcode,prediction\n';
+      const rows = result.spots.map(spot => `${spot.barcode},${spot.domain}`);
+      const csvContent = header + rows.join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `run_${selectedRunId}_predictions.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Predictions CSV exported successfully!');
+    } catch (error) {
+      console.error('Failed to export CSV:', error);
+      toast.error('Failed to export CSV. Please try again.');
+    } finally {
+      setIsExportingCsv(false);
+    }
+  }, [result, selectedRunId]);
+
   const handleDownloadUmap = useCallback(async () => {
     if (!selectedRunId || !accessToken) return;
 
     setIsExportingUmap(true);
+    const toastId = toast.loading('Exporting UMAP...');
     try {
       const blob = await exportExperimentUmap(selectedRunId, accessToken);
+      toast.dismiss(toastId);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `run_${selectedRunId}_umap.svg`;
+      a.download = `run_${selectedRunId}_umap_export.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -272,6 +317,7 @@ const FocusPage: React.FC = () => {
 
       toast.success('UMAP exported successfully!');
     } catch (error) {
+      toast.dismiss(toastId);
       console.error('Failed to export UMAP:', error);
       toast.error('Failed to export UMAP. Please try again.');
     } finally {
@@ -397,99 +443,174 @@ const FocusPage: React.FC = () => {
     );
   }
 
+  const ExportMenu: React.FC<{
+    onDownloadSvg: () => void;
+    onDownloadUmap: () => void;
+    onDownloadCsv: () => void;
+    isExporting: boolean;
+    isExportingUmap: boolean;
+    isExportingCsv: boolean;
+  }> = ({ onDownloadSvg, onDownloadUmap, onDownloadCsv, isExporting, isExportingUmap, isExportingCsv }) => {
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const open = Boolean(anchorEl);
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => setAnchorEl(event.currentTarget);
+    const handleClose = () => setAnchorEl(null);
+
+    return (
+      <>
+        <Tooltip title="Export">
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleClick}
+            endIcon={<ChevronDown size={16} />}
+            disabled={isExporting || isExportingUmap || isExportingCsv}
+          >
+            Export
+          </Button>
+        </Tooltip>
+        <Menu
+          anchorEl={anchorEl}
+          open={open}
+          onClose={handleClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem
+            onClick={() => { handleClose(); onDownloadSvg(); }}
+            disabled={isExporting}
+          >
+            Spatial Plot (SVG & PDF)
+          </MenuItem>
+          <MenuItem
+            onClick={() => { handleClose(); onDownloadUmap(); }}
+            disabled={isExportingUmap}
+          >
+            UMAP (SVG & PDF)
+          </MenuItem>
+          <MenuItem
+            onClick={() => { handleClose(); onDownloadCsv(); }}
+            disabled={isExportingCsv}
+          >
+            Predictions (CSV)
+          </MenuItem>
+        </Menu>
+      </>
+    );
+  };
+
   return (
     <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Left Sidebar - Dataset/Run Explorer */}
       <Box
         sx={{
-          width: 260,
+          width: sidebarCollapsed ? 56 : 260,
           borderRight: '1px solid',
           borderColor: 'divider',
           overflow: 'auto',
           backgroundColor: 'background.default',
           display: 'flex',
           flexDirection: 'column',
+          transition: 'width 0.2s ease',
         }}
       >
-        <Box sx={{ p: 3, pb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '16px', mb: 0.5 }}>
-            Experiment Runs
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '13px' }}>
-            Select a run to view results
-          </Typography>
-        </Box>
-        {isLoading && !experimentData ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-            <CircularProgress />
+        {!sidebarCollapsed && (
+          <>
+            <Box sx={{ p: 3, pb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '16px', mb: 0.5 }}>
+                Experiment Runs
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '13px' }}>
+                Select a run to view results
+              </Typography>
+            </Box>
+            {isLoading && !experimentData ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+                <CircularProgress />
+              </Box>
+            ) : error && !experimentData ? (
+              <Box sx={{ p: 2 }}>
+                <Alert severity="error">{error}</Alert>
+              </Box>
+            ) : experimentData ? (
+              <DatasetExplorer
+                datasets={experimentData.datasets}
+                selectedRunId={selectedRunId}
+                expandedDatasets={expandedDatasets}
+                onRunSelect={handleRunSelect}
+                onDatasetToggle={handleDatasetToggle}
+              />
+            ) : null}
+          </>
+        )}
+        {sidebarCollapsed && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 2 }}>
+            <IconButton size="small" onClick={() => setSidebarCollapsed(false)}>
+              <PanelLeftOpen size={20} />
+            </IconButton>
           </Box>
-        ) : error && !experimentData ? (
-          <Box sx={{ p: 2 }}>
-            <Alert severity="error">{error}</Alert>
-          </Box>
-        ) : experimentData ? (
-          <DatasetExplorer
-            datasets={experimentData.datasets}
-            selectedRunId={selectedRunId}
-            expandedDatasets={expandedDatasets}
-            onRunSelect={handleRunSelect}
-            onDatasetToggle={handleDatasetToggle}
-          />
-        ) : null}
+        )}
       </Box>
 
       {/* Main Content Area */}
-      <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-        <Container maxWidth="lg" sx={{ py: 4, pb: 12, flex: 1 }}>
-          {/* Header */}
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                Run Results
-              </Typography>
-              {experimentData?.tool_name && (
+      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {/* Slim sticky action bar */}
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            px: 2,
+            py: 0.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1,
+            minHeight: 44,
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {!sidebarCollapsed ? (
+                <IconButton size="small" onClick={() => setSidebarCollapsed(true)}>
+                  <PanelLeftClose size={18} />
+                </IconButton>
+              ) : (
+                <Box sx={{ width: 40 }} />
+              )}
+              {status && getStatusIcon(status) && (
                 <Chip
-                  label={experimentData.tool_name}
+                  icon={getStatusIcon(status) as React.ReactElement}
+                  label={status.charAt(0).toUpperCase() + status.slice(1)}
+                  color={getStatusColor(status) as any}
+                  variant="outlined"
                   size="small"
-                  sx={{
-                    bgcolor: 'primary.light',
-                    color: 'white',
-                    fontWeight: 600,
-                    height: 24,
-                  }}
                 />
               )}
-            </Box>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              {selectedRunId ? (
-                <>Viewing results for run <code>{selectedRunId.substring(0, 12)}...</code></>
-              ) : (
-                'Select a run from the sidebar to view results'
-              )}
-            </Typography>
-
-          {/* Status Chip and Copy Link */}
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            {status && getStatusIcon(status) && (
-              <Chip
-                icon={getStatusIcon(status) as React.ReactElement}
-                label={status.charAt(0).toUpperCase() + status.slice(1)}
-                color={getStatusColor(status) as any}
-                variant="outlined"
-              />
-            )}
-
-            {isPolling && (
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Polling for updates...
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {selectedRunId ? `Run ${selectedRunId.substring(0, 12)}...` : 'No run selected'}
               </Typography>
-            )}
+            </Box>
+          </Box>
 
-            <Tooltip title="Copy job link">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', '& .MuiButton-root': { py: 0.8 } }}>
+            <Tooltip title="Copy this URL to bookmark and access results later">
               <Button
-                startIcon={<Copy size={16} />}
-                variant="outlined"
                 size="small"
+                variant="outlined"
+                startIcon={<Copy size={16} />}
                 onClick={copyLink}
               >
                 Copy Link
@@ -497,160 +618,129 @@ const FocusPage: React.FC = () => {
             </Tooltip>
 
             {status === 'finished' && (
-              <>
-                <Tooltip title={isInBasket ? 'Remove from comparison' : 'Add to comparison'}>
-                  <Button
-                    startIcon={isInBasket ? <Check size={16} /> : <Plus size={16} />}
-                    variant={isInBasket ? 'contained' : 'outlined'}
-                    size="small"
-                    onClick={handleAddToCompare}
-                    color={isInBasket ? 'success' : 'primary'}
-                  >
-                    {isInBasket ? 'In Comparison' : 'Add to Compare'}
-                  </Button>
-                </Tooltip>
-
-              </>
+              <Tooltip title={isInBasket ? 'Remove this result from the comparing' : 'Add this result to for comparing'}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color={isInBasket ? 'success' : 'primary'}
+                  startIcon={isInBasket ? <Check size={18} /> : <Plus size={18} />}
+                  onClick={handleAddToCompare}
+                >
+                  {isInBasket ? 'Remove' : 'Add to Compare'}
+                </Button>
+              </Tooltip>
             )}
+
+            {status === 'finished' && (
+              <ExportMenu
+                onDownloadSvg={handleDownloadSVG}
+                onDownloadUmap={handleDownloadUmap}
+                onDownloadCsv={handleDownloadCsv}
+                isExporting={isExporting}
+                isExportingUmap={isExportingUmap}
+                isExportingCsv={isExportingCsv}
+              />
+            )}
+            <Tooltip title="Learn about the features on this page">
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => navigate('/how-to-use#single-method-result-exploration')}
+                sx={{ textTransform: 'none', fontSize: '0.8125rem' }}
+              >
+                User Guide
+              </Button>
+            </Tooltip>
           </Box>
-
-          {/* Share Instructions */}
-          {status && (status === 'queued' || status === 'running') && (
-            <Alert severity="info" sx={{ mt: 3 }}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-                Job is processing...
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                You can share or bookmark the link above to check back on progress anytime. The link remains valid until
-                the job completes.
-              </Typography>
-            </Alert>
-          )}
-
-          {status === 'finished' && (
-            <Alert severity="success" sx={{ mt: 3 }}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-                Job completed successfully!
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                Results are displayed below. You can bookmark this link to revisit results anytime.
-              </Typography>
-            </Alert>
-          )}
-
-          {status === 'failed' && (
-            <Alert severity="error" sx={{ mt: 3 }}>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Job failed to complete
-              </Typography>
-            </Alert>
-          )}
         </Box>
 
-        <Divider sx={{ my: 4 }} />
-
-        {/* Results Section */}
-        {status === 'finished' && result ? (
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Results
+        {/* Content area with scroll */}
+        <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
+          {status === 'failed' && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                Job failed to complete. Please try again or contact support if the problem persists.
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
-                <Tooltip title="Rotate 90°">
-                  <IconButton size="small" onClick={() => setRotation((prev) => (prev + 90) % 360)}>
-                    <RotateCw size={18} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Mirror Horizontal">
-                  <IconButton
-                    size="small"
-                    onClick={() => setMirrorX((prev) => !prev)}
-                    sx={{ color: mirrorX ? 'primary.main' : 'inherit' }}
-                  >
-                    <FlipHorizontal size={18} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Mirror Vertical">
-                  <IconButton
-                    size="small"
-                    onClick={() => setMirrorY((prev) => !prev)}
-                    sx={{ color: mirrorY ? 'primary.main' : 'inherit' }}
-                  >
-                    <FlipVertical size={18} />
-                  </IconButton>
-                </Tooltip>
+            </Alert>
+          )}
+
+          {status === 'finished' && result ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Results
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
+                  <Tooltip title="Rotate 90°">
+                    <IconButton size="small" onClick={() => setRotation((prev) => (prev + 90) % 360)}>
+                      <RotateCw size={18} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Mirror Horizontal">
+                    <IconButton
+                      size="small"
+                      onClick={() => setMirrorX((prev) => !prev)}
+                      sx={{ color: mirrorX ? 'primary.main' : 'inherit' }}
+                    >
+                      <FlipHorizontal size={18} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Mirror Vertical">
+                    <IconButton
+                      size="small"
+                      onClick={() => setMirrorY((prev) => !prev)}
+                      sx={{ color: mirrorY ? 'primary.main' : 'inherit' }}
+                    >
+                      <FlipVertical size={18} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Box>
+              <Box sx={{ flex: 1, minHeight: 0 }}>
+                <SpatialPlot
+                  result={result}
+                  metrics={metrics}
+                  title=""
+                  rotation={rotation}
+                  mirrorX={mirrorX}
+                  mirrorY={mirrorY}
+                  runId={selectedRunId || ''}
+                  accessToken={accessToken}
+                  hasHistology={result?.has_histology}
+                />
               </Box>
             </Box>
-            <SpatialPlot
-              result={result}
-              metrics={metrics}
-              title="Spatial Domain Analysis"
-              height={600}
-              rotation={rotation}
-              mirrorX={mirrorX}
-              mirrorY={mirrorY}
-              runId={selectedRunId || ''}
-              accessToken={accessToken}
-              hasHistology={result?.has_histology}
-            />
-
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
-                Downloads
+          ) : status === 'queued' || status === 'running' ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <CircularProgress size={56} sx={{ mb: 3 }} />
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
+                {status === 'queued' ? 'Job is queued' : 'Job is running'}
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-                <Button
-                  startIcon={<DownloadIcon size={16} />}
-                  variant="outlined"
-                  onClick={handleDownloadSVG}
-                  disabled={isExporting}
-                >
-                  {isExporting ? 'Downloading...' : 'Download Spatial Plot'}
-                </Button>
-                <Button
-                  startIcon={<DownloadIcon size={16} />}
-                  variant="outlined"
-                  onClick={handleDownloadUmap}
-                  disabled={isExportingUmap}
-                >
-                  {isExportingUmap ? 'Downloading...' : 'Download UMAP'}
-                </Button>
-              </Box>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                {status === 'queued'
+                  ? 'Your job is waiting to be processed. This page will update automatically.'
+                  : 'Your job is being processed. This page will update automatically.'}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Checking for updates every 5 seconds...
+              </Typography>
             </Box>
-          </Box>
-        ) : status === 'queued' || status === 'running' ? (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <CircularProgress size={56} sx={{ mb: 3 }} />
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-              {status === 'queued' ? 'Job is queued' : 'Job is running'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              {status === 'queued'
-                ? 'Your job is waiting to be processed. This page will update automatically.'
-                : 'Your job is being processed. This page will update automatically.'}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Checking for updates every 5 seconds...
-            </Typography>
-          </Box>
-        ) : status === 'failed' ? (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <AlertCircle size={56} style={{ color: '#EF4444', marginBottom: 24 }} />
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-              Job Failed
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              The job encountered an error during processing. Please try again or contact support if the problem
-              persists.
-            </Typography>
-            <Button variant="contained" href="/">
-              Create New Job
-            </Button>
-          </Box>
-        ) : null}
-
-        </Container>
+          ) : status === 'failed' ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <AlertCircle size={56} style={{ color: '#EF4444', marginBottom: 24 }} />
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
+                Job Failed
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                The job encountered an error during processing. Please try again or contact support if the problem
+                persists.
+              </Typography>
+              <Button variant="contained" href="/">
+                Create New Job
+              </Button>
+            </Box>
+          ) : null}
+        </Box>
         <FloatingCompareBar />
       </Box>
     </Box>
