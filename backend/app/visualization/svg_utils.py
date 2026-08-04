@@ -10,8 +10,6 @@ from matplotlib.figure import Figure
 
 def configure_svg_defaults() -> None:
     plt.rcParams["svg.fonttype"] = "none"
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.size"] = 11
 
 
 def save_svg(fig: Figure, path: Path) -> None:
@@ -19,12 +17,19 @@ def save_svg(fig: Figure, path: Path) -> None:
     fig.savefig(path, format="svg", dpi=300, bbox_inches="tight")
 
 
-def save_svg_to_string(fig: Figure) -> str:
+def save_svg_to_string(fig: Figure, dpi: int = 600) -> str:
     configure_svg_defaults()
     buffer = BytesIO()
-    fig.savefig(buffer, format="svg", dpi=300, bbox_inches="tight")
+    fig.savefig(buffer, format="svg", dpi=dpi, bbox_inches="tight")
     buffer.seek(0)
     return buffer.read().decode("utf-8")
+
+
+def save_svg_to_pdf(fig: Figure, dpi: int) -> bytes:
+    buffer = BytesIO()
+    fig.savefig(buffer, format="pdf", dpi=dpi, bbox_inches="tight")
+    buffer.seek(0)
+    return buffer.read()
 
 
 def embed_svg_metadata(svg_string: str, metadata: Dict[str, Any]) -> str:

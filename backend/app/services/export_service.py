@@ -24,8 +24,11 @@ from app.utils.consensus import (
     build_label_matrix,
     compute_consensus_and_confidence
 )
-from app.utils.svg_export import SpatialPlotExporter, create_zip_export
-from app.utils.umap_export import UmapPlotExporter
+from app.visualization.plot_export import (
+    export_spatial_plot_svg,
+    export_umap_svg,
+    create_zip_export
+)
 from app.visualization.metric_plots import create_metric_boxplot
 from app.visualization.svg_utils import save_svg
 
@@ -49,8 +52,7 @@ def export_spatial_plot(
     db: Session,
     run_id: str,
     token: str,
-    include_metadata: bool = True,
-    bundle: bool = False
+    include_metadata: bool = True
 ) -> Tuple[bytes, str, str]:
 
     run = require_run_with_access(db, run_id, token)
@@ -64,34 +66,21 @@ def export_spatial_plot(
     spots = frontend_result.get("spots", [])
     domains = frontend_result.get("domains", [])
 
-    # Initialize exporter
-    exporter = SpatialPlotExporter(
+    # Generate SVG + PDF bytes
+    svg_content, pdf_bytes, metadata = export_spatial_plot_svg(
         run_id=run_id,
         tool_name=run_context.tool_name,
         parameters=run_context.params,
-        dataset_id=run_context.dataset_id
-    )
-
-    # Generate SVG
-    svg_content = exporter.generate_svg(
+        dataset_id=run_context.dataset_id,
         spots=spots,
         domains=domains,
         include_metadata=include_metadata
     )
 
-    # Return appropriate format
-    if bundle and include_metadata:
-        metadata = exporter.generate_metadata_json()
-        zip_data = create_zip_export(run_id, svg_content, metadata)
-        filename = f"run_{run_id}_export.zip"
+    zip_data = create_zip_export(svg_content=svg_content, pdf_bytes=pdf_bytes, filename=f"prediction_{run_id}")
+    filename = f"prediction_{run_id}_export.zip"
 
-        return zip_data, "application/zip", filename
-    else:
-        # Return SVG only
-        svg_bytes = svg_content.encode("utf-8")
-        filename = f"run_{run_id}.svg"
-
-        return svg_bytes, "image/svg+xml", filename
+    return zip_data, "application/zip", filename
 
 
 def export_umap(
@@ -121,25 +110,21 @@ def export_umap(
     prediction_df.sort_index(inplace=True)
 
 
-    # Initialize UMAP exporter
-    umap_exporter = UmapPlotExporter(
+    # Generate UMAP SVG + PDF bytes
+    svg_content, pdf_bytes, metadata = export_umap_svg(
         run_id=run_id,
         tool_name=run_context.tool_name,
-        parameters=run_context.params
-    )
-
-    # Generate UMAP SVG
-    svg_content = umap_exporter.generate_umap_svg(
+        parameters=run_context.params,
         embeddings=embeddings_df.values,
         domains=prediction_df["domain"].values,
         colors=prediction_df["color"].values,
         include_metadata=True
     )
 
-    svg_bytes = svg_content.encode("utf-8")
-    filename = f"run_{run_id}_umap.svg"
+    zip_data = create_zip_export(svg_content=svg_content, pdf_bytes=pdf_bytes, filename=f"umap_{run_id}")
+    filename = f"umap_{run_id}_export.zip"
 
-    return svg_bytes, "image/svg+xml", filename
+    return zip_data, "application/zip", filename
 
 
 def export_metric_boxplots_zip(

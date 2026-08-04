@@ -1,7 +1,9 @@
-import colorsys
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+import glasbey
+import numpy as np
+import spaco
 from PIL import Image
 
 
@@ -62,17 +64,24 @@ class SpatialDataset(ABC):
         domain_ids = sorted({s["domain"] for s in spots})
         n = len(domain_ids)
 
-        color_map = {}
-        for i, domain_id in enumerate(domain_ids):
-            hue = i / max(1, n)
-            r, g, b = colorsys.hsv_to_rgb(hue, 0.65, 0.95)
-            color_map[domain_id] = "#{:02X}{:02X}{:02X}".format(
-                int(r * 255),
-                int(g * 255),
-                int(b * 255),
-            )
+        palette = glasbey.create_palette(
+            palette_size=n,
+            colorblind_safe=True,
+            lightness_bounds=(25, 75)
+        )
 
-        return color_map
+        cell_coordinates = np.array([[s["x"], s["y"]] for s in spots])
+        cell_labels = np.array([s["domain"] for s in spots])
+
+        # Step 3: Optimally assign colors using spatial proximity
+        return spaco.colorize(
+            cell_coordinates=cell_coordinates,
+            cell_labels=cell_labels,
+            colorblind_type="none",
+            palette=list(palette),
+            radius=50,
+            n_neighbors=30,
+        )
 
     def get_color_mapped_domain(self, spots: list) -> list:
         color_map = self.generate_domain_colors(spots)
