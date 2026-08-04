@@ -163,17 +163,23 @@ export async function fetchOverlayDomainMapData(
   return res.data as OverlayDomainMapResponse;
 }
 
+export interface BestRunResponse {
+  run_id: string;
+  result: ExperimentResult;
+  metrics: ExperimentMetrics;
+}
+
 export async function fetchBestRunResult(
   experimentId: string,
   datasetId: string,
   token: string,
-): Promise<ExperimentResult> {
+): Promise<BestRunResponse> {
   const res = await axios.post(`/experiments/best-run`, {
     experiment_id: experimentId,
     dataset_id: datasetId,
     token,
   });
-  return res.data as ExperimentResult;
+  return res.data as BestRunResponse;
 }
 
 export async function fetchAllExperimentRunMetrics(

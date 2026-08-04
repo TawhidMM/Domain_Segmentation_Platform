@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Box, Container, Typography, Chip, Button, CircularProgress, Tabs, Tab } from '@mui/material';
 import {
   GridView,
-  Download as DownloadIcon,
   BarChart as BarChartIcon,
   TableChart as TableChartIcon,
   MapOutlined as MapIcon,
@@ -134,7 +133,7 @@ const ComparePageContent: React.FC = () => {
     id: expId,
     token: tokens[index],
     result: bestRunState[expId]?.result || null,
-    metrics: null,
+    metrics: bestRunState[expId]?.metrics || null,
     isLoading: bestRunState[expId]?.isLoading || false,
     error: bestRunState[expId]?.error || null,
     errorCode: bestRunState[expId]?.errorCode,
@@ -311,13 +310,11 @@ const ComparePageContent: React.FC = () => {
                           <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
                             {exp.result?.toolName}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', mb: 2, display: 'block' }}>
-                            Best run spatial plot
-                          </Typography>
                           <SpatialPlot
                             result={exp.result}
+                            metrics={exp.metrics}
                             title={exp.result?.toolName}
-                            height={350}
+                            height={500}
                             showLegend={false}
                             compact
                           />
