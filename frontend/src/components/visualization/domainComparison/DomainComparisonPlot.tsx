@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
+import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationGuard';
 import { Data, Layout, Config, PlotMouseEvent } from 'plotly.js';
 import { Box, Paper, Typography } from '@mui/material';
 import { DomainComparisonResponse } from './types';
@@ -210,16 +211,18 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
         bgcolor: '#FAFAFA',
       }}
     >
-      <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'white' }}>
-        <Plot
-          data={plotData}
-          layout={layout}
-          config={config}
-          onClick={handleClick}
-          useResizeHandler
-          style={{ width: '100%', height: '560px' }}
-        />
-      </Box>
+      <HardwareAccelerationGuard>
+        <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'white' }}>
+          <Plot
+            data={plotData}
+            layout={layout}
+            config={config}
+            onClick={handleClick}
+            useResizeHandler
+            style={{ width: '100%', height: '560px' }}
+          />
+        </Box>
+      </HardwareAccelerationGuard>
 
       <Paper
         variant="outlined"

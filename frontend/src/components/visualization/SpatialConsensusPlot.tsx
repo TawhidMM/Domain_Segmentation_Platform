@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
+import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationGuard';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { Data, Layout, Config } from 'plotly.js';
 import { getDomainColor } from '@/lib/colorMaps';
@@ -204,9 +205,11 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
   }
 
   return (
-    <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden' }}>
-      <Plot data={plotData} layout={layout} config={config} />
-    </Box>
+    <HardwareAccelerationGuard>
+      <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden' }}>
+        <Plot data={plotData} layout={layout} config={config} />
+      </Box>
+    </HardwareAccelerationGuard>
   );
 };
 

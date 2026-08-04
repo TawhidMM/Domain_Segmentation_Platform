@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import Plot from 'react-plotly.js';
+import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationGuard';
 import { Box, Typography, CircularProgress, Slider, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { ExperimentMetrics, ExperimentResult } from '@/types';
 import { Data, Layout, Config } from 'plotly.js';
@@ -492,21 +493,23 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
           </Typography>
         )}
       </Box>
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          position: 'relative',
-        }}
-      >
-        <Plot
-          data={plotData}
-          layout={layout}
-          config={config}
-          style={{ width: '100%', height: '100%', minHeight: 0, position: 'absolute', top: 0, left: 0 }}
-          useResizeHandler
-        />
-      </Box>
+      <HardwareAccelerationGuard>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            position: 'relative',
+          }}
+        >
+          <Plot
+            data={plotData}
+            layout={layout}
+            config={config}
+            style={{ width: '100%', height: '100%', minHeight: 0, position: 'absolute', top: 0, left: 0 }}
+            useResizeHandler
+          />
+        </Box>
+      </HardwareAccelerationGuard>
     </Box>
   );
 };

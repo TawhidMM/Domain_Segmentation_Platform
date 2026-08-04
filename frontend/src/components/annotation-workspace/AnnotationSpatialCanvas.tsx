@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 import DeckGL, { DeckGLRef } from '@deck.gl/react';
+import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationGuard';
 import { BitmapLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { OrthographicView } from '@deck.gl/core';
 import { Box, Typography } from '@mui/material';
@@ -347,31 +348,33 @@ const AnnotationSpatialCanvas: React.FC<AnnotationSpatialCanvasProps> = ({
       onMouseUp={onPointerUp}
       onMouseLeave={(event) => onPointerLeave(buildPointerPayload(event))}
     >
-      {canRenderDeck && (
-        <DeckGL
-          ref={deckRef}
-          width={containerSize.width}
-          height={containerSize.height}
-          layers={layers}
-          views={new OrthographicView({ id: 'annotation-ortho-view' })}
-          viewState={viewState}
-          controller={isPanMode}
-          getCursor={({ isDragging }) => {
-            if (!isPanMode) {
-              return 'none';
-            }
+      <HardwareAccelerationGuard title="Annotation canvas unavailable">
+        {canRenderDeck && (
+          <DeckGL
+            ref={deckRef}
+            width={containerSize.width}
+            height={containerSize.height}
+            layers={layers}
+            views={new OrthographicView({ id: 'annotation-ortho-view' })}
+            viewState={viewState}
+            controller={isPanMode}
+            getCursor={({ isDragging }) => {
+              if (!isPanMode) {
+                return 'none';
+              }
 
-            return isDragging ? 'grabbing' : 'grab';
-          }}
-          onError={(error) => {
-            const message = error instanceof Error ? error.message : 'Unknown Deck.gl error';
-            setDeckError(message);
-          }}
-          onViewStateChange={({ viewState: nextViewState }) => {
-            setViewState(nextViewState as DeckViewState);
-          }}
-        />
-      )}
+              return isDragging ? 'grabbing' : 'grab';
+            }}
+            onError={(error) => {
+              const message = error instanceof Error ? error.message : 'Unknown Deck.gl error';
+              setDeckError(message);
+            }}
+            onViewStateChange={({ viewState: nextViewState }) => {
+              setViewState(nextViewState as DeckViewState);
+            }}
+          />
+        )}
+      </HardwareAccelerationGuard>
 
       {deckError && (
         <Box
