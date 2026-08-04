@@ -26,7 +26,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   result,
   metrics,
   title,
-  height = 500,
+  height,
   showLegend = true,
   compact = false,
   rotation = 0,
@@ -142,7 +142,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   }, [loadedHistologyImage, histologySize, rotation, mirrorX, mirrorY, loadedHistologyUrl]);
 
   const formatMetric = (value?: number | null) => (value === null || value === undefined ? '—' : value.toFixed(3));
-  const containerHeight = height ?? 500;
+  const containerHeight = height;
   const canShowHistology = hasHistology && histologyStatus === 'loaded' && !!loadedHistologyUrl && !!histologySize;
   const effectiveMode: HistologyMode = canShowHistology ? histologyMode : 'spots';
   const showImage = canShowHistology && (effectiveMode === 'overlay' || effectiveMode === 'histology');
@@ -356,15 +356,15 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
     return (
       <Box
         sx={{
-          height: containerHeight,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#FAFAFA',
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: 'divider',
+        height: containerHeight ?? 200,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FAFAFA',
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
         }}
       >
         <CircularProgress size={40} sx={{ mb: 2 }} />
@@ -384,7 +384,8 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         borderColor: 'divider',
         bgcolor: 'white',
         width: '100%',
-        height: '100%',
+        height: containerHeight ? `${containerHeight}px` : '100%',
+        minHeight: containerHeight ?? 200,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -417,82 +418,76 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
           Geary's C: <b>{formatMetric(metrics?.gearys_C)}</b>
         </Typography>
       </Box>
-      <Box
-        sx={{
-          px: compact ? 1.5 : 2,
-          py: 1,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'white',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 2,
-          alignItems: 'center',
-        }}
-      >
-        {hasHistology ? (
-          <>
-            <ToggleButtonGroup
+      {hasHistology && (
+        <Box
+          sx={{
+            px: compact ? 1.5 : 2,
+            py: 1,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'white',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 2,
+            alignItems: 'center',
+          }}
+        >
+          <ToggleButtonGroup
+            size="small"
+            value={histologyMode}
+            exclusive
+            onChange={(_, value: HistologyMode | null) => {
+              if (value) {
+                setHistologyMode(value);
+              }
+            }}
+            sx={{
+              '& .MuiToggleButton-root': {
+                textTransform: 'none',
+                px: 1.5,
+                py: 0.5,
+                fontSize: '0.75rem',
+              },
+            }}
+          >
+            <ToggleButton value="spots">Spots</ToggleButton>
+            <ToggleButton value="histology">Histology</ToggleButton>
+            <ToggleButton value="overlay">Overlay</ToggleButton>
+          </ToggleButtonGroup>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 200 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Overlay opacity
+            </Typography>
+            <Slider
               size="small"
-              value={histologyMode}
-              exclusive
-              onChange={(_, value: HistologyMode | null) => {
-                if (value) {
-                  setHistologyMode(value);
+              min={0}
+              max={1}
+              step={0.05}
+              value={overlayOpacity}
+              onChange={(_, value) => {
+                if (typeof value === 'number') {
+                  setOverlayOpacity(value);
                 }
               }}
-              sx={{
-                '& .MuiToggleButton-root': {
-                  textTransform: 'none',
-                  px: 1.5,
-                  py: 0.5,
-                  fontSize: '0.75rem',
-                },
-              }}
-            >
-              <ToggleButton value="spots">Spots</ToggleButton>
-              <ToggleButton value="histology">Histology</ToggleButton>
-              <ToggleButton value="overlay">Overlay</ToggleButton>
-            </ToggleButtonGroup>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 200 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Overlay opacity
-              </Typography>
-              <Slider
-                size="small"
-                min={0}
-                max={1}
-                step={0.05}
-                value={overlayOpacity}
-                onChange={(_, value) => {
-                  if (typeof value === 'number') {
-                    setOverlayOpacity(value);
-                  }
-                }}
-                disabled={histologyMode !== 'overlay'}
-                sx={{ width: 140 }}
-              />
-              <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 36 }}>
-                {overlayOpacity.toFixed(2)}
-              </Typography>
-            </Box>
-            {histologyStatus === 'loading' && (
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Loading histology...
-              </Typography>
-            )}
-            {histologyStatus === 'error' && (
-              <Typography variant="caption" sx={{ color: 'error.main' }}>
-                Histology image unavailable.
-              </Typography>
-            )}
-          </>
-        ) : (
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Histology image not available for this dataset.
-          </Typography>
-        )}
-      </Box>
+              disabled={histologyMode !== 'overlay'}
+              sx={{ width: 140 }}
+            />
+            <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 36 }}>
+              {overlayOpacity.toFixed(2)}
+            </Typography>
+          </Box>
+          {histologyStatus === 'loading' && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Loading histology...
+            </Typography>
+          )}
+          {histologyStatus === 'error' && (
+            <Typography variant="caption" sx={{ color: 'error.main' }}>
+              Histology image unavailable.
+            </Typography>
+          )}
+        </Box>
+      )}
       <HardwareAccelerationGuard>
         <Box
           sx={{

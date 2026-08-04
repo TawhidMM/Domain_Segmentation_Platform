@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ExperimentResult } from '@/types';
+import { ExperimentMetrics, ExperimentResult } from '@/types';
 import { fetchAllExperimentRunMetrics, fetchBestRunResult } from '@/services/experimentService';
 
 export interface ExperimentBestRunData {
   experimentId: string;
   result: ExperimentResult | null;
+  metrics: ExperimentMetrics | null;
   bestRunId: string | null;
   totalRuns: number;
   isLoading: boolean;
@@ -53,6 +54,7 @@ export function useMultiExperimentBestRuns(
       initialBestRunState[expId] = {
         experimentId: expId,
         result: null,
+        metrics: null,
         bestRunId: null,
         totalRuns: 0,
         isLoading: true,
@@ -79,6 +81,7 @@ export function useMultiExperimentBestRuns(
           [experimentId]: {
             experimentId,
             result: null,
+            metrics: null,
             bestRunId: null,
             totalRuns: 0,
             isLoading: false,
@@ -104,21 +107,22 @@ export function useMultiExperimentBestRuns(
       }
 
       try {
-        const [result, metrics] = await Promise.all([
+        const [bestRunResponse, allRunsMetrics] = await Promise.all([
           fetchBestRunResult(experimentId, datasetId, token),
           fetchAllExperimentRunMetrics(experimentId, token),
         ]);
 
         if (!isMountedRef.current) return;
 
-        const bestRunId = result?.jobId || null;
-        const totalRuns = metrics?.runs?.length || 0;
+        const bestRunId = bestRunResponse?.run_id || null;
+        const totalRuns = allRunsMetrics?.runs?.length || 0;
 
         setBestRunState((prev) => ({
           ...prev,
           [experimentId]: {
             experimentId,
-            result,
+            result: bestRunResponse?.result || null,
+            metrics: bestRunResponse?.metrics || null,
             bestRunId,
             totalRuns,
             isLoading: false,
@@ -130,7 +134,7 @@ export function useMultiExperimentBestRuns(
           ...prev,
           [experimentId]: {
             experimentId,
-            metricsData: metrics,
+            metricsData: allRunsMetrics,
             isLoading: false,
             error: null,
           },
@@ -154,6 +158,7 @@ export function useMultiExperimentBestRuns(
           [experimentId]: {
             experimentId,
             result: null,
+            metrics: null,
             bestRunId: null,
             totalRuns: 0,
             isLoading: false,
