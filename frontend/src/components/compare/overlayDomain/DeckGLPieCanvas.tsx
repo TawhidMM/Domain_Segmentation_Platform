@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import DeckGL from '@deck.gl/react';
+import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationGuard';
 import { OrthographicView, PickingInfo } from '@deck.gl/core';
 import { Box } from '@mui/material';
 import createDeckGLPieLayer, { DeckGLPieDatum } from './DeckGLPieLayer';
@@ -152,17 +153,19 @@ const DeckGLPieCanvas: React.FC<DeckGLPieCanvasProps> = ({
         overflow: 'hidden',
       }}
     >
-      {viewState && (
-        <DeckGL
-          layers={[layer]}
-          views={new OrthographicView({ id: 'overlay-domain-ortho' })}
-          controller
-          viewState={viewState}
-          onViewStateChange={({ viewState: nextViewState }) => {
-            setViewState(nextViewState as DeckViewState);
-          }}
-        />
-      )}
+      <HardwareAccelerationGuard>
+        {viewState && (
+          <DeckGL
+            layers={[layer]}
+            views={new OrthographicView({ id: 'overlay-domain-ortho' })}
+            controller
+            viewState={viewState}
+            onViewStateChange={({ viewState: nextViewState }) => {
+              setViewState(nextViewState as DeckViewState);
+            }}
+          />
+        )}
+      </HardwareAccelerationGuard>
     </Box>
   );
 };
