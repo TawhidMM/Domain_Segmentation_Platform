@@ -53,7 +53,6 @@ def export_experiment(
     token: str = Query(...),
     format: str = Query("svg"),
     include_metadata: bool = Query(True),
-    bundle: bool = Query(False),
     db: Session = Depends(get_db)
 ):
     """Export spatial plot as SVG."""
@@ -67,8 +66,7 @@ def export_experiment(
         db=db,
         run_id=run_id,
         token=token,
-        include_metadata=include_metadata,
-        bundle=bundle
+        include_metadata=include_metadata
     )
 
     return StreamingResponse(

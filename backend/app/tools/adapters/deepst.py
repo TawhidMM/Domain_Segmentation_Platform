@@ -50,7 +50,7 @@
 #         has_histology = histology_path is not None
 #
 #         return {
-#             "jobId": self.run_context.run_id,
+#             "runId": self.run_context.run_id,
 #             "toolName": self.run_context.tool_name,
 #             "spots": spots,
 #             "domains": domains,

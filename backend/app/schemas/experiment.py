@@ -100,3 +100,38 @@ class DomainComparisonItem(BaseModel):
 
 class DomainComparisonRequest(BaseModel):
     experiments: List[DomainComparisonItem]
+
+
+
+class SpotData(BaseModel):
+    barcode: str
+    x: float
+    y: float
+    domain: int
+
+
+class DomainData(BaseModel):
+    domain_id: int
+    color: str
+
+
+class PredictionResult(BaseModel):
+    runId: str
+    toolName: str
+    spots: List[SpotData]
+    domains: List[DomainData]
+    has_histology: bool = False
+
+
+class PredictionMetrics(BaseModel):
+    silhouette: float
+    davies_bouldin: float
+    calinski_harabasz: float
+    morans_I: float
+    gearys_C: float
+
+
+class BestRunResponse(BaseModel):
+    run_id: str
+    result: PredictionResult
+    metrics: PredictionMetrics

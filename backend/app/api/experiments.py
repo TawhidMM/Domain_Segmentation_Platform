@@ -1,10 +1,7 @@
-import base64
 import json
 from io import BytesIO
-from typing import Any, List
-from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request, BackgroundTasks, status
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -18,6 +15,7 @@ from app.schemas.comparison import (
     ExperimentMetricsRequest,
 )
 from app.schemas.experiment import (
+    BestRunResponse,
     DomainComparisonItem,
     ExperimentRequest,
     ExperimentSubmitRequest,
@@ -36,96 +34,6 @@ from app.tasks.experiment_tasks import run_task
 from app.tasks.result_processing_task import process_imported_results
 
 router = APIRouter()
-
-
-def _decode_compare_payload(encoded: str) -> Any:
-    if not encoded:
-        raise HTTPException(status_code=400, detail="Missing comparison create_request")
-
-    try:
-        padded = encoded + "=" * (-len(encoded) % 4)
-        decoded = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
-        return json.loads(decoded)
-    except Exception:
-        try:
-            return json.loads(unquote(encoded))
-        except Exception as exc:
-            raise HTTPException(status_code=400, detail="Invalid comparison create_request") from exc
-
-
-def _extract_compare_items(payload: Any) -> List[dict]:
-    items: List[dict] = []
-
-    if isinstance(payload, list):
-        items = payload
-    elif isinstance(payload, dict):
-        if "experiments" in payload and isinstance(payload["experiments"], list):
-            items = payload["experiments"]
-        elif "jobs" in payload and "tokens" in payload:
-            jobs = payload.get("jobs") or []
-            tokens = payload.get("tokens") or []
-            items = [
-                {"experiment_id": experiment_id, "token": token}
-                for experiment_id, token in zip(jobs, tokens)
-            ]
-        elif "experiment_ids" in payload and "tokens" in payload:
-            jobs = payload.get("experiment_ids") or []
-            tokens = payload.get("tokens") or []
-            items = [
-                {"experiment_id": experiment_id, "token": token}
-                for experiment_id, token in zip(jobs, tokens)
-            ]
-        elif "runs" in payload and "tokens" in payload:
-            runs = payload.get("runs") or []
-            tokens = payload.get("tokens") or []
-            items = [
-                {"run_id": run_id, "token": token}
-                for run_id, token in zip(runs, tokens)
-            ]
-        elif "runIds" in payload and "tokens" in payload:
-            runs = payload.get("runIds") or []
-            tokens = payload.get("tokens") or []
-            items = [
-                {"run_id": run_id, "token": token}
-                for run_id, token in zip(runs, tokens)
-            ]
-        else:
-            items = [payload]
-    else:
-        raise HTTPException(status_code=400, detail="Invalid comparison create_request format")
-
-    normalized = []
-    for item in items:
-        if not isinstance(item, dict):
-            raise HTTPException(status_code=400, detail="Invalid experiment item in create_request")
-
-        experiment_id = (
-            item.get("experiment_id")
-            or item.get("experimentId")
-            or item.get("job_id")
-            or item.get("jobId")
-        )
-        run_id = item.get("run_id") or item.get("runId") or item.get("id")
-        token = item.get("token") or item.get("access_token")
-        label = item.get("label") or item.get("name")
-
-        if (not run_id and not experiment_id) or not token:
-            raise HTTPException(
-                status_code=400,
-                detail="Experiment item missing experiment_id/run_id or token"
-            )
-
-        normalized.append({
-            "experiment_id": experiment_id,
-            "run_id": run_id,
-            "token": token,
-            "label": label
-        })
-
-    return normalized
-
-
-
 
 
 @router.post("/submit", response_model=ExperimentSubmitResponse)
@@ -199,7 +107,7 @@ def delete(
     delete_experiment(db, request.experiment_id, request.token)
 
 
-@router.post("/best-run")
+@router.post("/best-run", response_model=BestRunResponse)
 def get_best_run_result(
     request: DomainComparisonItem,
     db: Session = Depends(get_db)
@@ -207,8 +115,13 @@ def get_best_run_result(
     best_run_context = metrics_service.select_best_run_for_experiment(db, request)
 
     result = json.loads(best_run_context.result_file.read_text())
+    metrics = json.loads(best_run_context.metrics_file.read_text())
 
-    return result
+    return BestRunResponse(
+        run_id=best_run_context.run_id,
+        result=result,
+        metrics=metrics,
+    )
 
 
 @router.post("/run-metrics")
@@ -225,32 +138,7 @@ def export_compare_metrics(
     format: str = Query("svg"),
     db: Session = Depends(get_db)
 ):
-    if format != "svg":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported format: {format}. Only 'svg' is supported."
-        )
-
-    payload = _decode_compare_payload(c)
-    items = _extract_compare_items(payload)
-
-    if len(items) < 2:
-        raise HTTPException(
-            status_code=400,
-            detail="At least two experiments are required for comparison export"
-        )
-
-    data, content_type, filename = export_service.export_compare_metrics(
-        db=db,
-        experiments=items,
-        format_type=format
-    )
-
-    return StreamingResponse(
-        BytesIO(data),
-        media_type=content_type,
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+    pass
 
 
 @router.post("/compare/consensus")
