@@ -2,6 +2,7 @@ fastapi
 uvicorn
 python-multipart
 pydantic
+httpx
 sqlalchemy>=2.0.0
 alembic>=1.13.0
 python-dotenv

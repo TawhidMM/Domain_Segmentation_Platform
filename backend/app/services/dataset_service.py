@@ -14,6 +14,7 @@ def create_dataset(
     upload_id: str,
     zip_path: str,
     dataset_name: Optional[str] = None,
+    technology: DatasetTechnology = DatasetTechnology.VISIUM,
 ) -> str:
 
     normalized_name = (dataset_name or "").strip()
@@ -25,7 +26,7 @@ def create_dataset(
         dataset_id=upload_id,
         dataset_name=normalized_name,
         zip_path=str(zip_path),
-        technology=DatasetTechnology.VISIUM,
+        technology=technology,
         created_at=datetime.now(timezone.utc)
     )
 

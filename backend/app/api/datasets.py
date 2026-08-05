@@ -1,29 +1,30 @@
-from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Request, status
+from celery.result import AsyncResult
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from app.core.celery import celery_app
 from app.core.database import get_db
+from app.core.sample_datasets import SAMPLE_DATASETS
 from app.core.storage_space import DatasetSpace
+from app.dataset.visium import VisiumDataset
 from app.repositories.dataset_repository import get_valid_dataset_ids, get_dataset_by_id
+from app.schemas.dataset import (
+    DownloadPhase,
+    DownloadProgressRequest,
+    DownloadProgressResponse,
+    SampleDownloadRequest,
+    UpdateDatasetNameRequest,
+)
 from app.schemas.experiment import DataSetRequest, DataSetRequests
 from app.services import spatial_data_service
 from app.services.dataset_service import create_dataset, delete_dataset, update_dataset_name
 from app.services.run_service import require_run_with_access, build_run_context
-from app.tasks.dataset_tasks import process_dataset_task
-from app.dataset.visium import VisiumDataset
+from app.tasks.dataset_tasks import download_sample_dataset_task
 
 router = APIRouter()
-
-
-class UpdateDatasetNameRequest(BaseModel):
-    dataset_name: str
-
-
 
 
 @router.get("/{dataset_id}/status")
@@ -41,6 +42,35 @@ async def get_dataset_status(
         "status": dataset.status.value,
         "error": dataset.error_message,
     }
+
+
+@router.post("/download-progress", response_model=DownloadProgressResponse)
+async def get_download_progress(
+    request: DownloadProgressRequest,
+):
+    result = AsyncResult(request.task_id, app=celery_app)
+
+    if result.state == "PROGRESS":
+        meta = result.result or {}
+        return DownloadProgressResponse(
+            dataset_id=request.dataset_id,
+            phase=DownloadPhase.DOWNLOADING,
+            percent=meta.get("percent"),
+            downloaded_bytes=meta.get("downloaded_bytes"),
+            total_bytes=meta.get("total_bytes"),
+        )
+
+    if result.state == "PENDING":
+        return DownloadProgressResponse(dataset_id=request.dataset_id, phase=DownloadPhase.PENDING)
+
+    if result.state == "FAILURE":
+        return DownloadProgressResponse(
+            dataset_id=request.dataset_id,
+            phase=DownloadPhase.FAILED,
+            error=str(result.result),
+        )
+
+    return DownloadProgressResponse(dataset_id=request.dataset_id, phase=DownloadPhase.HANDED_OFF)
 
 
 @router.patch("/{dataset_id}/name")
@@ -123,3 +153,38 @@ async def get_valid_datasets(
     valid_dataset_ids = get_valid_dataset_ids(db, dataset_requests.dataset_ids)
 
     return {"validIds": valid_dataset_ids}
+
+
+@router.post("/download-samples", status_code=status.HTTP_202_ACCEPTED)
+async def download_sample_datasets(
+    request: SampleDownloadRequest,
+    db: Session = Depends(get_db)
+):
+    samples = SAMPLE_DATASETS.get(request.technology, [])
+
+    results = []
+    for sample in samples:
+        dataset_id = str(uuid4())
+
+        create_dataset(
+            db,
+            upload_id=dataset_id,
+            zip_path=str(DatasetSpace(dataset_id).zip_path),
+            dataset_name=sample["name"],
+            technology=request.technology,
+        )
+
+        task = download_sample_dataset_task.delay(
+            dataset_id=dataset_id,
+            url=sample["url"],
+            dataset_name=sample["name"],
+        )
+
+        results.append({
+            "dataset_id": dataset_id,
+            "dataset_name": sample["name"],
+            "status": "processing",
+            "task_id": task.id,
+        })
+
+    return {"downloads": results}
