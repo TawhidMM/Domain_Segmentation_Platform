@@ -17,6 +17,7 @@ export interface DatasetStoreActions {
   validateDatasetsWithBackend: () => Promise<boolean>;
   isDatasetReady: () => boolean;
   resetDatasetState: () => void;
+  downloadSampleDatasets: (technology: string) => Promise<void>;
 }
 
 export type DatasetStore = DatasetStoreState & DatasetStoreActions;
