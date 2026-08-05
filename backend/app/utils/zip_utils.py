@@ -5,14 +5,7 @@ from pathlib import Path
 
 def extract_zip(zip_path: Path, target_dir: Path):
 
-    # if target_dir.exists() and any(target_dir.iterdir()):
-    #     return
-
     temp_extract_path = target_dir / f"tmp"
-
-    print(f"zip path : {zip_path}")
-    print(f"target path : {target_dir}")
-    print(f"temp extract path : {temp_extract_path}")
 
     try:
         if temp_extract_path.exists():
