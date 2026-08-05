@@ -55,3 +55,48 @@ export async function deleteDataset(datasetId: string): Promise<void> {
     data: { dataset_id: datasetId }
   });
 }
+
+
+export interface SampleDownloadItem {
+  dataset_id: string;
+  dataset_name: string;
+  status: string;
+  task_id: string;
+}
+
+export interface SampleDownloadResponse {
+  downloads: SampleDownloadItem[];
+}
+
+export async function downloadSampleDatasets(
+  technology: string
+): Promise<SampleDownloadResponse> {
+  const response = await axios.post<SampleDownloadResponse>(
+    '/datasets/download-samples',
+    { technology }
+  );
+  return response.data;
+}
+
+
+export type DownloadPhase = 'pending' | 'downloading' | 'handed_off' | 'failed';
+
+export interface DownloadProgressResponse {
+  dataset_id: string;
+  phase: DownloadPhase;
+  percent?: number;
+  downloaded_bytes?: number;
+  total_bytes?: number;
+  error?: string;
+}
+
+export async function getDownloadProgress(
+  datasetId: string,
+  taskId: string
+): Promise<DownloadProgressResponse> {
+  const response = await axios.post<DownloadProgressResponse>(
+    '/datasets/download-progress',
+    { dataset_id: datasetId, task_id: taskId }
+  );
+  return response.data;
+}

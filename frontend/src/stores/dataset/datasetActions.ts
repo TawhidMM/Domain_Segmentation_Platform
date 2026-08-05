@@ -1,5 +1,12 @@
 import { v4 as uuid4 } from 'uuid';
-import { uploadViaTus, updateDatasetName as updateDatasetNameApi, getDatasetStatus, deleteDataset } from '@/services/uploadService';
+import {
+  uploadViaTus,
+  updateDatasetName as updateDatasetNameApi,
+  getDatasetStatus,
+  deleteDataset,
+  downloadSampleDatasets as downloadSampleDatasetsApi,
+  getDownloadProgress,
+} from '@/services/uploadService';
 import { validateDatasetExistence } from '@/services/uploadService';
 import { DatasetItem } from '@/types';
 import type { DatasetStore, DatasetStoreState } from './datasetTypes';
@@ -201,6 +208,68 @@ async function uploadOne(
  }
 
 /**
+ * Poll a sample dataset download until it's handed off to extraction,
+ * then poll the dataset status until ready or failed.
+ */
+async function pollSampleDownload(
+  itemId: string,
+  datasetId: string,
+  taskId: string,
+  get: () => DatasetStore,
+  set: (partial: Partial<DatasetStoreState> | ((prev: DatasetStoreState) => Partial<DatasetStoreState>)) => void,
+) {
+  const intervalMs = 2000;
+
+  // Phase 1: Poll download progress until handed_off or failed
+  await new Promise<void>((resolve) => {
+    const timer = setInterval(async () => {
+      try {
+        const progress = await getDownloadProgress(datasetId, taskId);
+
+        set((prev) => ({
+          datasets: prev.datasets.map((d) =>
+            d.id === itemId
+              ? {
+                  ...d,
+                  uploadProgress: progress.percent ?? d.uploadProgress,
+                  error: progress.error || d.error,
+                }
+              : d
+          ),
+        }));
+
+        if (progress.phase === 'handed_off') {
+          clearInterval(timer);
+          set((prev) => ({
+            datasets: prev.datasets.map((d) =>
+              d.id === itemId
+                ? { ...d, status: 'PROCESSING' as const, uploadProgress: 100 }
+                : d
+            ),
+          }));
+          resolve();
+        } else if (progress.phase === 'failed') {
+          clearInterval(timer);
+          set((prev) => ({
+            datasets: prev.datasets.map((d) =>
+              d.id === itemId
+                ? { ...d, status: 'ERROR' as const, error: progress.error || 'Download failed' }
+                : d
+            ),
+          }));
+          resolve();
+        }
+      } catch {
+        // ignore transient poll errors
+      }
+    }, intervalMs);
+  });
+
+  // Phase 2: Poll dataset status until ready or failed
+  await pollDatasetStatus(itemId, datasetId, get, set);
+}
+
+/**
  * Validate persisted datasets against the backend.
  */
 export const validateDatasetsWithBackend = async (
@@ -360,5 +429,35 @@ export const createDatasetActions = (
       isQueueProcessing: false,
       uploadId: null,
     });
+  },
+
+  downloadSampleDatasets: async (technology: string) => {
+    try {
+      const response = await downloadSampleDatasetsApi(technology);
+
+      const newItems: DatasetItem[] = response.downloads.map((d) => ({
+        id: uuid4(),
+        fileName: d.dataset_name,
+        datasetName: d.dataset_name,
+        datasetId: d.dataset_id,
+        taskId: d.task_id,
+        size: 0,
+        uploadProgress: 0,
+        status: 'DOWNLOADING' as const,
+      }));
+
+      set((prev) => ({
+        datasets: [...prev.datasets, ...newItems],
+      }));
+
+      // Poll each download in parallel until handed_off, then poll status until ready/failed
+      await Promise.all(
+        newItems.map((item) =>
+          pollSampleDownload(item.id, item.datasetId!, item.taskId!, get, set)
+        )
+      );
+    } catch (err) {
+      console.error('Failed to download sample datasets:', err);
+    }
   },
 });

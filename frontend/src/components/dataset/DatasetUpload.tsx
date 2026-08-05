@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
-import { Box, Typography, Link, Alert } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Typography, Link, Alert, Button, CircularProgress } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { Download } from '@mui/icons-material';
 import { useDatasetStore } from '@/stores/dataset';
 import FileUploadCard from './FileUploadCard';
 import DatasetUploadTable from './DatasetUploadTable';
+import { DatasetTechnology } from '@/types/upload';
 
 const DatasetUpload: React.FC = () => {
   const datasets = useDatasetStore((state) => state.datasets);
@@ -11,8 +13,11 @@ const DatasetUpload: React.FC = () => {
   const retryUpload = useDatasetStore((state) => state.retryUpload);
   const removeUploadedDataset = useDatasetStore((state) => state.removeUploadedDataset);
   const updateDatasetName = useDatasetStore((state) => state.updateDatasetName);
+  const downloadSampleDatasets = useDatasetStore((state) => state.downloadSampleDatasets);
+  const [isDownloadingSamples, setIsDownloadingSamples] = useState(false);
 
   const isUploadInProgress = datasets.some((item) => item.status === 'UPLOADING');
+  const isSampleDownloadInProgress = datasets.some((item) => item.status === 'DOWNLOADING');
 
   useEffect(() => {
     if (isUploadInProgress) {
@@ -46,6 +51,28 @@ const DatasetUpload: React.FC = () => {
           readOnly={false}
           onFileSelect={uploadDataset}
         />
+
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={isDownloadingSamples || isSampleDownloadInProgress ? <CircularProgress size={16} /> : <Download />}
+            disabled={isDownloadingSamples || isSampleDownloadInProgress}
+            onClick={async () => {
+              setIsDownloadingSamples(true);
+              try {
+                await downloadSampleDatasets(DatasetTechnology.VISIUM);
+              } finally {
+                setIsDownloadingSamples(false);
+              }
+            }}
+          >
+            {isDownloadingSamples || isSampleDownloadInProgress
+              ? 'Downloading sample datasets...'
+              : 'Download Sample Datasets'}
+          </Button>
+        </Box>
+
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mt: 1 }}>
           <Link
             component={RouterLink}
@@ -67,7 +94,7 @@ const DatasetUpload: React.FC = () => {
           </Link>
         </Box>
 
-        {isUploadInProgress && (
+        {(isUploadInProgress || isSampleDownloadInProgress) && (
           <Alert severity="warning" sx={{ '& .MuiAlert-message': { fontSize: '0.875rem' } }}>
             <strong>Don't close or refresh this tab.</strong> Your upload is in progress.
             Closing the browser tab will cancel the upload and you'll need to re-upload the file.

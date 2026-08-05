@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { DatasetItem } from '@/types';
 import { createDatasetActions, processUploadQueue } from './datasetActions';
 import type { DatasetStore, DatasetStoreState } from './datasetTypes';
 
@@ -46,6 +45,7 @@ export const useDatasetStore = create<DatasetStore>()(
         validateDatasetsWithBackend: actions.validateDatasetsWithBackend as DatasetStore['validateDatasetsWithBackend'],
         isDatasetReady: actions.isDatasetReady as DatasetStore['isDatasetReady'],
         resetDatasetState: actions.resetDatasetState as DatasetStore['resetDatasetState'],
+        downloadSampleDatasets: actions.downloadSampleDatasets as DatasetStore['downloadSampleDatasets'],
       };
     },
     {

@@ -119,6 +119,20 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
           </Box>
         )}
 
+        {/* Progress bar for sample download */}
+        {item.status === 'DOWNLOADING' && (
+          <Box sx={{ maxWidth: 360 }}>
+            <LinearProgress
+              variant="determinate"
+              value={item.uploadProgress}
+              sx={{ height: 6, borderRadius: 999, mb: 0.5 }}
+            />
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Downloading {item.uploadProgress}%
+            </Typography>
+          </Box>
+        )}
+
         {/* Processing spinner */}
         {item.status === 'PROCESSING' && (
           <Box sx={{ maxWidth: 360, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -159,7 +173,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
         )}
 
         {/* UPLOADING badge */}
-        {item.status === 'UPLOADING' && (
+        {(item.status === 'UPLOADING' || item.status === 'DOWNLOADING') && (
           <Chip
             label={`${item.uploadProgress}%`}
             size="small"
@@ -168,6 +182,18 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
             sx={{ fontSize: '0.75rem' }}
           />
         )}
+
+        {/* DOWNLOADING badge */}
+        {/*{item.status === 'DOWNLOADING' && (*/}
+        {/*  <Chip*/}
+        {/*    icon={<Download sx={{ fontSize: 14 }} />}*/}
+        {/*    label={`${item.uploadProgress}%`}*/}
+        {/*    size="small"*/}
+        {/*    color="secondary"*/}
+        {/*    variant="outlined"*/}
+        {/*    sx={{ fontSize: '0.75rem' }}*/}
+        {/*  />*/}
+        {/*)}*/}
 
         {/* ERROR actions */}
         {item.status === 'ERROR' && (
