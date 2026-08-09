@@ -37,6 +37,12 @@ export const useComparisonStore = create<ComparisonStore>()(
         set({ basket: basket.filter((exp) => exp.id !== id) });
       },
 
+      removeExperiments: (ids: string[]) => {
+        const { basket } = get();
+        const idSet = new Set(ids);
+        set({ basket: basket.filter((exp) => !idSet.has(exp.id)) });
+      },
+
       isExperimentInBasket: (id: string): boolean => {
         return get().basket.some((exp) => exp.id === id);
       },
@@ -76,6 +82,7 @@ if (typeof window !== 'undefined') {
       const basket = parsed?.state?.basket ?? [];
       useComparisonStore.setState({ basket });
     } catch {
+        /* empty */
     }
   });
 }

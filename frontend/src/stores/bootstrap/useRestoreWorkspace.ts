@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
-import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
 import { usePipelineStore } from '@/stores/pipeline';
 import { useImportResultsStore } from '@/stores/import-results';
+import { useExperimentsStore } from '@/stores/experiments';
+import { useComparisonStore } from '@/stores/comparison';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
 import { useBootstrapStore } from './bootstrapStore';
 
@@ -18,8 +19,11 @@ export type RestoredWorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison
  *   1. Wait for Zustand persist rehydration
  *   2. Validate persisted dataset IDs against backend
  *   3. Prune invalid / expired datasets
- *   4. Determine workspace mode based on surviving state
- *   5. Call onRestored(mode) so consumers (AppContext) can switch to the right view
+ *   4. Validate experiments against backend (remove stale submitted + unsubmitted referencing expired datasets)
+ *   5. Cascade cleanup for comparison basket and pipeline editing state
+ *   6. Validate staged import results
+ *   7. Determine workspace mode based on surviving state
+ *   8. Call onRestored(mode) so consumers (AppContext) can switch to the right view
  */
 export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) => void) {
   const ran = useRef(false);
@@ -29,12 +33,13 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
   // IMPORTANT: Do NOT capture store selectors in the closure for runValidation().
   // The store values change after hydration. Always use getState() inside runValidation.
   const validateDatasetsWithBackend = useDatasetStore((s) => s.validateDatasetsWithBackend);
+  const validateExperimentsWithBackend = useExperimentsStore((s) => s.validateExperimentsWithBackend);
   const resetDatasetState = useDatasetStore((s) => s.resetDatasetState);
   const resetPipeline = usePipelineStore((s) => s.resetPipeline);
 
   const onRehydrateRef = useRef<(() => void) | null>(null);
 
-  // --- Step 1: wait for persist rehydration of both stores ---
+  // --- Step 1: wait for persist rehydration of all stores ---
   useEffect(() => {
     const run = () => {
       ran.current = true;
@@ -45,15 +50,27 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
     const unsub1 = useDatasetStore.persist.onFinishHydration(run);
     const unsub2 = usePipelineStore.persist.onFinishHydration(run);
     const unsub3 = useImportResultsStore.persist.onFinishHydration(run);
+    const unsub4 = useExperimentsStore.persist.onFinishHydration(run);
 
     // If already hydrated synchronously, run immediately
-    if (useDatasetStore.persist.hasHydrated() && usePipelineStore.persist.hasHydrated() && useImportResultsStore.persist.hasHydrated()) {
+    if (
+      useDatasetStore.persist.hasHydrated() &&
+      usePipelineStore.persist.hasHydrated() &&
+      useImportResultsStore.persist.hasHydrated() &&
+      useExperimentsStore.persist.hasHydrated()
+    ) {
       run();
     } else {
       setPhase('hydrating');
       // Guard against double fire in edge cases
       onRehydrateRef.current = () => {
-        if (useDatasetStore.persist.hasHydrated() && usePipelineStore.persist.hasHydrated() && useImportResultsStore.persist.hasHydrated() && !ran.current) {
+        if (
+          useDatasetStore.persist.hasHydrated() &&
+          usePipelineStore.persist.hasHydrated() &&
+          useImportResultsStore.persist.hasHydrated() &&
+          useExperimentsStore.persist.hasHydrated() &&
+          !ran.current
+        ) {
           run();
         }
       };
@@ -63,6 +80,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       unsub1();
       unsub2();
       unsub3();
+      unsub4();
     };
   }, []);
 
@@ -74,6 +92,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
 
       if (!datasetsAfterHydration || datasetsAfterHydration.length === 0) {
         resetPipeline();
+        useExperimentsStore.getState().resetExperiments();
         setPhase('completed');
         onRestored?.('upload');
         return;
@@ -84,6 +103,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       if (!valid) {
         resetDatasetState();
         resetPipeline();
+        useExperimentsStore.getState().resetExperiments();
         useImportResultsStore.getState().resetImportResults();
         useUIStore.getState().resetUIState();
         setPhase('completed');
@@ -95,6 +115,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
 
       if (!remaining || remaining.length === 0) {
         resetPipeline();
+        useExperimentsStore.getState().resetExperiments();
         useImportResultsStore.getState().resetImportResults();
         useUIStore.getState().resetUIState();
         setPhase('completed');
@@ -103,6 +124,41 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       }
 
       setPhase('restoring');
+
+      // Validate experiments against backend
+      const experimentValidation = await validateExperimentsWithBackend();
+      const validDatasetIds = new Set(useDatasetStore.getState().datasets.filter((d) => d.status === 'SUCCESS').map((d) => d.datasetId));
+
+      if (experimentValidation.removedSubmitted > 0 || experimentValidation.removedUnsubmitted > 0) {
+        const parts: string[] = [];
+        if (experimentValidation.removedSubmitted > 0) parts.push(`${experimentValidation.removedSubmitted} submitted experiment(s)`);
+        if (experimentValidation.removedUnsubmitted > 0) parts.push(`${experimentValidation.removedUnsubmitted} unsubmitted experiment(s)`);
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert(
+            `${parts.join(' and ')} have been removed because they are no longer available on the server or reference expired datasets. Your workspace has been updated.`
+          );
+        }
+
+        // Cascade: clean up comparison basket entries pointing to removed experiments
+        const currentExperiments = useExperimentsStore.getState().experiments;
+        useComparisonStore.getState().removeExperiments(currentExperiments.map((e) => e.id));
+
+        // Cascade: clear pipeline editingExperimentId if it references a removed experiment
+        const pipeline = usePipelineStore.getState();
+        if (pipeline.editingExperimentId && !currentExperiments.some((e) => e.id === pipeline.editingExperimentId)) {
+          usePipelineStore.setState((prev) => ({ ...prev, editingExperimentId: null }));
+        }
+
+        // Cascade: if UI is locked in focus mode but lastCreatedExperiment references pruned datasets, fall back to builder
+        const rehydratedMode = useUIStore.getState().currentView;
+        const lastExperiment = pipeline.lastCreatedExperiment;
+        if (rehydratedMode === 'focus' && lastExperiment) {
+          const hasPrunedDataset = lastExperiment.datasetIds.some((id) => !validDatasetIds.has(id));
+          if (hasPrunedDataset) {
+            useUIStore.getState().setWorkspaceView('builder');
+          }
+        }
+      }
 
       // Read the rehydrated store mode directly out of the UI store
       const rehydratedMode = useUIStore.getState().currentView;
@@ -125,12 +181,22 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
         restoredMode = rehydratedMode;
       }
 
+      // Final safety: if focus mode was requested but there are no surviving experiments, force builder
+      if (restoredMode === 'focus') {
+        const hasAnyExperiment = useExperimentsStore.getState().experiments.length > 0;
+        if (!hasAnyExperiment) {
+          useUIStore.getState().setWorkspaceView('upload');
+          restoredMode = 'upload';
+        }
+      }
+
       setPhase('completed');
       onRestored?.(restoredMode);
     } catch (err) {
       console.error('[Bootstrap] Workspace restoration failed:', err);
       resetDatasetState();
       resetPipeline();
+      useExperimentsStore.getState().resetExperiments();
       useImportResultsStore.getState().resetImportResults();
       useUIStore.getState().resetUIState();
       useBootstrapStore.getState().setError(

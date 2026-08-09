@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Experiment, ExperimentStatus, Run, DatasetRunMapping } from '@/types';
+import { validateExperimentsWithBackend } from './experimentsActions';
 
 export interface ExperimentsState {
   experiments: Experiment[];
@@ -16,6 +17,7 @@ export interface ExperimentsActions {
   fillRunIds: (experimentId: string, runsByDataset: DatasetRunMapping[]) => void;
   updateExperiment: (experimentId: string, updates: Partial<Pick<Experiment, 'parameters' | 'seedList' | 'numberOfRuns' | 'datasetIds'>>) => void;
   resetExperiments: () => void;
+  validateExperimentsWithBackend: () => Promise<{ removedSubmitted: number; removedUnsubmitted: number }>;
 }
 
 export type ExperimentsStore = ExperimentsState & ExperimentsActions;
@@ -50,76 +52,83 @@ const initialState: ExperimentsState = {
 
 export const useExperimentsStore = create<ExperimentsStore>()(
   persist(
-    (set) => ({
-      ...initialState,
-      addExperiment: (experiment: Experiment) => {
-        set((prev) => {
-          const displayName = computeDisplayName(experiment.toolName, prev.experiments);
-          const initialRuns = buildInitialRuns(experiment);
-          const experimentWithDisplayName = { ...experiment, displayName, runs: initialRuns };
-          return { experiments: [...prev.experiments, experimentWithDisplayName], activeExperimentId: experiment.id };
-        });
-      },
-      removeExperiment: (id: string) => {
-        set((prev) => {
-          const nextExperiments = prev.experiments.filter((e) => e.id !== id);
-          let nextActiveId = prev.activeExperimentId;
-          if (prev.activeExperimentId === id) nextActiveId = nextExperiments[0]?.id ?? null;
-          return { experiments: nextExperiments, activeExperimentId: nextActiveId };
-        });
-      },
-      setActiveExperiment: (id: string | null) => set({ activeExperimentId: id }),
-      updateExperimentRuns: (experimentId: string, runs: Run[]) => {
-        set((prev) => ({
-          experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, runs } : e),
-        }));
-      },
-      updateExperimentStatus: (experimentId: string, status: ExperimentStatus) => {
-        set((prev) => ({
-          experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, status } : e),
-        }));
-      },
-      fillRunIds: (experimentId: string, runsByDataset: DatasetRunMapping[]) => {
-        set((prev) => {
-          const experiment = prev.experiments.find((e) => e.id === experimentId);
-          if (!experiment || !experiment.runs) return { experiments: prev.experiments };
-          const datasetToRunIds = new Map<string, string[]>();
-          for (const mapping of runsByDataset) datasetToRunIds.set(mapping.dataset_id, mapping.run_ids);
-          const updatedRuns: Run[] = experiment.runs.map((run) => {
-            const runIds = datasetToRunIds.get(run.datasetId);
-            if (!runIds) return run;
-            const seedIndex = experiment.seedList.indexOf(run.seed);
-            const runId = runIds[seedIndex] ?? '';
-            return { ...run, runId, status: 'queued' as const };
+    (set, get) => {
+      const actions = {
+        addExperiment: (experiment: Experiment) => {
+          set((prev) => {
+            const displayName = computeDisplayName(experiment.toolName, prev.experiments);
+            const initialRuns = buildInitialRuns(experiment);
+            const experimentWithDisplayName = { ...experiment, displayName, runs: initialRuns };
+            return { experiments: [...prev.experiments, experimentWithDisplayName], activeExperimentId: experiment.id };
           });
-          return { experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, runs: updatedRuns } : e) };
-        });
-      },
-      updateExperiment: (experimentId: string, updates: Partial<Pick<Experiment, 'parameters' | 'seedList' | 'numberOfRuns' | 'datasetIds'>>) => {
-        set((prev) => ({
-          experiments: prev.experiments.map((e) => {
-            if (e.id !== experimentId) return e;
-            const next: Experiment = { ...e, ...updates };
-            if (updates.seedList || updates.datasetIds) {
-              const seedList = updates.seedList ?? e.seedList;
-              const datasetIds = updates.datasetIds ?? e.datasetIds;
-              next.runs = datasetIds.flatMap((datasetId) =>
-                seedList.map((seed) => ({
-                  runId: '',
-                  datasetId,
-                  seed,
-                  status: 'not-submitted' as const,
-                  result: null,
-                }))
-              );
-            }
-            return next;
-          }),
-          activeExperimentId: experimentId,
-        }));
-      },
-      resetExperiments: () => set({ experiments: [], activeExperimentId: null }),
-    }),
+        },
+        removeExperiment: (id: string) => {
+          set((prev) => {
+            const nextExperiments = prev.experiments.filter((e) => e.id !== id);
+            let nextActiveId = prev.activeExperimentId;
+            if (prev.activeExperimentId === id) nextActiveId = nextExperiments[0]?.id ?? null;
+            return { experiments: nextExperiments, activeExperimentId: nextActiveId };
+          });
+        },
+        setActiveExperiment: (id: string | null) => set({ activeExperimentId: id }),
+        updateExperimentRuns: (experimentId: string, runs: Run[]) => {
+          set((prev) => ({
+            experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, runs } : e),
+          }));
+        },
+        updateExperimentStatus: (experimentId: string, status: ExperimentStatus) => {
+          set((prev) => ({
+            experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, status } : e),
+          }));
+        },
+        fillRunIds: (experimentId: string, runsByDataset: DatasetRunMapping[]) => {
+          set((prev) => {
+            const experiment = prev.experiments.find((e) => e.id === experimentId);
+            if (!experiment || !experiment.runs) return { experiments: prev.experiments };
+            const datasetToRunIds = new Map<string, string[]>();
+            for (const mapping of runsByDataset) datasetToRunIds.set(mapping.dataset_id, mapping.run_ids);
+            const updatedRuns: Run[] = experiment.runs.map((run) => {
+              const runIds = datasetToRunIds.get(run.datasetId);
+              if (!runIds) return run;
+              const seedIndex = experiment.seedList.indexOf(run.seed);
+              const runId = runIds[seedIndex] ?? '';
+              return { ...run, runId, status: 'queued' as const };
+            });
+            return { experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, runs: updatedRuns } : e) };
+          });
+        },
+        updateExperiment: (experimentId: string, updates: Partial<Pick<Experiment, 'parameters' | 'seedList' | 'numberOfRuns' | 'datasetIds'>>) => {
+          set((prev) => ({
+            experiments: prev.experiments.map((e) => {
+              if (e.id !== experimentId) return e;
+              const next: Experiment = { ...e, ...updates };
+              if (updates.seedList || updates.datasetIds) {
+                const seedList = updates.seedList ?? e.seedList;
+                const datasetIds = updates.datasetIds ?? e.datasetIds;
+                next.runs = datasetIds.flatMap((datasetId) =>
+                  seedList.map((seed) => ({
+                    runId: '',
+                    datasetId,
+                    seed,
+                    status: 'not-submitted' as const,
+                    result: null,
+                  }))
+                );
+              }
+              return next;
+            }),
+            activeExperimentId: experimentId,
+          }));
+        },
+        resetExperiments: () => set({ experiments: [], activeExperimentId: null }),
+        validateExperimentsWithBackend: () => validateExperimentsWithBackend(get, set),
+      };
+
+      return {
+        ...initialState,
+        ...actions,
+      };
+    },
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
