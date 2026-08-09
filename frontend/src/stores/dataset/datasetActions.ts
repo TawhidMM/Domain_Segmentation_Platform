@@ -287,13 +287,9 @@ export const validateDatasetsWithBackend = async (
     const validIds = await validateDatasetExistence(currentIds);
 
     set((prev) => ({
-      datasets: prev.datasets.map((d) => {
-        if (d.status === 'SUCCESS' && d.datasetId && !validIds.includes(d.datasetId)) {
-          // Remove expired datasets
-          return { ...d, status: 'ERROR' as const, error: 'Dataset expired on server' };
-        }
-        return d;
-      }),
+      datasets: prev.datasets.filter(
+        (d) => !(d.status === 'SUCCESS' && d.datasetId && !validIds.includes(d.datasetId))
+      ),
     }));
 
     const survivingCount = get().datasets.filter(
@@ -303,7 +299,7 @@ export const validateDatasetsWithBackend = async (
 
     if (lostCount > 0 && typeof window !== 'undefined' && typeof window.alert === 'function') {
       window.alert(
-        `${lostCount} of your cached datasets have expired and been removed from the server. Your workspace has been updated to keep your remaining valid files.`
+        `${lostCount} of your uploaded datasets have expired and been removed from the server. Your workspace has been updated to keep your remaining valid files.`
       );
     }
 

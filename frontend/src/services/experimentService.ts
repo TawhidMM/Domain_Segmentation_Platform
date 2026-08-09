@@ -198,6 +198,14 @@ export async function fetchComparisonDatasets(experiments: ExperimentRequest[]):
   return res.data as ComparisonDatasetsResponse;
 }
 
+
+export async function checkExperimentsExistence(experiments: Array<{ experiment_id: string; token: string }>): Promise<string[]> {
+  const res = await axios.post<{ validIds: string[] }>(`/experiments/check-existence`, {
+    experiments: experiments.map(({ experiment_id, token }) => ({ experiment_id, token })),
+  });
+  return res.data.validIds;
+}
+
 export async function submitImportedResult(
   request: ImportResultRequestPayload,
 ): Promise<JobSubmissionResponse> {
