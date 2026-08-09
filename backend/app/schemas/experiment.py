@@ -88,6 +88,10 @@ class ExperimentRequest(BaseModel):
     token: str
 
 
+class ExperimentExistenceRequest(BaseModel):
+    experiments: List[ExperimentRequest] = Field(min_length=1)
+
+
 class ConsensusRequest(BaseModel):
     experiments: List[ExperimentRequest]
 

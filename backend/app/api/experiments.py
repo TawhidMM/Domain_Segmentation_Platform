@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.repositories import run_repository
+from app.repositories import experiment_repository, run_repository
 from app.schemas.comparison import (
     ComparisonDatasetsRequest,
     ComparisonDatasetsResponse,
@@ -18,6 +18,7 @@ from app.schemas.experiment import (
     BestRunResponse,
     DomainComparisonItem,
     ExperimentRequest,
+    ExperimentExistenceRequest,
     ExperimentSubmitRequest,
     ResultSubmitResponse,
     ExperimentSubmitResponse,
@@ -212,4 +213,14 @@ def get_spatial_data(
     )
 
 
+@router.post("/check-existence")
+async def check_experiments_existence(
+    request: ExperimentExistenceRequest,
+    db: Session = Depends(get_db)
+):
+    pairs = [(item.experiment_id, item.token) for item in request.experiments]
+
+    valid_ids = experiment_repository.get_valid_experiment_ids(db, pairs)
+
+    return {"validIds": valid_ids}
 
