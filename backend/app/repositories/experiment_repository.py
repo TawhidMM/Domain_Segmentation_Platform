@@ -1,9 +1,10 @@
-from typing import Optional
+from typing import Optional, List, Tuple
 
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 from app.models.experiment import Experiment
 from app.models.run_config import RunConfig
+from app.utils.security import verify_token
 
 
 def get_experiment_by_id(
@@ -49,3 +50,17 @@ def create_experiment(
     db.commit()
     db.refresh(experiment)
     return experiment
+
+
+def get_valid_experiment_ids(
+    db: Session,
+    experiment_token_pairs: List[Tuple[str, str]]
+) -> List[str]:
+
+    valid_ids: List[str] = []
+
+    for experiment_id, token in experiment_token_pairs:
+        experiment = db.query(Experiment).filter(Experiment.id == experiment_id).first()
+        if experiment and verify_token(token, experiment.access_token_hash):
+            valid_ids.append(experiment_id)
+    return valid_ids
