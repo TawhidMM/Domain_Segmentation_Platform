@@ -27,6 +27,7 @@ const FocusPage: React.FC = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
   const [searchParams] = useSearchParams();
   const accessToken = searchParams.get('t');
+  const runParam = searchParams.get('run');
   const addExperiment = useComparisonStore((state) => state.addExperiment);
   const removeExperiment = useComparisonStore((state) => state.removeExperiment);
   // Compute the boolean directly so React re-renders when basket changes
@@ -70,12 +71,33 @@ const FocusPage: React.FC = () => {
         const data = await fetchExperimentDetails(experimentId, accessToken);
         setExperimentData(data);
 
-        // Auto-select first run of first dataset
+        // Auto-select run from ?run= if present, otherwise first run of first dataset
         if (data.datasets?.length > 0) {
-          const firstDataset = data.datasets[0];
-          if (firstDataset.runs?.length > 0) {
-            setSelectedRunId(firstDataset.runs[0].run_id);
-            setExpandedDatasets(new Set([firstDataset.dataset_id]));
+          let targetRunId: string | null = null;
+          let targetDatasetId: string | null = null;
+
+          if (runParam) {
+            for (const ds of data.datasets) {
+              const found = ds.runs?.find((r) => r.run_id === runParam);
+              if (found) {
+                targetRunId = runParam;
+                targetDatasetId = ds.dataset_id;
+                break;
+              }
+            }
+          }
+
+          if (!targetRunId) {
+            const firstDataset = data.datasets[0];
+            if (firstDataset.runs?.length > 0) {
+              targetRunId = firstDataset.runs[0].run_id;
+              targetDatasetId = firstDataset.dataset_id;
+            }
+          }
+
+          if (targetRunId && targetDatasetId) {
+            setSelectedRunId(targetRunId);
+            setExpandedDatasets(new Set([targetDatasetId]));
           }
         }
       } catch (err: any) {
@@ -88,7 +110,7 @@ const FocusPage: React.FC = () => {
     };
 
     loadExperiment();
-  }, [experimentId, accessToken]);
+  }, [experimentId, accessToken, runParam]);
 
   // Load run data when selected run changes
   useEffect(() => {

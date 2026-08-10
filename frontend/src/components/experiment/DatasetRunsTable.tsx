@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography, Chip, IconButton, Tooltip } from '@mui/material';
+import { Typography, Chip, Button } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 import EntityList from '@/components/shared/EntityList';
 import type { Run } from '@/types';
@@ -94,15 +94,15 @@ const DatasetRunsTable: React.FC<DatasetRunsTableProps> = ({
               }}
             />
           </div>
-          <Tooltip title="Open Result Page">
-            <IconButton
-              size="small"
-              onClick={() => handleOpenResult(run.runId)}
-              disabled={!run.runId}
-            >
-              <OpenInNew fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<OpenInNew fontSize="small" />}
+            onClick={() => handleOpenResult(run.runId)}
+            disabled={!run.runId}
+          >
+            View Result
+          </Button>
         </div>
       ))}
     </EntityList>
