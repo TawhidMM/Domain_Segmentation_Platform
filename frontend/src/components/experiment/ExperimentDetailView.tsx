@@ -9,9 +9,9 @@ import DatasetAnnotationPanel from './DatasetAnnotationPanel';
 import ExperimentMonitoringPanel from './ExperimentMonitoringPanel';
 import { useExperimentPolling } from '@/hooks/useExperimentPolling';
 import { fetchExperimentDetails, mapDetailsToRuns } from '@/services/experimentService';
-import { toolService } from '@/services/toolService';
 import DatasetParamsDialog from './DatasetParamsDialog';
 import { usePipelineStore } from "@/stores/pipeline";
+import { isExperimentReadyToSubmit } from '@/utils/annotationStatus';
 
 interface ExperimentDetailViewProps {
   experiment: Experiment;
@@ -29,9 +29,9 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
   const [paramsDialogOpen, setParamsDialogOpen] = useState(false);
   const [paramsDialogDataset, setParamsDialogDataset] = useState<{ id: string; name: string; params: Record<string, unknown> } | null>(null);
 
-  const unsubmittedCount = experiments.filter((e) => e.status === 'not-submitted').length;
-
-  const [allRequiredDatasetsAnnotated, setAllRequiredDatasetsAnnotated] = useState(true);
+  const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
+  const unsubmittedCount = unsubmittedExperiments.length;
+  const readyCount = unsubmittedExperiments.filter((e) => isExperimentReadyToSubmit(e)).length;
 
   const handleViewParams = useCallback((datasetId: string, datasetName: string, params: Record<string, unknown>) => {
     setParamsDialogDataset({ id: datasetId, name: datasetName, params });
@@ -132,8 +132,8 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
           )}
 
           {unsubmittedCount > 0 && (
-            <Button variant="contained" onClick={() => setSubmitModalOpen(true)} size="small" disabled={!allRequiredDatasetsAnnotated}>
-              Submit ({unsubmittedCount})
+            <Button variant="contained" onClick={() => setSubmitModalOpen(true)} size="small">
+              Submit {readyCount > 0 && readyCount < unsubmittedCount ? `(${readyCount}/${unsubmittedCount})` : `(${readyCount})`}
             </Button>
           )}
 
@@ -156,7 +156,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
       </Box>
 
       <Box sx={{ flex: 1, p: 3, overflow: 'auto' }} className="workspace-scroll">
-        <DatasetAnnotationPanel experiment={experiment} onAnnotationStatusChange={setAllRequiredDatasetsAnnotated} />
+        <DatasetAnnotationPanel experiment={experiment} />
         <ExperimentMonitoringPanel
           experiment={experiment}
           onViewParams={handleViewParams}
