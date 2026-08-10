@@ -6,11 +6,11 @@ from typing import Any, Dict, List
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.storage_space import DatasetSpace
 from app.models.annotations import Annotation
 from app.repositories.annotation_repository import (
     create_annotation as create_annotation_record,
+    delete_annotation as delete_annotation_record,
     get_annotation_by_id,
 )
 from app.repositories.dataset_repository import get_dataset_by_id
@@ -53,6 +53,34 @@ def create_annotation(
         file_path=str(file_path),
     )
     return create_annotation_record(db, annotation)
+
+
+def delete_annotation(
+    db: Session,
+    dataset_id: str,
+    annotation_id: str
+) -> None:
+
+    ensure_dataset_exists(db, dataset_id)
+
+    annotation = get_annotation_by_id(db, annotation_id)
+    if annotation is None:
+        raise HTTPException(status_code=404, detail=f"Annotation '{annotation_id}' not found")
+
+    if annotation.dataset_id != dataset_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Annotation does not belong to the provided dataset_id",
+        )
+
+    file_path = Path(annotation.file_path)
+    if file_path.exists():
+        try:
+            file_path.unlink()
+        except Exception:
+            pass
+
+    delete_annotation_record(db, annotation_id)
 
 
 def _load_annotation_json(

@@ -1,6 +1,5 @@
 from typing import Optional
 from uuid import UUID
-
 from sqlalchemy.orm import Session
 
 from app.models.annotations import Annotation
@@ -14,8 +13,8 @@ def create_annotation(db: Session, annotation: Annotation) -> Annotation:
 
 
 def get_annotations_by_dataset_id(
-        db: Session,
-        dataset_id: str
+    db: Session,
+    dataset_id: str
 ) -> list[Annotation]:
 
     return (
@@ -27,8 +26,20 @@ def get_annotations_by_dataset_id(
 
 
 def get_annotation_by_id(
-        db: Session,
-        annotation_id: UUID | str
+    db: Session,
+    annotation_id: UUID | str
 ) -> Optional[Annotation]:
 
     return db.query(Annotation).filter(Annotation.id == str(annotation_id)).first()
+
+
+def delete_annotation(
+    db: Session,
+    annotation_id: str
+) -> None:
+
+    annotation = get_annotation_by_id(db, annotation_id)
+
+    if annotation is not None:
+        db.delete(annotation)
+        db.commit()
