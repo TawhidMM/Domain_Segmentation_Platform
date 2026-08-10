@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, IconButton, Tooltip } from '@mui/material';
-import { Refresh, ArrowBack, OpenInNew } from '@mui/icons-material';
+import { Refresh, ArrowBack } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useExperimentsStore } from '@/stores/experiments';
 import { Experiment, ExperimentStatus, countRunsByStatus } from '@/types';
@@ -137,21 +137,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
             </Button>
           )}
 
-          {experiment.experimentId && experiment.accessToken && (
-            <Button
-              variant="outlined"
-              startIcon={<OpenInNew />}
-              onClick={() =>
-                window.open(
-                  `${window.location.origin}/experiment/${experiment.experimentId}?t=${experiment.accessToken}`,
-                  '_blank'
-                )
-              }
-              size="small"
-            >
-              Open Result Page
-            </Button>
-          )}
+
         </Box>
       </Box>
 
