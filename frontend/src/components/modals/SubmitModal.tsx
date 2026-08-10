@@ -19,6 +19,7 @@ import {
 import { Send, Science, Email, Schedule } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
+import { isExperimentReadyToSubmit } from '@/utils/annotationStatus';
 
 interface SubmitModalProps {
   open: boolean;
@@ -32,6 +33,8 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
+  const readyExperiments = unsubmittedExperiments.filter((e) => isExperimentReadyToSubmit(e));
+  const skippedExperiments = unsubmittedExperiments.filter((e) => !isExperimentReadyToSubmit(e));
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,23 +42,22 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
   };
 
   const handleSubmit = async () => {
-    if (!validateEmail(email)) {
-      setEmailError('Please enter a valid email address');
-      return;
-    }
+    // if (!validateEmail(email)) {
+    //   setEmailError('Please enter a valid email address');
+    //   return;
+    // }
 
     setIsSubmitting(true);
     try {
-      const redirectInfo = await submitExperiments(email);
+      const result = await submitExperiments(email);
 
       setEmail('');
       setEmailError('');
       onClose();
 
-      if (redirectInfo) {
-        toast.success('Experiment submitted successfully! Opening job tracker in new tab...');
-        // Open job status page in new tab so user can continue creating experiments
-        const jobUrl = `${window.location.origin}/experiment/${redirectInfo.experimentId}?t=${redirectInfo.accessToken}`;
+      if (result.submittedCount > 0) {
+        toast.success(`Submitted ${result.submittedCount} experiment${result.submittedCount > 1 ? 's' : ''}. Opening job tracker in new tab...`);
+        const jobUrl = `${window.location.origin}/experiment/${result.redirectInfo!.experimentId}?t=${result.redirectInfo!.accessToken}`;
         window.open(jobUrl, '_blank');
       } else {
         toast.error('No jobs were submitted');
@@ -69,7 +71,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Send sx={{ color: 'primary.main' }} />
@@ -82,58 +84,90 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
       <DialogContent>
         <Alert severity="info" sx={{ mb: 3 }}>
           <Typography variant="body2">
-            Experiments will be executed asynchronously on our servers. You'll receive an email notification when all
-            analyses are complete.
+            Experiments will be executed asynchronously on our servers.
+            {/*You'll receive an email notification when all analyses are complete.*/}
           </Typography>
         </Alert>
 
         <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-          Experiments to Submit ({unsubmittedExperiments.length})
+          Experiments to Submit ({readyExperiments.length})
         </Typography>
 
         <List dense sx={{ mb: 2, bgcolor: '#F8FAFC', borderRadius: 1 }}>
-          {unsubmittedExperiments.map((exp, index) => (
+          {readyExperiments.map((exp) => (
             <ListItem key={exp.id}>
               <ListItemIcon sx={{ minWidth: 36 }}>
                 <Science sx={{ fontSize: 20, color: 'primary.main' }} />
               </ListItemIcon>
               <ListItemText
                 primary={exp.displayName ?? exp.toolName}
-                secondary={`${exp.parameters.n_clusters} clusters`}
-                primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
-                secondaryTypographyProps={{ variant: 'caption' }}
+                slotProps={{
+                  primary: { variant: 'body2', fontWeight: 500 },
+                  secondary: { variant: 'caption' },
+                }}
               />
             </ListItem>
           ))}
         </List>
 
-        <Divider sx={{ my: 2 }} />
+        {skippedExperiments.length > 0 && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1}}>
+              Skipped ({skippedExperiments.length}) — cannot be submitted
+            </Typography>
+            <List dense disablePadding sx={{ mb: 2, bgcolor: '#FFFBEB', borderRadius: 1 }}>
+              {skippedExperiments.map((exp) => {
+                const reason = exp.datasetIds.length === 0
+                  ? 'No datasets selected'
+                  : 'Missing required manual annotation';
+                return (
+                  <ListItem key={exp.id}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <Science sx={{ fontSize: 20, color: 'warning.dark' }} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={exp.displayName ?? exp.toolName}
+                      secondary={reason}
+                      slotProps={{
+                        primary: { variant: 'body2', fontWeight: 500, color: 'warning.dark' },
+                        secondary: { variant: 'caption', color: 'text.secondary' },
+                      }}
+                    />
+                  </ListItem>
+                );
+              })}
+            </List>
+          </>
+        )}
 
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-          Notification Email
-        </Typography>
+        {/*<Divider sx={{ my: 2 }} />*/}
 
-        <TextField
-          fullWidth
-          placeholder="Enter your email address"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            setEmailError('');
-          }}
-          error={!!emailError}
-          helperText={emailError}
-          InputProps={{
-            startAdornment: <Email sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />,
-          }}
-        />
+        {/*<Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>*/}
+        {/*  Notification Email*/}
+        {/*</Typography>*/}
 
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Schedule sx={{ fontSize: 16, color: 'text.secondary' }} />
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Estimated completion time: 5-15 minutes per experiment
-          </Typography>
-        </Box>
+        {/*<TextField*/}
+        {/*  fullWidth*/}
+        {/*  placeholder="Enter your email address"*/}
+        {/*  value={email}*/}
+        {/*  onChange={(e) => {*/}
+        {/*    setEmail(e.target.value);*/}
+        {/*    setEmailError('');*/}
+        {/*  }}*/}
+        {/*  error={!!emailError}*/}
+        {/*  helperText={emailError}*/}
+        {/*  InputProps={{*/}
+        {/*    startAdornment: <Email sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />,*/}
+        {/*  }}*/}
+        {/*/>*/}
+
+        {/*<Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>*/}
+        {/*  <Schedule sx={{ fontSize: 16, color: 'text.secondary' }} />*/}
+        {/*  <Typography variant="caption" sx={{ color: 'text.secondary' }}>*/}
+        {/*    Estimated completion time: 5-15 minutes per experiment*/}
+        {/*  </Typography>*/}
+        {/*</Box>*/}
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -144,7 +178,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
           onClick={handleSubmit}
           variant="contained"
           startIcon={isSubmitting ? <CircularProgress size={20} /> : <Send />}
-          disabled={unsubmittedExperiments.length === 0 || isSubmitting}
+          disabled={readyExperiments.length === 0 || isSubmitting}
         >
           {isSubmitting ? 'Submitting...' : 'Submit All'}
         </Button>

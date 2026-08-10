@@ -74,9 +74,11 @@ const DatasetAnnotationPanel: React.FC<DatasetAnnotationPanelProps> = ({ experim
 
   return (
     <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Alert severity="warning">
-        This experiment requires manual annotation before submission. Annotate every dataset below, then submit.
-      </Alert>
+      {!allRequiredDatasetsAnnotated && (
+        <Alert severity="warning">
+          This experiment requires manual annotation before submission. Annotate every dataset below, then submit.
+        </Alert>
+      )}
       <DatasetAnnotationTable
         items={annotationDatasetItems}
         onAnnotate={handleAnnotateDataset}

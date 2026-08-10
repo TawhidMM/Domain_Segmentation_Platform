@@ -8,6 +8,7 @@ import { usePipelineStore } from '@/stores/pipeline';
 import { useExperimentsStore } from '@/stores/experiments';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
 import {useImportResultsStore} from "@/stores/import-results";
+import { isExperimentReadyToSubmit, SkippedExperiment } from '@/utils/annotationStatus';
 
 const TOOL_WORKFLOW_STORAGE_KEY = 'select-tool-workflow-state-v1';
 const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
@@ -15,6 +16,12 @@ const BUILDER_STATE_STORAGE_KEY = 'experiment-builder-state-v1';
 interface JobRedirectInfo {
   experimentId: string;
   accessToken: string;
+}
+
+interface SubmitSkipResult {
+  redirectInfo: JobRedirectInfo | null;
+  submittedCount: number;
+  skipped: SkippedExperiment[];
 }
 
 interface AppContextType {
@@ -36,7 +43,7 @@ interface AppContextType {
   resetDatasetParamOverrides: () => void;
 
   // Submit action
-  submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
+  submitExperiments: (email: string) => Promise<SubmitSkipResult>;
   refreshExperimentResult: (experimentId: string) => Promise<void>;
   toggleComparisonExperiment: (id: string) => void;
   clearComparisonExperiments: () => void;
@@ -66,10 +73,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
   );
 
-  const submitExperiments = useCallback(async (email: string): Promise<JobRedirectInfo | null> => {
+  const submitExperiments = useCallback(async (email: string): Promise<SubmitSkipResult> => {
     if (successfulDatasets.length === 0) {
       console.error('No datasets available. Please upload datasets first.');
-      return null;
+      return { redirectInfo: null, submittedCount: 0, skipped: [] };
     }
 
     const currentExperiments = useExperimentsStore.getState().experiments;
@@ -77,20 +84,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (unsubmittedExperiments.length === 0) {
       console.log('No experiments to submit');
-      return null;
+      return { redirectInfo: null, submittedCount: 0, skipped: [] };
     }
 
-    // Update status to queued
+    const skipped: SkippedExperiment[] = [];
+    const ready: typeof unsubmittedExperiments = [];
+
+    for (const exp of unsubmittedExperiments) {
+      if (!isExperimentReadyToSubmit(exp)) {
+        const reason = exp.datasetIds.length === 0
+          ? 'No datasets selected'
+          : 'Missing required manual annotation for one or more datasets';
+        skipped.push({ id: exp.id, displayName: exp.displayName ?? exp.toolName, reason });
+        continue;
+      }
+      ready.push(exp);
+    }
+
+    if (ready.length === 0) {
+      return { redirectInfo: null, submittedCount: 0, skipped };
+    }
+
+    // Update status to queued for ready experiments only
     useExperimentsStore.setState((prev) => ({
       experiments: prev.experiments.map((e) =>
-        e.status === 'not-submitted' ? { ...e, status: 'queued' as import('@/types').ExperimentStatus } : e
+        ready.some((r) => r.id === e.id) ? { ...e, status: 'queued' as import('@/types').ExperimentStatus } : e
       ),
     }));
 
     let firstJobRedirect: JobRedirectInfo | null = null;
+    let submittedCount = 0;
 
-    // Submit each experiment to backend
-    for (const exp of unsubmittedExperiments) {
+    // Submit each ready experiment to backend
+    for (const exp of ready) {
       try {
         const datasetIds = exp.datasetIds.length > 0
           ? exp.datasetIds
@@ -148,6 +174,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               : e
           ),
         }));
+
+        submittedCount += 1;
       } catch (error) {
         console.error(`Failed to submit experiment ${exp.id}:`, error);
         // Mark as failed
@@ -159,7 +187,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
 
-    return firstJobRedirect;
+    return { redirectInfo: firstJobRedirect, submittedCount, skipped };
   }, [successfulDatasets, datasetParamOverrides]);
 
   const refreshExperimentResult = useCallback(
