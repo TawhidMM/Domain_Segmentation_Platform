@@ -8,7 +8,7 @@ from app.schemas.annotation_schema import (
     AnnotationGetRequest,
     AnnotationResponse,
 )
-from app.services.annotation_service import create_annotation, get_annotation_json
+from app.services.annotation_service import create_annotation, delete_annotation, get_annotation_json
 
 router = APIRouter()
 
@@ -18,16 +18,29 @@ def create_annotation_route(
     create_request: AnnotationCreate,
     db: Session = Depends(get_db),
 ) -> AnnotationResponse:
+
     annotation = create_annotation(
         db,
         dataset_id=create_request.dataset_id,
-        labels=create_request.labels,
+        labels=[label.model_dump() for label in create_request.labels],
     )
 
     return AnnotationResponse(
         annotation_id=str(annotation.id),
         dataset_id=annotation.dataset_id,
     )
+
+
+@router.delete("/annotations")
+def delete_annotation_route(
+    dataset_id: str,
+    annotation_id: str,
+    db: Session = Depends(get_db),
+) -> dict:
+
+    delete_annotation(db, dataset_id=dataset_id, annotation_id=annotation_id)
+
+    return {"deleted": True}
 
 
 @router.post("/get-annotation", response_model=AnnotationFileResponse)

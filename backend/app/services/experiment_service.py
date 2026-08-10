@@ -14,6 +14,7 @@ from app.models.run_config import RunConfig
 from app.repositories import dataset_repository, experiment_repository, run_config_repository, run_repository
 from app.schemas.experiment import DatasetConfigRequest, DatasetRunMapping, ImportResultsDatasetRequest
 from app.services.dataset_service import require_dataset
+from app.services.annotation_service import get_annotation_json
 from app.utils.security import generate_token_pair, verify_token
 
 
@@ -154,6 +155,13 @@ def create_experiment_record(
 
     for dataset_config in dataset_param_configs:
         require_dataset(db, dataset_config.dataset_id)
+
+        if dataset_config.annotation_id:
+            get_annotation_json(
+                db,
+                dataset_id=dataset_config.dataset_id,
+                annotation_id=dataset_config.annotation_id,
+            )
 
     experiment_id = str(uuid.uuid4())
     access_token, token_hash = generate_token_pair()
