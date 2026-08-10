@@ -22,8 +22,6 @@ const DatasetAnnotationPanel: React.FC<DatasetAnnotationPanelProps> = ({ experim
     useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
   );
 
-  const { datasetAnnotationMap } = useApp();
-
   const annotationRequirement = experiment.requirements?.manual_annotation;
   const shouldRequireAnnotation = Boolean(
     annotationRequirement?.is_required && checkDependsOn(annotationRequirement.depends_on, experiment.parameters)
@@ -38,8 +36,8 @@ const DatasetAnnotationPanel: React.FC<DatasetAnnotationPanelProps> = ({ experim
       return false;
     }
 
-    return experiment.datasetIds.every((datasetId) => Boolean(datasetAnnotationMap[datasetId]));
-  }, [datasetAnnotationMap, experiment.datasetIds, shouldRequireAnnotation]);
+    return experiment.datasetIds.every((datasetId) => Boolean(experiment.annotationIds?.[datasetId]));
+  }, [experiment.annotationIds, experiment.datasetIds, shouldRequireAnnotation]);
 
   React.useEffect(() => {
     onAnnotationStatusChange?.(allRequiredDatasetsAnnotated);
@@ -50,14 +48,15 @@ const DatasetAnnotationPanel: React.FC<DatasetAnnotationPanelProps> = ({ experim
       experiment.datasetIds.map((datasetId) => ({
         id: datasetId,
         name: uploadedDatasets.find((dataset) => dataset.datasetId === datasetId)?.datasetName ?? datasetId,
-        annotationId: datasetAnnotationMap[datasetId],
+        annotationId: experiment.annotationIds?.[datasetId],
       })),
-    [datasetAnnotationMap, experiment.datasetIds, uploadedDatasets]
+    [experiment.annotationIds, experiment.datasetIds, uploadedDatasets]
   );
 
   const handleAnnotateDataset = (datasetId: string, annotationId?: string) => {
     const queryParams: Record<string, string> = {
       dataset_id: datasetId,
+      experiment_id: experiment.id,
       return_to: `${location.pathname}${location.search}`,
     };
 

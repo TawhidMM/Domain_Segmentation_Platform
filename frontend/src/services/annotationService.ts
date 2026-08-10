@@ -37,3 +37,12 @@ export async function fetchAnnotationFile(
   });
   return response.data as AnnotationFileResponse;
 }
+
+export async function deleteAnnotation(datasetId: string, annotationId: string): Promise<void> {
+  await axios.delete('/annotations', {
+    params: {
+      dataset_id: datasetId,
+      annotation_id: annotationId,
+    },
+  });
+}

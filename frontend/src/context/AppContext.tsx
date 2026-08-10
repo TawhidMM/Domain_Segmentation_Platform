@@ -29,14 +29,11 @@ interface AppContextType {
   datasetParamOverrides: Record<string, Record<string, any>>;
   selectedDatasetIds: string[];
   focusDatasetId: string | null;
-  datasetAnnotationMap: Record<string, string>;
   successfulDatasets: import('@/types').DatasetItem[];
   updateDatasetParamOverride: (datasetIds: string[], paramKey: string, value: any) => void;
   setSelectedDatasetIds: (ids: string[]) => void;
   setFocusDatasetId: (id: string | null) => void;
   resetDatasetParamOverrides: () => void;
-  setDatasetAnnotation: (datasetId: string, annotationId: string) => void;
-  clearDatasetAnnotation: (datasetId: string) => void;
 
   // Submit action
   submitExperiments: (email: string) => Promise<JobRedirectInfo | null>;
@@ -65,7 +62,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [datasetParamOverrides, setDatasetParamOverrides] = useState<Record<string, Record<string, any>>>({});
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
   const [focusDatasetId, setFocusDatasetId] = useState<string | null>(null);
-  const [datasetAnnotationMap, setDatasetAnnotationMap] = useState<Record<string, string>>({});
   const successfulDatasets = useDatasetStore(
     useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
   );
@@ -105,7 +101,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const datasetConfigs = datasetIds.map((datasetId) => ({
           dataset_id: datasetId,
           params: datasetParamOverrides[datasetId] ?? exp.parameters,
-          annotation_id: datasetAnnotationMap[datasetId] ?? undefined,
+          annotation_id: exp.annotationIds?.[datasetId] ?? undefined,
         }));
 
         const response = await axios.post('/experiments/submit', {
@@ -164,7 +160,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     return firstJobRedirect;
-  }, [datasetAnnotationMap, successfulDatasets, datasetParamOverrides]);
+  }, [successfulDatasets, datasetParamOverrides]);
 
   const refreshExperimentResult = useCallback(
     async (experimentId: string) => {
@@ -237,7 +233,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDatasetParamOverrides({});
     setSelectedDatasetIds([]);
     setFocusDatasetId(null);
-    setDatasetAnnotationMap({});
     // Use resetBuilderState to preserve already-created experiments, only reset builder state
     usePipelineStore.getState().resetBuilderState();
     useImportResultsStore.getState().resetImportResults();
@@ -263,34 +258,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDatasetParamOverrides({});
     setSelectedDatasetIds([]);
     setFocusDatasetId(null);
-    setDatasetAnnotationMap({});
-  }, []);
-
-  const setDatasetAnnotation = useCallback((datasetId: string, annotationId: string) => {
-    if (!datasetId || !annotationId) {
-      return;
-    }
-
-    setDatasetAnnotationMap((prev) => ({
-      ...prev,
-      [datasetId]: annotationId,
-    }));
-  }, []);
-
-  const clearDatasetAnnotation = useCallback((datasetId: string) => {
-    if (!datasetId) {
-      return;
-    }
-
-    setDatasetAnnotationMap((prev) => {
-      if (!prev[datasetId]) {
-        return prev;
-      }
-
-      const copy = { ...prev };
-      delete copy[datasetId];
-      return copy;
-    });
   }, []);
 
   // Experiment action passthroughs to pipeline store
@@ -314,7 +281,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         datasetParamOverrides,
         selectedDatasetIds,
         focusDatasetId,
-        datasetAnnotationMap,
         submitExperiments,
         refreshExperimentResult,
         toggleComparisonExperiment,
@@ -325,8 +291,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setSelectedDatasetIds,
         setFocusDatasetId,
         resetDatasetParamOverrides,
-        setDatasetAnnotation,
-        clearDatasetAnnotation,
       }}
     >
       {children}
