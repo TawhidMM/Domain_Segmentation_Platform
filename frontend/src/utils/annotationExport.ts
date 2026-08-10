@@ -2,10 +2,7 @@ import { AnnotationLabel, AnnotationSpatialSpot } from '@/types/annotationPlaygr
 
 export interface AnnotationCsvRow {
   barcode: string;
-  label_id: number | null;
-  label_name: string;
-  x: number;
-  y: number;
+  annotation: string;
 }
 
 export interface AnnotationJsonRow {
@@ -34,15 +31,11 @@ export function buildAnnotationCsvRows(
 
   return spots.map((spot, index) => {
     const rawLabelId = annotationBuffer[index] ?? 0;
-    const labelId = rawLabelId === 0 ? null : rawLabelId;
-    const labelName = rawLabelId === 0 ? 'Unlabeled' : (labelNameById.get(rawLabelId) ?? `Label ${rawLabelId}`);
+    const annotation = rawLabelId === 0 ? '' : (labelNameById.get(rawLabelId) ?? `Label ${rawLabelId}`);
 
     return {
       barcode: spot.barcode,
-      label_id: labelId,
-      label_name: labelName,
-      x: spot.x,
-      y: spot.y,
+      annotation,
     };
   });
 }
@@ -71,15 +64,11 @@ export function buildAnnotationJsonRows(
 }
 
 export function buildAnnotationCsvContent(rows: AnnotationCsvRow[]) {
-  const header = 'barcode,label_id,label_name,x,y';
+  const header = 'barcode,annotation';
   const body = rows.map((row) => {
-    const labelIdCell = row.label_id === null ? 'null' : String(row.label_id);
     return [
       escapeCsvCell(row.barcode),
-      labelIdCell,
-      escapeCsvCell(row.label_name),
-      String(row.x),
-      String(row.y),
+      escapeCsvCell(row.annotation),
     ].join(',');
   });
 

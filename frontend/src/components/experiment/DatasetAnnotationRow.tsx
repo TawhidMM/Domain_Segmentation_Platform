@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Button, Chip, Typography } from '@mui/material';
-import { Edit } from '@mui/icons-material';
+import { Edit, Visibility } from '@mui/icons-material';
 
 interface DatasetAnnotationRowProps {
   datasetId: string;
@@ -52,10 +52,10 @@ const DatasetAnnotationRow: React.FC<DatasetAnnotationRowProps> = ({
         <Button
           size="small"
           variant={isAnnotated ? 'outlined' : 'contained'}
-          startIcon={<Edit fontSize="small" />}
+          startIcon={isAnnotated ? <Visibility fontSize="small" /> : <Edit fontSize="small" />}
           onClick={() => onAnnotate(datasetId, annotationId)}
         >
-          {isAnnotated ? 'Edit' : 'Annotate'}
+          {isAnnotated ? 'View Annotation' : 'Annotate'}
         </Button>
       </Box>
     </Box>

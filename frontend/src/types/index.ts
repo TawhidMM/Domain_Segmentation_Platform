@@ -73,6 +73,7 @@ export interface Experiment {
   metrics?: ExperimentMetrics | null;
   runs?: Run[];
   datasetParams?: Record<string, Record<string, unknown>>;
+  annotationIds?: Record<string, string>;
   toolSchema: ToolSchema;
 }
 

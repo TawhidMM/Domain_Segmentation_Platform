@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, CircularProgress, Container, Paper, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Container, Menu, MenuItem, Paper, Typography } from '@mui/material';
 import { grey } from '@mui/material/colors';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -11,6 +11,8 @@ import { useAnnotationBrush } from '@/hooks/useAnnotationBrush';
 import { useAnnotationHistory } from '@/hooks/useAnnotationHistory';
 import { useAnnotationData } from '@/hooks/useAnnotationData';
 import { useAnnotationSpatialIndex } from '@/hooks/useAnnotationSpatialIndex';
+import { useToast } from '@/hooks/use-toast';
+import { useExperimentsStore } from '@/stores/experiments';
 import {
   AnnotationLabel,
   AnnotationMode,
@@ -22,8 +24,9 @@ import {
   buildAnnotationJsonRows,
   downloadCsvFile,
 } from '@/utils/annotationExport';
+import { parseAnnotationCsv, parseAnnotationJson } from '@/utils/annotationImport';
 import { getLabelColorFromPalette } from '@/utils/annotationColors';
-import { createAnnotation, fetchAnnotationFile } from '@/services/annotationService';
+import { createAnnotation, deleteAnnotation, fetchAnnotationFile } from '@/services/annotationService';
 
 const UNLABELED_COLOR: [number, number, number] = [200, 200, 200];
 const INITIAL_LABELS: AnnotationLabel[] = [];
@@ -31,11 +34,12 @@ const INITIAL_LABELS: AnnotationLabel[] = [];
 const AnnotationPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setDatasetAnnotation } = useApp();
+
 
   const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const datasetId = query.get('dataset_id');
   const annotationId = query.get('annotation_id');
+  const experimentId = query.get('experiment_id');
   const returnTo = query.get('return_to') ?? '/';
 
   const { coordinateBuffer, spots, imageMetadata, annotationBuffer, loading, error } = useAnnotationData(datasetId);
@@ -126,7 +130,6 @@ const AnnotationPage: React.FC = () => {
         }
 
         annotationBuffer.set(nextBuffer);
-        setDatasetAnnotation(datasetId, annotationId);
         requestRenderUpdate();
 
         const nextLabels = Array.from(nextLabelsMap.values()).sort((a, b) => a.id - b.id);
@@ -160,10 +163,20 @@ const AnnotationPage: React.FC = () => {
     };
   }, [annotationBuffer, annotationId, datasetId, requestRenderUpdate, spots]);
 
+  const { toast } = useToast();
   const { undoStack, redoStack, recordStroke, executeUndo, executeRedo } = useAnnotationHistory({
     annotationBuffer,
     onAnnotationMutated: requestRenderUpdate,
   });
+
+  const [csvMenuAnchor, setCsvMenuAnchor] = useState<null | HTMLElement>(null);
+  const csvMenuOpen = Boolean(csvMenuAnchor);
+  const handleCsvMenuClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setCsvMenuAnchor(event.currentTarget);
+  };
+  const handleCsvMenuClose = () => {
+    setCsvMenuAnchor(null);
+  };
 
   const {
     currentPoint,
@@ -309,8 +322,133 @@ const AnnotationPage: React.FC = () => {
     downloadCsvFile(csvContent, 'annotation_export.csv');
   }, [annotationBuffer, labels, spots]);
 
+  const handleClearAnnotation = useCallback(async () => {
+    if (!datasetId) return;
+
+    const previousBuffer = new Uint8Array(annotationBuffer);
+    const hasAnyLabeled = annotationBuffer.some((value) => value !== 0);
+
+    annotationBuffer.fill(0);
+    setLabels([]);
+    setActiveLabelId(null);
+    setMode('pan');
+    requestRenderUpdate();
+
+    const undoChanges = new Map<number, number>();
+    for (let i = 0; i < previousBuffer.length; i += 1) {
+      const prev = previousBuffer[i] ?? 0;
+      const next = 0;
+      if (prev !== next) {
+        undoChanges.set(i, prev);
+      }
+    }
+    if (undoChanges.size > 0) {
+      recordStroke(undoChanges);
+    }
+
+    if (annotationId) {
+      try {
+        await deleteAnnotation(datasetId, annotationId);
+      } catch (error) {
+        console.error('Failed to delete saved annotation:', error);
+        toast({
+          title: 'Warning',
+          description: 'Workspace cleared, but failed to delete the saved annotation.',
+          variant: 'destructive',
+        });
+      }
+    }
+
+    if (experimentId) {
+      const { setExperimentAnnotation } = useExperimentsStore.getState();
+      setExperimentAnnotation(experimentId, datasetId, null);
+    }
+
+    const query = new URLSearchParams(location.search);
+    query.delete('annotation_id');
+    navigate(`${location.pathname}?${query.toString()}`, { replace: true });
+
+    toast({
+      title: 'Annotation cleared',
+      description: hasAnyLabeled ? 'All annotations have been removed.' : 'Workspace was already empty.',
+    });
+  }, [
+    annotationBuffer,
+    annotationId,
+    datasetId,
+    experimentId,
+    location.pathname,
+    location.search,
+    navigate,
+    recordStroke,
+    requestRenderUpdate,
+    toast,
+  ]);
+
+  const handleImportCsv = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const content = reader.result as string;
+          const result = parseAnnotationCsv(content, spots);
+
+          const previousBuffer = new Uint8Array(annotationBuffer);
+          annotationBuffer.set(result.annotationBuffer);
+          setLabels(result.labels);
+          setActiveLabelId(result.labels[0]?.id ?? null);
+          setMode('pan');
+          requestRenderUpdate();
+
+          const undoChanges = new Map<number, number>();
+          for (let i = 0; i < previousBuffer.length; i += 1) {
+            const prev = previousBuffer[i] ?? 0;
+            const next = result.annotationBuffer[i] ?? 0;
+            if (prev !== next) {
+              undoChanges.set(i, prev);
+            }
+          }
+          if (undoChanges.size > 0) {
+            recordStroke(undoChanges);
+          }
+
+          toast({
+            title: 'CSV imported',
+            description: `Imported ${result.stats.matched} annotations (${result.stats.unlabeled} unlabeled). Skipped ${result.stats.skippedUnknownBarcode} unknown barcodes.`,
+          });
+        } catch (error) {
+          console.error('Failed to import annotation CSV:', error);
+          toast({
+            title: 'Import failed',
+            description: 'Could not parse the CSV file. Please check the format and try again.',
+            variant: 'destructive',
+          });
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    },
+    [annotationBuffer, labels, recordStroke, requestRenderUpdate, spots, toast],
+  );
+
   const handleSaveAnnotation = useCallback(() => {
     if (!datasetId) {
+      return;
+    }
+
+    const hasAnyLabeled = annotationBuffer.some((value) => value !== 0);
+    if (!hasAnyLabeled) {
+      toast({
+        title: 'Cannot save empty annotation',
+        description: 'Please annotate at least one spot before saving.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -319,20 +457,23 @@ const AnnotationPage: React.FC = () => {
     void (async () => {
       try {
         const savedAnnotation = await createAnnotation(datasetId, payloadLabels);
-        setDatasetAnnotation(datasetId, savedAnnotation.annotation_id);
 
-        const returnQuery = new URLSearchParams({
-          dataset_id: datasetId,
-          annotation_id: savedAnnotation.annotation_id,
-        });
-        const separator = returnTo.includes('?') ? '&' : '?';
+        if (experimentId) {
+          const { setExperimentAnnotation } = useExperimentsStore.getState();
+          setExperimentAnnotation(experimentId, datasetId, savedAnnotation.annotation_id);
+        }
 
-        navigate(`${returnTo}${separator}${returnQuery.toString()}`);
+        navigate(returnTo, { replace: true });
       } catch (error) {
         console.error('Failed to save annotation:', error);
+        toast({
+          title: 'Save failed',
+          description: 'Could not save the annotation. Please try again.',
+          variant: 'destructive',
+        });
       }
     })();
-  }, [annotationBuffer, datasetId, labels, navigate, returnTo, setDatasetAnnotation, spots]);
+  }, [annotationBuffer, datasetId, experimentId, labels, navigate, returnTo, spots, toast]);
 
   const labelColors = useMemo(() => {
     const nextLabelColors: Record<number, [number, number, number]> = {
@@ -466,7 +607,7 @@ const AnnotationPage: React.FC = () => {
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
             Open this page from the Dataset Annotation List so the target dataset can be loaded.
           </Typography>
-          <Button variant="contained" onClick={() => navigate(returnTo)}>
+          <Button variant="contained" onClick={() => navigate(returnTo, { replace: true })}>
             Back to annotation list
           </Button>
         </Box>
@@ -531,8 +672,39 @@ const AnnotationPage: React.FC = () => {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Button variant="outlined" onClick={handleExportCsv} sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>
-              Export CSV
+            <Button
+              variant="outlined"
+              onClick={handleCsvMenuClick}
+              sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            >
+              CSV
+            </Button>
+            <Menu
+              anchorEl={csvMenuAnchor}
+              open={csvMenuOpen}
+              onClose={handleCsvMenuClose}
+              MenuListProps={{ dense: true }}
+            >
+              <MenuItem onClick={() => { handleExportCsv(); handleCsvMenuClose(); }}>Export CSV</MenuItem>
+              <MenuItem onClick={() => { document.getElementById('csv-file-input')?.click(); handleCsvMenuClose(); }}>
+                Import CSV
+              </MenuItem>
+            </Menu>
+            <input
+              id="csv-file-input"
+              type="file"
+              accept=".csv,text/csv"
+              hidden
+              onChange={handleImportCsv}
+            />
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleClearAnnotation}
+              sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+              disabled={!annotationBuffer.some((value) => value !== 0)}
+            >
+              Clear Annotation
             </Button>
             <Button variant="contained" onClick={handleSaveAnnotation} sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>
                 {annotationId ? 'Update Annotation' : 'Save Annotation'}

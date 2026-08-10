@@ -16,6 +16,7 @@ export interface ExperimentsActions {
   updateExperimentStatus: (experimentId: string, status: ExperimentStatus) => void;
   fillRunIds: (experimentId: string, runsByDataset: DatasetRunMapping[]) => void;
   updateExperiment: (experimentId: string, updates: Partial<Pick<Experiment, 'parameters' | 'seedList' | 'numberOfRuns' | 'datasetIds'>>) => void;
+  setExperimentAnnotation: (experimentId: string, datasetId: string, annotationId: string | null) => void;
   resetExperiments: () => void;
   validateExperimentsWithBackend: () => Promise<{ removedSubmitted: number; removedUnsubmitted: number }>;
 }
@@ -120,6 +121,21 @@ export const useExperimentsStore = create<ExperimentsStore>()(
             activeExperimentId: experimentId,
           }));
         },
+        setExperimentAnnotation: (experimentId: string, datasetId: string, annotationId: string | null) => {
+          set((prev) => ({
+            experiments: prev.experiments.map((e) => {
+              if (e.id !== experimentId) return e;
+              const nextAnnotationIds = { ...(e.annotationIds ?? {}) };
+              if (annotationId === null) {
+                delete nextAnnotationIds[datasetId];
+              } else {
+                nextAnnotationIds[datasetId] = annotationId;
+              }
+              return { ...e, annotationIds: nextAnnotationIds };
+            }),
+          }));
+        },
+
         resetExperiments: () => set({ experiments: [], activeExperimentId: null }),
         validateExperimentsWithBackend: () => validateExperimentsWithBackend(get, set),
       };
