@@ -1,7 +1,10 @@
-import React, { useState, useCallback } from 'react';
-import { Box, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Paper, Typography } from '@mui/material';
 import { ConsensusResponse } from '@/types';
 import SpatialConsensusPlot from './SpatialConsensusPlot';
+import ViewModeToggle from '@/components/shared/ViewModeToggle';
+
+type ConsensusMode = 'consensus' | 'confidence' | 'combined';
 
 interface Spot {
   x: number;
@@ -21,27 +24,27 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
   isLoading = false,
   domainColors,
 }) => {
-  const [mode, setMode] = useState<'consensus' | 'confidence' | 'combined'>('consensus');
-
-  const handleModeChange = useCallback(
-    (_event: React.MouseEvent<HTMLElement>, newMode: string | null) => {
-      if (newMode !== null && (newMode === 'consensus' || newMode === 'confidence' || newMode === 'combined')) {
-        setMode(newMode);
-      }
-    },
-    [],
-  );
+  const [mode, setMode] = useState<ConsensusMode>('consensus');
 
   const spotCount = data?.spots?.length ?? 0;
   const metadataSpotCount = data?.metadata?.num_spots ?? 0;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%', 
+      minHeight: 0, 
+      gap: 1.5, 
+      width: '100%', 
+      maxWidth: 1200, 
+      mx: 'auto' 
+    }}>
       {/* Control Bar */}
       <Paper
         variant="outlined"
         sx={{
-          p: 2,
+          p: 1.25,
           borderColor: 'grey.200',
           bgcolor: '#f8f9fa',
           borderRadius: 2,
@@ -49,52 +52,41 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: 2,
+          gap: 1.5,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'grey.900', minWidth: 80 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'grey.900' }}>
             View Mode
           </Typography>
-          <ToggleButtonGroup
+          <ViewModeToggle
             value={mode}
-            exclusive
-            onChange={handleModeChange}
-            aria-label="consensus view mode"
-            size="small"
-            sx={{
-              '& .MuiToggleButton-root': {
-                textTransform: 'none',
-                fontSize: '0.875rem',
-                px: 1.5,
-                py: 0.75,
-                border: '1px solid',
-                borderColor: 'grey.300',
-                color: 'grey.700',
-                '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  borderColor: 'primary.main',
-                  '&:hover': {
-                    bgcolor: 'primary.dark',
-                  },
-                },
-              },
-            }}
-          >
-            <ToggleButton value="consensus">Consensus</ToggleButton>
-            <ToggleButton value="confidence">Confidence</ToggleButton>
-            <ToggleButton value="combined">Combined</ToggleButton>
-          </ToggleButtonGroup>
+            options={[
+              { value: 'consensus', label: 'Consensus' },
+              { value: 'confidence', label: 'Confidence' },
+              { value: 'combined', label: 'Combined' },
+            ]}
+            onChange={setMode}
+            ariaLabel="consensus view mode"
+          />
         </Box>
 
         <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-          {(metadataSpotCount || spotCount).toLocaleString()} spots • Plotly scattergl
+          {(metadataSpotCount || spotCount).toLocaleString()} spots
         </Typography>
       </Paper>
 
-      {/* Visualization using Plotly scattergl */}
-      <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'grey.200', overflow: 'hidden' }}>
+      {/* Visualization using Plotly scattergl — fills remaining height */}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'grey.200',
+          overflow: 'hidden',
+        }}
+      >
         <SpatialConsensusPlot
           spots={data?.spots ?? null}
           mode={mode}
@@ -106,7 +98,7 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
       {/* Info Footer */}
       <Box
         sx={{
-          p: 1.5,
+          p: 1,
           bgcolor: 'grey.50',
           borderRadius: 1,
           border: '1px solid',
@@ -133,7 +125,6 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
             </>
           )}
           <br />
-          <strong>Interactions:</strong> Zoom, pan, and hover over points for details. Double-click to reset view.
         </Typography>
       </Box>
     </Box>

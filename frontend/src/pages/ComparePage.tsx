@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Container, Typography, Chip, Button, CircularProgress, Tabs, Tab } from '@mui/material';
+import { Box, Container, Typography, Chip, Button, CircularProgress, Tabs, Tab, Tooltip } from '@mui/material';
 import {
   GridView,
   BarChart as BarChartIcon,
@@ -9,14 +9,14 @@ import {
   CompareArrows as CompareArrowsIcon,
   DonutSmall as DonutSmallIcon,
 } from '@mui/icons-material';
+import { Link2, Check } from 'lucide-react';
 import { useMultiExperimentBestRuns } from '@/hooks/useMultiExperimentBestRuns';
 import { useCompareJobsParams } from '@/hooks/useCompareJobsParams';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { useJobReordering } from '@/hooks/useJobReordering';
-import CompareJobList from '@/components/visualization/CompareJobList';
+import CompareExperimentList from '@/components/visualization/CompareExperimentList';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
-import MetricsTable from '@/components/visualization/MetricsTable';
-import MetricsBarCharts from '@/components/visualization/MetricsBarCharts';
+import MetricsTab from '@/components/visualization/metrics/MetricsTab';
 import SpatialConsensusVisualization from '@/components/visualization/SpatialConsensusVisualization';
 import DomainComparisonTab from '@/components/visualization/domainComparison/DomainComparisonTab';
 import OverlayDomainTab from '@/components/compare/overlayDomain/OverlayDomainTab';
@@ -33,6 +33,27 @@ const ComparePageContent: React.FC = () => {
   const [consensusData, setConsensusData] = useState<any>(null);
   const [consensusLoading, setConsensusLoading] = useState(false);
   const [consensusError, setConsensusError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = useCallback(async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(window.location.href);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = window.location.href;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      toast.success('Link copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  }, []);
 
   // Get dataset context
   const { selectedDataset } = useComparisonDataset();
@@ -168,17 +189,17 @@ const ComparePageContent: React.FC = () => {
       {/* Header */}
       <Box
         sx={{
-          px: 4,
-          py: 3,
+          px: 3,
+          py: 1.5,
           borderBottom: '1px solid',
           borderColor: 'divider',
           bgcolor: 'white',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <GridView sx={{ fontSize: 28 }} />
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0, minHeight: 40 }}>
+            <GridView sx={{ fontSize: 24 }} />
+            <Typography variant="h6" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
               Compare Experiments
             </Typography>
             <Chip
@@ -187,63 +208,78 @@ const ComparePageContent: React.FC = () => {
               sx={{ bgcolor: 'primary.light', color: 'white', fontWeight: 600 }}
             />
           </Box>
-        </Box>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Compare {experimentIds.length} experiments side by side
-        </Typography>
 
-        {/* Tabs */}
-        <Box sx={{ mt: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
             value={activeTab}
             onChange={(_, newValue) => setActiveTab(newValue)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
+              flex: 1,
+              minHeight: 42,
+              ml: { xs: 0, md: 5 },
               '& .MuiTab-root': {
                 textTransform: 'none',
                 fontWeight: 500,
-                fontSize: '0.875rem',
-                minHeight: 48,
+                fontSize: '0.8125rem',
+                minHeight: 42,
+                px: 1.5,
               },
             }}
           >
             <Tab
               label="Plots"
               value="plots"
-              icon={<BarChartIcon sx={{ fontSize: 18 }} />}
+              icon={<BarChartIcon sx={{ fontSize: 16 }} />}
               iconPosition="start"
             />
             <Tab
               label="Metrics"
               value="metrics"
-              icon={<TableChartIcon sx={{ fontSize: 18 }} />}
+              icon={<TableChartIcon sx={{ fontSize: 16 }} />}
               iconPosition="start"
             />
             <Tab
               label="Consensus"
               value="consensus"
-              icon={<MapIcon sx={{ fontSize: 18 }} />}
+              icon={<MapIcon sx={{ fontSize: 16 }} />}
               iconPosition="start"
             />
             <Tab
               label="Domain Comparison"
               value="domain-comparison"
-              icon={<CompareArrowsIcon sx={{ fontSize: 18 }} />}
+              icon={<CompareArrowsIcon sx={{ fontSize: 16 }} />}
               iconPosition="start"
             />
             <Tab
               label="Overlay Domain Map"
               value="overlay-domain-map"
-              icon={<DonutSmallIcon sx={{ fontSize: 18 }} />}
+              icon={<DonutSmallIcon sx={{ fontSize: 16 }} />}
               iconPosition="start"
             />
           </Tabs>
+
+          <Box sx={{ flexShrink: 0, mt: 0.5 }}>
+            <Tooltip title="Copy this URL to bookmark and access results later">
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={copied ? <Check size={16} /> : <Link2 size={16} />}
+                onClick={copyLink}
+                sx={{ py: 0.8, textTransform: 'none', fontWeight: 600 }}
+              >
+                {copied ? 'Copied!' : 'Copy Link'}
+              </Button>
+            </Tooltip>
+          </Box>
         </Box>
       </Box>
 
       {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Panel */}
-        <CompareJobList experiments={comparisonExperiments} onRemoveExperiment={handleRemoveExperiment} />
+        <CompareExperimentList experiments={comparisonExperiments} onRemoveExperiment={handleRemoveExperiment} />
 
         {/* Right Content */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
@@ -349,14 +385,12 @@ const ComparePageContent: React.FC = () => {
                   </Typography>
                 </Box>
               ) : (
-                <>
-                  <MetricsTable experimentMetrics={experimentMetricsData} experimentIds={experimentIds} />
-                  <MetricsBarCharts
-                    experimentMetrics={experimentMetricsData}
-                    experimentIds={experimentIds}
-                    onDownloadAll={handleDownloadMetrics}
-                  />
-                </>
+                <MetricsTab
+                  experimentMetrics={experimentMetricsData}
+                  experimentIds={experimentIds}
+                  onDownloadAll={handleDownloadMetrics}
+                  isExporting={isExportingMetrics}
+                />
               )}
             </Box>
           )}

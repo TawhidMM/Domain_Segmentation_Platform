@@ -9,10 +9,11 @@ import {
   TableRow,
   Typography,
   Paper,
+  Chip,
 } from '@mui/material';
-import { TrendingUp as TrendingUpIcon, TrendingDown as TrendingDownIcon } from '@mui/icons-material';
-import { METRIC_CONFIG, getMetricGroups } from '@/config/metricsConfig';
-import { formatMetricWithStd, calculateStats } from '@/utils/metricsUtils';
+import { Star } from '@mui/icons-material';
+import { METRIC_CONFIG, getMetricGroups, UNIFIED_CHART_COLORS } from '@/config/metricsConfig';
+import { formatMetricWithStd, calculateStats, findBestJobIds } from '@/utils/metricsUtils';
 import { AllExperimentRunMetrics } from '@/hooks/useMultiExperimentBestRuns';
 
 interface MetricsTableProps {
@@ -24,46 +25,15 @@ interface MetricsTableProps {
   experimentIds: string[];
 }
 
-/**
- * Get accent color for metric based on optimization direction
- */
-const getMetricAccentColor = (better: 'higher' | 'lower') => {
-  return better === 'higher' ? '#1976d2' : '#ed6c02';
-};
-
-/**
- * Direction Indicator Component
- */
-const DirectionIndicator: React.FC<{ better: 'higher' | 'lower' }> = ({ better }) => {
-  const color = better === 'higher' ? '#2e7d32' : '#c57c1c';
-
-  return (
-    <Box
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 24,
-        height: 24,
-        borderRadius: '50%',
-        bgcolor: better === 'higher' ? '#e8f5e9' : '#fff3e0',
-        ml: 0.75,
-      }}
-    >
-      {better === 'higher' ? (
-        <TrendingUpIcon sx={{ fontSize: 16, color }} />
-      ) : (
-        <TrendingDownIcon sx={{ fontSize: 16, color }} />
-      )}
-    </Box>
-  );
-};
-
-/**
- * MetricsTable Component
- * Displays mean ± std metrics for multi-run experiments
- */
 const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experimentIds }) => {
+  const colorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    experimentIds.forEach((expId, idx) => {
+      map[expId] = UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length];
+    });
+    return map;
+  }, [experimentIds]);
+
   // Calculate stats for each experiment and metric
   const metricsStats = useMemo(() => {
     const stats: Record<string, Record<string, { mean: number; stdDev: number }>> = {};
@@ -94,14 +64,36 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
     return stats;
   }, [experimentMetrics, experimentIds]);
 
-  const metricGroups = getMetricGroups();
+  // Best job IDs per metric
+  const bestByMetric = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    METRIC_CONFIG.forEach((metric) => {
+      const chartData = experimentIds.map((expId) => {
+        const exp = experimentMetrics.find((m) => m.experimentId === expId);
+        if (!exp?.metricsData?.runs) {
+          return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+        }
+        const values = exp.metricsData.runs
+          .map((run) => run.metrics[metric.key as keyof typeof run.metrics])
+          .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+        if (values.length === 0) {
+          return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+        }
+        const { mean } = calculateStats(values);
+        return { jobId: expId, toolName: exp?.toolName || expId, value: mean };
+      });
+      map[metric.key] = findBestJobIds(chartData, metric.better);
+    });
+    return map;
+  }, [experimentMetrics, experimentIds]);
+
   let previousGroup: string | null = null;
 
   return (
     <Paper
       elevation={0}
       sx={{
-        mt: 3,
+        mt: 0,
         p: 3,
         borderRadius: 3,
         bgcolor: 'white',
@@ -110,11 +102,17 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
         borderColor: 'grey.100',
       }}
     >
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Star sx={{ fontSize: 14, color: '#f59e0b' }} />
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            = best · values are mean ± std
+          </Typography>
+        </Box>
+      </Box>
       <TableContainer
         sx={{
-          maxHeight: 'calc(100vh - 350px)',
           overflowX: 'auto',
-          overflowY: 'auto',
         }}
       >
         <Table stickyHeader sx={{ minWidth: 400 }}>
@@ -126,7 +124,7 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
                   fontWeight: 600,
                   fontSize: '0.9375rem',
                   letterSpacing: '0.02em',
-                  py: 2.5,
+                  py: 2,
                   px: 3,
                   borderBottom: '2px solid',
                   borderColor: 'grey.300',
@@ -142,6 +140,7 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
               {experimentIds.map((expId, index) => {
                 const expData = experimentMetrics.find((m) => m.experimentId === expId);
                 const toolName = expData?.toolName || `Exp ${index + 1}`;
+                const color = colorMap[expId] || '#94a3b8';
                 return (
                   <TableCell
                     key={expId}
@@ -151,7 +150,7 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
                       fontWeight: 600,
                       fontSize: '0.9375rem',
                       letterSpacing: '0.02em',
-                      py: 2.5,
+                      py: 2,
                       px: 3,
                       borderBottom: '2px solid',
                       borderColor: 'grey.300',
@@ -159,7 +158,18 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
                       color: 'grey.800',
                     }}
                   >
-                    {toolName}
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          bgcolor: color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span>{toolName}</span>
+                    </Box>
                   </TableCell>
                 );
               })}
@@ -167,8 +177,6 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
           </TableHead>
           <TableBody>
             {METRIC_CONFIG.map((metric) => {
-              const accentColor = getMetricAccentColor(metric.better);
-
               const showGroupDivider = metric.group !== previousGroup;
               previousGroup = metric.group;
 
@@ -229,10 +237,9 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
                         position: 'sticky',
                         left: 0,
                         zIndex: 2,
-                        borderLeft: `3px solid ${accentColor}`,
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 1 }}>
                         <Typography
                           component="span"
                           sx={{
@@ -243,13 +250,24 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
                         >
                           {metric.label}
                         </Typography>
-                        <DirectionIndicator better={metric.better} />
+                        <Chip
+                          size="small"
+                          label={metric.better === 'higher' ? '↑ Higher' : '↓ Lower'}
+                          sx={{
+                            height: 20,
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            bgcolor: metric.better === 'higher' ? '#e8f5e9' : '#fff3e0',
+                            color: metric.better === 'higher' ? '#2e7d32' : '#c57c1c',
+                          }}
+                        />
                       </Box>
                     </TableCell>
 
                     {experimentIds.map((expId) => {
                       const stats = metricsStats[expId]?.[metric.key];
                       const cellContent = stats ? formatMetricWithStd(stats.mean, stats.stdDev, 3) : 'N/A';
+                      const isBest = bestByMetric[metric.key]?.includes(expId);
 
                       return (
                         <TableCell
@@ -270,14 +288,27 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
                         >
                           <Box
                             sx={{
-                              display: 'inline-block',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.5,
                               px: 1.5,
                               py: 0.75,
                               borderRadius: 1.5,
-                              bgcolor: '#f3f4f6',
+                              bgcolor: isBest ? '#fef3c7' : '#f3f4f6',
                             }}
                           >
-                            {cellContent}
+                            <span>{cellContent}</span>
+                            <Box
+                              sx={{
+                                width: 14,
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {isBest && <Star sx={{ fontSize: 14, color: '#f59e0b' }} />}
+                            </Box>
                           </Box>
                         </TableCell>
                       );

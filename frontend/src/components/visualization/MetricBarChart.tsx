@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { Box, Card, CardContent, IconButton, Typography, Tooltip } from '@mui/material';
-import { Download as DownloadIcon } from '@mui/icons-material';
+import { Download as DownloadIcon, Star } from '@mui/icons-material';
 import {
   Bar,
   BarChart,
@@ -48,16 +48,16 @@ const ToolNameTick: React.FC<{
         textAnchor="middle"
         fontSize={isBest ? 12 : 11}
         fontWeight={isBest ? 700 : 500}
-        fill={isBest ? '#111827' : '#6b7280'}
+        fill={isBest ? '#d97706' : '#6b7280'}
       >
         <title>{jobId}</title>
-        {value}
+        {value}{isBest && ' ★'}
       </text>
     </g>
   );
 };
 
-const MetricTooltip: React.FC<{ active?: boolean; payload?: any[] }> = ({ active, payload }) => {
+const MetricTooltip: React.FC<{ active?: boolean; payload?: Array<{ value: number; payload: MetricBarChartDataItem }> }> = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
 
   const item = payload[0]?.payload as MetricBarChartDataItem | undefined;
@@ -134,22 +134,19 @@ const CustomBar: React.FC<CustomBarProps> = ({
         rx={3}
         ry={3}
       />
-      {/* Subtle top marker for best bar */}
-      {isBest && (
-        <line
-          x1={x + width / 2 - 4}
-          y1={y - 5}
-          x2={x + width / 2 + 4}
-          y2={y - 5}
-          stroke="#0f172a"
-          strokeWidth={2}
-          strokeLinecap="round"
-          opacity={0.9}
-        />
-      )}
     </g>
   );
 };
+
+/** Round an axis ceiling up to a "nice" 1/2/5/10 × 10^n value for clean ticks. */
+function niceCeil(value: number): number {
+  if (value <= 0) return 1;
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = 10 ** exponent;
+  const fraction = value / magnitude;
+  const niceFraction = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+  return niceFraction * magnitude;
+}
 
 const MetricBarChart: React.FC<MetricBarChartProps> = ({
   title,
@@ -163,6 +160,17 @@ const MetricBarChart: React.FC<MetricBarChartProps> = ({
   const handleDownloadClick = useMemo(() => {
     return () => onDownload(metricKey);
   }, [onDownload, metricKey]);
+
+  // Y-axis domain derived from actual data (10% headroom + "nice" ceiling), spanning
+  // positive → negative symmetrically when negatives exist. Falls back to 1 only when
+  // data is truly empty or all-zero (avoids a degenerate zero-width axis).
+  const yDomain = useMemo<[number, number]>(() => {
+    const values = data.map((d) => d.value ?? 0);
+    const rawMax = values.length ? Math.max(...values.map((v) => Math.abs(v))) : 0;
+    const hasNegative = values.some((v) => v < 0);
+    const M = rawMax > 0 ? niceCeil(rawMax * 1.1) : 1;
+    return hasNegative ? [-M, M] : [0, M];
+  }, [data]);
 
   // Custom bar shape handles all rendering with top marker and color preservation
 
@@ -208,6 +216,7 @@ const MetricBarChart: React.FC<MetricBarChartProps> = ({
                 interval={0}
               />
               <YAxis
+                domain={yDomain}
                 tick={{ fontSize: 11, fill: '#6b7280' }}
                 axisLine={{ stroke: '#e5e7eb' }}
                 tickLine={false}

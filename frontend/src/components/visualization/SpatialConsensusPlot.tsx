@@ -19,6 +19,24 @@ interface SpatialConsensusPlotProps {
   domainColors?: Record<string, string>;
 }
 
+const PlotState: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Box
+    sx={{
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#FAFAFA',
+      borderRadius: 2,
+      border: '1px solid',
+      borderColor: 'divider',
+    }}
+  >
+    {children}
+  </Box>
+);
+
 const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
   spots,
   mode,
@@ -121,7 +139,6 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
   const layout: Partial<Layout> = useMemo(
     () => ({
       autosize: true,
-      height: 600,
       margin: { l: 60, r: 40, t: 40, b: 60 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: '#FAFAFA',
@@ -139,7 +156,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
         scaleanchor: 'x' as const,
         scaleratio: 1,
         autorange: 'reversed' as const,
-      } as any,
+      },
       showlegend: mode === 'consensus' || mode === 'combined',
       legend: {
         orientation: 'v',
@@ -161,53 +178,35 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          height: 600,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#FAFAFA',
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
+      <PlotState>
         <CircularProgress size={40} sx={{ mb: 2 }} />
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Loading consensus visualization...
         </Typography>
-      </Box>
+      </PlotState>
     );
   }
 
   if (!spots || spots.length === 0) {
     return (
-      <Box
-        sx={{
-          height: 600,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#FAFAFA',
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
+      <PlotState>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           No consensus data available
         </Typography>
-      </Box>
+      </PlotState>
     );
   }
 
   return (
     <HardwareAccelerationGuard>
-      <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden' }}>
-        <Plot data={plotData} layout={layout} config={config} />
+      <Box sx={{ width: '100%', height: '100%', borderRadius: 2, overflow: 'hidden' }}>
+        <Plot
+          data={plotData}
+          layout={layout}
+          config={config}
+          useResizeHandler
+          style={{ width: '100%', height: '100%' }}
+        />
       </Box>
     </HardwareAccelerationGuard>
   );

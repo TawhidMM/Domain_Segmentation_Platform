@@ -44,6 +44,7 @@ export const ComparisonDatasetProvider: React.FC<ComparisonDatasetProviderProps>
         const response = await fetchComparisonDatasets(experiments);
         const resolvedDatasets = response.datasets.map((dataset) => ({
           dataset_id: dataset.dataset_id,
+          dataset_name: dataset.dataset_name ?? null,
           tools: dataset.tools
             .map((tool) => {
               const token = tokenByExperimentId.get(tool.experiment_id);
