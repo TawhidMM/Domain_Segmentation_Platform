@@ -287,11 +287,13 @@ export interface ComparisonDatasetToolResponse {
 
 export interface ComparisonDatasetResponse {
   dataset_id: string;
+  dataset_name: string;
   tools: ComparisonDatasetToolResponse[];
 }
 
 export interface ComparisonDataset {
   dataset_id: string;
+  dataset_name: string;
   tools: ComparisonDatasetTool[];
 }
 

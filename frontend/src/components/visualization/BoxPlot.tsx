@@ -16,6 +16,8 @@ interface BoxPlotProps {
   }>;
   height?: number;
   width?: string | number;
+  showTitle?: boolean;
+  scroll?: boolean;
 }
 
 
@@ -68,6 +70,8 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
   experimentData,
   height = 420,
   width = '100%',
+  showTitle = true,
+  scroll = false,
 }) => {
   const option: EChartsOption = useMemo(() => {
     // Filter valid data and calculate statistics
@@ -112,17 +116,21 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
     
     const padding = Math.max(range * 0.15, range * 0.15); // 15% padding + minimum buffer
 
+    const titleOption = showTitle
+      ? {
+          text: `${metricLabel} Distribution ${direction === 'higher' ? '↑' : '↓'}`,
+          left: 'center',
+          textStyle: {
+            fontSize: 14,
+            fontWeight: 700,
+            color: '#0f172a',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+          },
+        }
+      : {};
+
     return {
-      title: {
-        text: `${metricLabel} Distribution ${direction === 'higher' ? '↑' : '↓'}`,
-        left: 'center',
-        textStyle: {
-          fontSize: 14,
-          fontWeight: 700,
-          color: '#0f172a',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-        },
-      },
+      ...(showTitle ? { title: titleOption } : {}),
       tooltip: {
         trigger: 'item',
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -133,7 +141,12 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
           fontFamily: 'system-ui, -apple-system, sans-serif',
           fontSize: 12,
         },
-        formatter: (params: any) => {
+        formatter: (params: {
+          name: string;
+          componentSubType?: string;
+          value: number[];
+          data?: { stats?: { mean?: number; min?: number; max?: number } };
+        }) => {
           if (params.componentSubType === 'boxplot') {
             const stats = params.data?.stats;
             const [whiskerMin, q1, median, q3, whiskerMax] = params.value;
@@ -282,7 +295,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
           symbolSize: [18, 3],
           z: 6,
           tooltip: {
-            formatter: (params: any) => {
+            formatter: (params: { name: string; value: number[] }) => {
               return `<strong>${params.name}</strong><br/>Mean: ${params.value[1].toFixed(4)}`;
             },
           },
@@ -303,7 +316,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
           symbolSize: [12, 3],
           z: 7,
           tooltip: {
-            formatter: (params: any) => {
+            formatter: (params: { name: string; value: number[] }) => {
               return `<strong>${params.name}</strong><br/>Median: ${params.value[1].toFixed(4)}`;
             },
           },
@@ -320,8 +333,31 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         },
         itemGap: 20,
       },
+      ...(scroll
+        ? {
+            dataZoom: [
+              {
+                type: 'slider' as const,
+                xAxisIndex: 0,
+                start: 0,
+                end: 100,
+                height: 12,
+                bottom: 0,
+                borderColor: '#e5e7eb',
+                fillerColor: 'rgba(245,158,11,0.1)',
+                handleStyle: { color: '#f59e0b' },
+              },
+              {
+                type: 'inside' as const,
+                xAxisIndex: 0,
+                start: 0,
+                end: 100,
+              },
+            ],
+          }
+        : {}),
     } as EChartsOption;
-  }, [experimentData, metricLabel, direction]);
+  }, [experimentData, metricLabel, direction, showTitle, scroll]);
 
   if (!experimentData || experimentData.length === 0) {
     return (
