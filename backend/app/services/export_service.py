@@ -10,6 +10,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.core.workspace import ExperimentWorkspace
+from app.repositories.dataset_repository import get_datasets_by_ids
 from app.schemas.comparison import ComparisonMetricsRequest, ComparisonRequest, ExperimentContext
 from app.services.experiment_service import require_experiment_with_access
 from app.services.metrics_service import (
@@ -29,8 +30,9 @@ from app.visualization.plot_export import (
     export_umap_svg,
     create_zip_export
 )
-from app.visualization.metric_plots import create_metric_boxplot
-from app.visualization.svg_utils import save_svg
+from app.visualization.metric_plots import create_metric_barplot, create_metric_boxplot
+from app.visualization.plot_style import build_global_color_map
+from app.visualization.svg_utils import save_svg, save_svg_to_pdf
 
 
 def _build_prediction_df(
@@ -127,20 +129,39 @@ def export_umap(
     return zip_data, "application/zip", filename
 
 
-def export_metric_boxplots_zip(
+def export_metric_zip(
     db: Session,
     request: ComparisonMetricsRequest
 ) -> Tuple[bytes, str, str]:
 
     experiment_metrics = collect_experiment_metrics(db, request)
 
-    metrics_df = _build_metrics_dataframe(experiment_metrics)
+    metrics_df = _build_metrics_dataframe(db, experiment_metrics)
 
     metrics_by_experiment = _group_metrics(metrics_df)
 
-    csv_content = metrics_df.to_csv(index=False)
+    csv_columns = ["tool_name", "dataset_name", "seed", "metric", "value"]
+    csv_content = metrics_df[csv_columns].to_csv(index=False)
 
-    zip_bytes = _build_metric_zip(metrics_by_experiment, csv_content)
+    label_map = {
+        experiment_id: exp_info["tool_name"]
+        for experiment_id, exp_info in experiment_metrics.items()
+    }
+    color_map = build_global_color_map(list(label_map.values()))
+
+    # Box plots require >1 value per experiment (runs across all datasets). When
+    # every experiment has exactly one run, a single-point box would be
+    # meaningless, so export bar plots instead (same publication style, same
+    # global color map).
+    run_counts = [
+        len(exp_info.get("runs") or [])
+        for exp_info in experiment_metrics.values()
+    ]
+    use_box_plots = not all(count <= 1 for count in run_counts)
+
+    zip_bytes = _build_metric_zip(
+        metrics_by_experiment, csv_content, label_map, color_map, use_box_plots
+    )
 
     return zip_bytes, "application/zip", "metric_boxplots.zip"
 
@@ -148,21 +169,35 @@ def export_metric_boxplots_zip(
 
 
 def _build_metrics_dataframe(
+    db: Session,
     experiment_metrics: dict
 ) -> pd.DataFrame:
 
     rows = []
 
+    # Batch-load dataset names for all referenced datasets to avoid N+1 queries.
+    dataset_ids = {
+        run["dataset_id"]
+        for exp_info in experiment_metrics.values()
+        for run in exp_info["runs"]
+    }
+    dataset_names = {
+        ds.dataset_id: (ds.dataset_name or ds.dataset_id)
+        for ds in get_datasets_by_ids(db, list(dataset_ids))
+    }
+
     for experiment_id, exp_info in experiment_metrics.items():
         for run in exp_info["runs"]:
+            dataset_name = dataset_names.get(run["dataset_id"], run["dataset_id"])
             for metric_key, metric_value in run["metrics"].items():
                 rows.append({
-                    "experiment_id": experiment_id,
                     "tool_name": exp_info["tool_name"],
-                    "run_id": run["run_id"],
-                    "dataset_id": run["dataset_id"],
+                    "dataset_name": dataset_name,
+                    "seed": run.get("seed"),
                     "metric": metric_key,
-                    "value": metric_value
+                    "value": metric_value,
+                    # experiment_id is kept internally for boxplot grouping only.
+                    "experiment_id": experiment_id,
                 })
 
     return pd.DataFrame(rows)
@@ -191,177 +226,53 @@ def _group_metrics(
 
 def _build_metric_zip(
     metrics_by_experiment: dict,
-    csv_content: str
+    csv_content: str,
+    label_map: dict,
+    color_map: dict,
+    use_boxplots: bool = True,
 ) -> bytes:
 
     with tempfile.TemporaryDirectory(prefix="metric_boxplots_") as temp_dir:
         temp_path = Path(temp_dir)
-        svg_paths: List[Path] = []
+        plot_paths: List[Path] = []
 
-        # Generate SVG boxplots
+        # Generate SVG (+ PDF from the same figure object) metric plots.
         for metric_key in METRIC_KEYS:
-            figure = create_metric_boxplot(metric_key, metrics_by_experiment[metric_key])
-            svg_path = temp_path / f"{metric_key}_boxplot.svg"
+            metric_values = metrics_by_experiment.get(metric_key) or {}
+            if not metric_values:
+                # Some tools may not compute a given metric; skip it rather
+                # than failing the whole export.
+                continue
+            plot_kind = "boxplot" if use_boxplots else "barplot"
+            if use_boxplots:
+                figure = create_metric_boxplot(
+                    metric_key, metric_values, label_map, color_map,
+                )
+            else:
+                figure = create_metric_barplot(
+                    metric_key, metric_values, label_map, color_map,
+                )
+            svg_path = temp_path / f"{metric_key}_{plot_kind}.svg"
+            pdf_path = temp_path / f"{metric_key}_{plot_kind}.pdf"
             save_svg(figure, svg_path)
+            pdf_path.write_bytes(save_svg_to_pdf(figure))
             plt.close(figure)
-            svg_paths.append(svg_path)
+            plot_paths.extend([svg_path, pdf_path])
 
         csv_path = temp_path / "metrics_all_runs.csv"
         csv_path.write_text(csv_content)
 
-        # Create a ZIP archive with both SVGs and CSV
-        zip_path = temp_path / "metric_boxplots.zip"
+        # Create a ZIP archive with SVGs, PDFs, and the CSV.
+        zip_path = temp_path / "metric.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            # Add SVG files
-            for svg_path in svg_paths:
-                archive.write(svg_path, arcname=svg_path.name)
+            # Add plot files (SVG + PDF)
+            for plot_path in plot_paths:
+                archive.write(plot_path, arcname=plot_path.name)
 
             # Add CSV file
             archive.write(csv_path, arcname=csv_path.name)
 
         return zip_path.read_bytes()
-
-
-
-# def export_compare_metrics(
-#     db: Session,
-#     experiments: list,
-#     format_type: str = "svg"
-# ) -> Tuple[bytes, str, str]:
-#     """
-#     Export comparison metrics across multiple runs as SVGs + CSV in ZIP.
-#
-#     Extracts metrics from provided runs, generates bar chart SVGs for each
-#     metric, and packages with CSV export in tidy format.
-#
-#     Args:
-#         db: Database session
-#         experiments: List of {run_id, token, label (optional)}
-#         format_type: "svg" (only supported format)
-#
-#     Returns:
-#         Tuple of (zip_bytes, "application/zip", "comparison_metrics_export.zip")
-#
-#     Raises:
-#         HTTPException(400): < 2 experiments or missing run_id
-#         HTTPException(404): Run or metrics file not found
-#     """
-#     if format_type != "svg":
-#         raise HTTPException(
-#             status_code=400,
-#             detail=f"Unsupported format: {format_type}. Only 'svg' is supported."
-#         )
-#
-#     if len(experiments) < 2:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="At least two experiments are required for comparison export"
-#         )
-#
-#     generated_at = datetime.now(timezone.utc).isoformat()
-#     palette = [
-#         "#2563EB",
-#         "#F59E0B",
-#         "#10B981",
-#         "#EF4444",
-#         "#8B5CF6",
-#         "#0EA5E9",
-#         "#F97316",
-#         "#14B8A6"
-#     ]
-#
-#     metric_keys = [
-#         (
-#             key,
-#             METRICS[key]["label"],
-#             f"{METRICS[key]['direction']} is better"
-#         )
-#         for key in METRIC_KEYS
-#     ]
-#
-#     run_ids = []
-#     labels = []
-#     rows = []
-#
-#     # Load metrics for each provided run
-#     for item in experiments:
-#         run_id = item.get("run_id")
-#         token = item.get("token")
-#         label = item.get("label")
-#
-#         if not run_id:
-#             raise HTTPException(status_code=400, detail="run_id is required")
-#
-#         # TODO: refactor this to use require_run_with_access for validation
-#         run_context = build_run_context(db, None)
-#         metrics_path = run_context.metrics_file
-#
-#         if not metrics_path.exists():
-#             raise HTTPException(
-#                 status_code=404,
-#                 detail=f"Metrics not ready for run {run_id}"
-#             )
-#
-#         metrics = canonicalize_metrics(json.loads(metrics_path.read_text()), run_id)
-#
-#         row = {
-#             "run_id": run_id,
-#             "label": label or run_id[:8],
-#             "silhouette": metrics["silhouette"],
-#             "davies_bouldin": metrics["davies_bouldin"],
-#             "calinski_harabasz": metrics["calinski_harabasz"],
-#             "moran_i": metrics["moran_i"],
-#             "geary_c": metrics["geary_c"]
-#         }
-#
-#         run_ids.append(run_id)
-#         labels.append(row["label"])
-#         rows.append(row)
-#
-#     # Generate SVGs for each metric
-#     colors = [palette[i % len(palette)] for i in range(len(run_ids))]
-#
-#     svg_map = {}
-#     for metric_key, metric_label, note in metric_keys:
-#         values = [row[metric_key] for row in rows]
-#         svg_map[f"{metric_key}.svg"] = generate_metric_svg(
-#             metric_key=metric_key,
-#             metric_label=metric_label,
-#             values=values,
-#             labels=labels,
-#             colors=colors,
-#             experiment_ids=run_ids,
-#             generated_at=generated_at,
-#             note=note
-#         )
-#
-#     # Build CSV
-#     csv_buffer = StringIO()
-#     writer = csv.writer(csv_buffer)
-#     writer.writerow([
-#         "run_id",
-#         "label",
-#         "silhouette",
-#         "davies_bouldin",
-#         "calinski_harabasz",
-#         "moran_i",
-#         "geary_c"
-#     ])
-#     for row in rows:
-#         writer.writerow([
-#             row["run_id"],
-#             row["label"],
-#             row["silhouette"],
-#             row["davies_bouldin"],
-#             row["calinski_harabasz"],
-#             row["moran_i"],
-#             row["geary_c"]
-#         ])
-#
-#     # Package SVGs and CSV in ZIP
-#     zip_data = create_metrics_zip_export(svg_map, csv_buffer.getvalue())
-#     filename = "comparison_metrics_export.zip"
-#     return zip_data, "application/zip", filename
 
 
 def _load_experiment_data(
@@ -668,38 +579,6 @@ def _align_experiments_to_reference(
 
     return aligned_domains
 
-
-# def _build_spot_overlay_response(
-#     experiment_data: list[dict],
-#     aligned_domains: dict[str, np.ndarray],
-#     common_barcodes: list[str]
-# ) -> list[dict]:
-#
-#     reference_exp = experiment_data[0]
-#     reference_df = (
-#         reference_exp["consensus_df"]
-#         .set_index("barcode")
-#         .loc[common_barcodes]
-#     )
-#
-#     x_values = reference_df["x"].to_numpy()
-#     y_values = reference_df["y"].to_numpy()
-#
-#     spots = []
-#
-#     for row_idx, barcode in enumerate(common_barcodes):
-#
-#         spots.append({
-#             "spot_id": barcode,
-#             "x": float(x_values[row_idx]),
-#             "y": float(y_values[row_idx]),
-#             "domains": {
-#                 exp_id: int(domain_values[row_idx])
-#                 for exp_id, domain_values in aligned_domains.items()
-#             }
-#         })
-#
-#     return spots
 
 
 

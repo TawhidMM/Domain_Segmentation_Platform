@@ -186,11 +186,11 @@ def get_domain_comparison(
 
 
 @router.post("/compare/download-boxplots")
-def download_compare_boxplots(
+def download_compare_matrics(
     request: ComparisonMetricsRequest,
     db: Session = Depends(get_db)
 ):
-    data, content_type, filename = export_service.export_metric_boxplots_zip(
+    data, content_type, filename = export_service.export_metric_zip(
         db=db,
         request=request
     )
