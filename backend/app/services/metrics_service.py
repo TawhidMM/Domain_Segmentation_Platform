@@ -54,6 +54,7 @@ def _collect_metrics_from_runs(
         run_data.append({
             "run_id": run.id,
             "dataset_id": run_context.dataset_id,
+            "seed": run.seed,
             "run_context": run_context,
             "metrics": metrics
         })

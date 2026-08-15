@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
+from app.repositories import dataset_repository
 from app.schemas.comparison import (
     ComparisonDatasetsResponseItem,
     ComparisonDatasetToolItem,
@@ -31,9 +32,16 @@ def discover_datasets_for_comparison(
         for dataset_id in dataset_ids:
             dataset_tools[dataset_id][experiment.id] = experiment.tool_name
 
+    dataset_ids = sorted(dataset_tools.keys())
+    dataset_entities = dataset_repository.get_datasets_by_ids(db, dataset_ids)
+    dataset_name_map = {
+        dataset.dataset_id: dataset.dataset_name for dataset in dataset_entities
+    }
+
     datasets = [
         ComparisonDatasetsResponseItem(
             dataset_id=dataset_id,
+            dataset_name=dataset_name_map.get(dataset_id),
             tools=[
                 ComparisonDatasetToolItem(
                     experiment_id=experiment_id,

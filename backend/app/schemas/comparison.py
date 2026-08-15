@@ -38,6 +38,7 @@ class ComparisonDatasetToolItem(BaseModel):
 
 class ComparisonDatasetsResponseItem(BaseModel):
     dataset_id: str
+    dataset_name: str
     tools: List[ComparisonDatasetToolItem]
 
 
