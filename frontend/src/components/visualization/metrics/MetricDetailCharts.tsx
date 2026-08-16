@@ -115,78 +115,14 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
   }
 
   return (
-    <Box>
-      {/* Metric selector chips */}
-      {/*<Stack direction="row" spacing={1} mb={3} flexWrap="wrap" useFlexGap>*/}
-      {/*  {METRIC_CONFIG.map((m) => {*/}
-      {/*    const isActive = m.key === selectedMetric;*/}
-      {/*    const count = experimentIds.filter((expId) => {*/}
-      {/*      const exp = experimentMetrics.find((em) => em.experimentId === expId);*/}
-      {/*      if (!exp?.metricsData?.runs) return false;*/}
-      {/*      return exp.metricsData.runs.some((run) => {*/}
-      {/*        const v = run.metrics[m.key as keyof typeof run.metrics];*/}
-      {/*        return typeof v === 'number' && !isNaN(v);*/}
-      {/*      });*/}
-      {/*    }).length;*/}
-
-      {/*    return (*/}
-      {/*      <Chip*/}
-      {/*        key={m.key}*/}
-      {/*        label={`${m.label} (${count})`}*/}
-      {/*        onClick={() => {}}*/}
-      {/*        color={isActive ? 'primary' : 'default'}*/}
-      {/*        variant={isActive ? 'filled' : 'outlined'}*/}
-      {/*        sx={{*/}
-      {/*          fontWeight: isActive ? 700 : 500,*/}
-      {/*          fontSize: '0.8125rem',*/}
-      {/*          height: 32,*/}
-      {/*        }}*/}
-      {/*      />*/}
-      {/*    );*/}
-      {/*  })}*/}
-      {/*</Stack>*/}
-
-      {/* Best callout */}
-      {/*{bestJobIds.length > 0 && (*/}
-      {/*  <Alert*/}
-      {/*    severity="success"*/}
-      {/*    sx={{*/}
-      {/*      mb: 3,*/}
-      {/*      bgcolor: '#f0fdf4',*/}
-      {/*      border: '1px solid',*/}
-      {/*      borderColor: '#bbf7d0',*/}
-      {/*      '& .MuiAlert-icon': { color: '#16a34a' },*/}
-      {/*    }}*/}
-      {/*  >*/}
-      {/*    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>*/}
-      {/*      <Typography variant="body2" sx={{ fontWeight: 700, color: '#14532d' }}>*/}
-      {/*        Best {metricConfig.label}:*/}
-      {/*      </Typography>*/}
-      {/*      {bestJobIds.map((jobId, idx) => {*/}
-      {/*        const exp = experimentMetrics.find((m) => m.experimentId === jobId);*/}
-      {/*        const toolName = exp?.toolName || jobId;*/}
-      {/*        const item = chartData.find((c) => c.jobId === jobId);*/}
-      {/*        return (*/}
-      {/*          <Chip*/}
-      {/*            key={jobId}*/}
-      {/*            size="small"*/}
-      {/*            label={`${toolName}${item && typeof item.value === 'number' ? ` · ${item.value.toFixed(3)}` : ''}`}*/}
-      {/*            sx={{*/}
-      {/*              bgcolor: colorMap[jobId] || '#94a3b8',*/}
-      {/*              color: 'white',*/}
-      {/*              fontWeight: 600,*/}
-      {/*              fontSize: '0.75rem',*/}
-      {/*            }}*/}
-      {/*          />*/}
-      {/*        );*/}
-      {/*      })}*/}
-      {/*      <Typography variant="caption" sx={{ color: '#166534', ml: 0.5 }}>*/}
-      {/*        ({metricConfig.better === 'higher' ? 'higher' : 'lower'} is better)*/}
-      {/*      </Typography>*/}
-      {/*    </Box>*/}
-      {/*  </Alert>*/}
-      {/*)}*/}
-
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+      }}
+    >
       {/* Charts grid */}
       <Box
         ref={gridRef}
@@ -194,7 +130,9 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
           display: 'grid',
           gridTemplateColumns: hasMultipleRuns && layout === 'side-by-side' ? '1fr 1fr' : '1fr',
           gap: 3,
-          alignItems: 'start',
+          alignItems: 'stretch',
+          flex: 1,
+          minHeight: 0,
         }}
       >
         {/* Bar chart */}
@@ -202,6 +140,8 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
           sx={{
             overflowX: layout === 'stacked-scroll' ? 'auto' : undefined,
             minWidth: 0,
+            height: '100%',
+            minHeight: 0,
           }}
         >
           <Paper
@@ -213,19 +153,21 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
               p: 2.5,
               display: 'flex',
               flexDirection: 'column',
+              height: '100%',
+              minHeight: 0
             }}
           >
             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'grey.900', mb: 1.5 }}>
               {metricConfig.label} — Average ({metricConfig.better === 'higher' ? '↑ higher' : '↓ lower'} is better)
             </Typography>
-            <Box
-              sx={{
-                overflowX: layout === 'stacked-scroll' ? 'auto' : undefined,
-              }}
-            >
+            <Box sx={{
+                flex: 1,
+                minHeight: 0,
+                width: '100%'
+            }}>
               <Box
                 sx={{
-                  height: 320,
+                  height: '100%',
                   minWidth: layout === 'stacked-scroll' ? experimentCount * MIN_BAR_ITEM : undefined,
                   width: layout === 'stacked-scroll' ? undefined : '100%',
                 }}
@@ -249,6 +191,8 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
             sx={{
               overflowX: layout === 'stacked-scroll' ? 'auto' : undefined,
               minWidth: 0,
+              height: '100%',
+              minHeight: 0,
             }}
           >
             <Paper
@@ -260,6 +204,8 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
                 p: 2.5,
                 display: 'flex',
                 flexDirection: 'column',
+                height: '100%',
+                minHeight: 0
               }}
             >
               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'grey.900', mb: 1.5 }}>
@@ -268,38 +214,28 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
               <Box
                 sx={{
                   overflowX: layout === 'stacked-scroll' ? 'auto' : undefined,
+                  flex: 1,
+                  minHeight: 0,
                 }}
               >
                 <Box
                   sx={{
-                    height: 320,
+                    height: '100%',
                     minWidth: layout === 'stacked-scroll' ? experimentCount * MIN_BOX_ITEM : undefined,
                     width: layout === 'stacked-scroll' ? undefined : '100%',
                   }}
                 >
                   <BoxPlot
                     scroll={layout === 'stacked-scroll'}
-                    metricKey={metricConfig.key}
                     metricLabel={metricConfig.label}
                     direction={metricConfig.better as 'higher' | 'lower'}
                     experimentData={boxPlotData}
-                    height={320}
                     showTitle={false}
                   />
                 </Box>
               </Box>
             </Paper>
           </Box>
-        )}
-
-        {!hasMultipleRuns && (
-          <Typography
-            variant="caption"
-            sx={{ color: 'text.secondary', textAlign: 'center', mt: 1 }}
-          >
-            Distribution view requires at least 2 runs per experiment. The bar chart above shows the
-            average across available runs.
-          </Typography>
         )}
       </Box>
     </Box>

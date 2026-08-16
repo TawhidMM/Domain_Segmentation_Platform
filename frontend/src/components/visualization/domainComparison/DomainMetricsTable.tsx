@@ -17,6 +17,7 @@ interface DomainMetricsTableProps {
   toolAName: string;
   toolBName: string;
   selectedDomain: number | null;
+  onDomainSelect: (domain: number) => void;
 }
 
 const DomainMetricsTable: React.FC<DomainMetricsTableProps> = ({
@@ -24,12 +25,17 @@ const DomainMetricsTable: React.FC<DomainMetricsTableProps> = ({
   toolAName,
   toolBName,
   selectedDomain,
+  onDomainSelect,
 }) => {
   return (
     <Paper
       elevation={0}
       sx={{
         p: 2,
+        height: '100%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
         borderRadius: 3,
         bgcolor: 'white',
         boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
@@ -37,8 +43,8 @@ const DomainMetricsTable: React.FC<DomainMetricsTableProps> = ({
         borderColor: 'grey.100',
       }}
     >
-      <TableContainer>
-        <Table size="small" stickyHeader sx={{ minWidth: 560 }}>
+      <TableContainer sx={{ flex: 1, minHeight: 0, overflowX: 'auto' }}>
+        <Table size="small" stickyHeader sx={{ minWidth: 600 }}>
           <TableHead>
             <TableRow>
               <TableCell
@@ -115,8 +121,19 @@ const DomainMetricsTable: React.FC<DomainMetricsTableProps> = ({
               return (
                 <TableRow
                   key={row.domain}
+                  hover
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onDomainSelect(row.domain)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onDomainSelect(row.domain);
+                    }
+                  }}
                   sx={{
                     bgcolor: isSelected ? '#EAF2FF' : 'white',
+                    cursor: 'pointer',
                     '&:hover': {
                       bgcolor: isSelected ? '#E3EEFF' : 'rgba(0, 0, 0, 0.02)',
                     },
