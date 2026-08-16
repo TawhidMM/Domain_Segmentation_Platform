@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationGuard';
-import { Data, Layout, Config, PlotMouseEvent } from 'plotly.js';
-import { Box, Paper, Typography } from '@mui/material';
+import type { Data, Layout, Config } from 'plotly.js';
+import { Box } from '@mui/material';
 import { DomainComparisonResponse } from './types';
 
 interface DomainComparisonPlotProps {
@@ -14,7 +14,6 @@ interface DomainComparisonPlotProps {
 const BOTH_COLOR = '#6D28D9';
 const A_ONLY_COLOR = '#07f72f';
 const B_ONLY_COLOR = '#F97316';
-const DOMAIN_BULLET_COLOR = 'rgb(13, 199, 228)';
 
 const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
   data,
@@ -22,14 +21,6 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
   onDomainSelect,
 }) => {
   const selectedDomainValue = selectedDomain;
-
-  const availableDomains = useMemo(
-    () =>
-      Array.from(new Set(data.spots.map((spot) => spot.A)))
-        .filter((domain): domain is number => typeof domain === 'number')
-        .sort((a, b) => a - b),
-    [data.spots],
-  );
 
   const { both, aOnly, bOnly } = useMemo(() => {
     if (selectedDomainValue === null) {
@@ -75,7 +66,7 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
         showlegend: false,
         hoverinfo: 'skip',
         marker: {
-          size: 1,
+          size: 3,
           color: 'rgba(0,0,0,0)',
           opacity: 0,
         },
@@ -113,7 +104,6 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
   const layout: Partial<Layout> = useMemo(
     () => ({
       autosize: true,
-      height: 560,
       margin: { l: 60, r: 40, t: 30, b: 60 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: '#FAFAFA',
@@ -155,36 +145,12 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
     displaylogo: false,
   };
 
-  const handleClick = (event: Readonly<PlotMouseEvent>) => {
-    if (!event.points || event.points.length === 0) {
-      return;
-    }
-
-    // Enforce one active domain by always deriving a single domain from click points.
-    const clickedDomains = event.points
-      .map((point) => {
-        const customData = point.customdata as unknown;
-        if (!Array.isArray(customData) || customData.length < 2) {
-          return undefined;
-        }
-        const domainA = customData[1];
-        return typeof domainA === 'number' ? domainA : undefined;
-      })
-      .filter((domain): domain is number => typeof domain === 'number');
-
-    if (clickedDomains.length === 0) {
-      return;
-    }
-
-    const nextDomain = Math.min(...clickedDomains);
-    onDomainSelect(nextDomain);
-  };
-
   if (selectedDomainValue === null) {
     return (
       <Box
         sx={{
-          height: 560,
+          height: '100%',
+          minHeight: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -194,98 +160,26 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
           borderRadius: 2,
         }}
       >
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        <Box component="span" sx={{ color: 'text.secondary', fontSize: 14 }}>
           No domain available to display.
-        </Typography>
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: '1fr 220px' },
-        gap: 2,
-        p: 2,
-        bgcolor: '#FAFAFA',
-      }}
-    >
+    <Box sx={{ p: 2, height: '100%', minHeight: 0, display: 'flex', bgcolor: '#FAFAFA' }}>
       <HardwareAccelerationGuard>
-        <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'white' }}>
+        <Box sx={{ flex: 1, minHeight: 0, borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'white' }}>
           <Plot
             data={plotData}
             layout={layout}
             config={config}
-            onClick={handleClick}
             useResizeHandler
-            style={{ width: '100%', height: '560px' }}
+            style={{ width: '100%', height: '100%' }}
           />
         </Box>
       </HardwareAccelerationGuard>
-
-      <Paper
-        variant="outlined"
-        sx={{
-          p: 1.5,
-          borderRadius: 2,
-          maxHeight: 560,
-          overflowY: 'auto',
-          bgcolor: 'white',
-        }}
-      >
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.25 }}>
-          Domains
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {availableDomains.map((domain) => {
-            const isActive = selectedDomainValue === domain;
-
-            return (
-              <Box
-                key={domain}
-                role="button"
-                tabIndex={0}
-                onClick={() => onDomainSelect(domain)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onDomainSelect(domain);
-                  }
-                }}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  px: 1,
-                  py: 0.75,
-                  borderRadius: 1,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: isActive ? 'primary.main' : 'transparent',
-                  bgcolor: isActive ? 'primary.50' : 'transparent',
-                  '&:hover': {
-                    bgcolor: isActive ? 'primary.100' : 'grey.100',
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    bgcolor: DOMAIN_BULLET_COLOR,
-                    flexShrink: 0,
-                  }}
-                />
-                <Typography variant="body2" sx={{ fontWeight: isActive ? 700 : 500 }}>
-                  Domain {domain}
-                </Typography>
-              </Box>
-            );
-          })}
-        </Box>
-      </Paper>
     </Box>
   );
 };

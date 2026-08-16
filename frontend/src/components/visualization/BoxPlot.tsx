@@ -1,12 +1,11 @@
-import React, { useMemo } from 'react';
-import { Box } from '@mui/material';
+import React, {useMemo} from 'react';
+import {Box} from '@mui/material';
 import ReactECharts from 'echarts-for-react';
-import { EChartsOption } from 'echarts';
-import { calculateStats } from '@/utils/metricsUtils';
-import { UNIFIED_CHART_COLORS } from '@/config/metricsConfig';
+import {EChartsOption} from 'echarts';
+import {calculateStats} from '@/utils/metricsUtils';
+import {UNIFIED_CHART_COLORS} from '@/config/metricsConfig';
 
 interface BoxPlotProps {
-  metricKey: string;
   metricLabel: string;
   direction: 'higher' | 'lower';
   experimentData: Array<{
@@ -14,7 +13,6 @@ interface BoxPlotProps {
     toolName: string;
     values: number[];
   }>;
-  height?: number;
   width?: string | number;
   showTitle?: boolean;
   scroll?: boolean;
@@ -64,11 +62,9 @@ function computeBoxStats(values: number[]) {
 }
 
 const BoxPlot: React.FC<BoxPlotProps> = ({
-  metricKey,
   metricLabel,
   direction,
   experimentData,
-  height = 420,
   width = '100%',
   showTitle = true,
   scroll = false,
@@ -211,7 +207,6 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
       },
       yAxis: {
         type: 'value',
-        name: metricLabel,
         nameGap: 15,
         nameTextStyle: {
           color: '#0f172a',
@@ -281,9 +276,8 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
           name: 'Mean',
           type: 'scatter',
           data: boxPlotData.map((d, idx) => {
-            const xIndex = idx;
             return {
-              value: [xIndex, d.stats.mean],
+              value: [idx, d.stats.mean],
               itemStyle: {
                 color: '#facc15',
                 borderColor: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
@@ -364,7 +358,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
       <Box
         sx={{
           width,
-          height,
+          height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -382,7 +376,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
     <Box
       sx={{
         width,
-        height,
+        height: '100%',
         bgcolor: 'white',
         borderRadius: 1,
         border: '1px solid #e2e8f0',

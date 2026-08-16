@@ -138,41 +138,7 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-        <FormControl fullWidth size="small">
-          <InputLabel id="tool-a-select-label">Tool A</InputLabel>
-          <Select
-            labelId="tool-a-select-label"
-            value={selectedToolAId}
-            label="Tool A"
-            onChange={handleToolAChange}
-          >
-            {tools.map((tool) => (
-              <MenuItem key={tool.experiment_id} value={tool.experiment_id} disabled={tool.experiment_id === selectedToolBId}>
-                {tool.tool_name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl fullWidth size="small">
-          <InputLabel id="tool-b-select-label">Tool B</InputLabel>
-          <Select
-            labelId="tool-b-select-label"
-            value={selectedToolBId}
-            label="Tool B"
-            onChange={handleToolBChange}
-          >
-            {tools.map((tool) => (
-              <MenuItem key={tool.experiment_id} value={tool.experiment_id} disabled={tool.experiment_id === selectedToolAId}>
-                {tool.tool_name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
-
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%', minHeight: 0 }}>
       {error && <Alert severity="error">{error}</Alert>}
 
       {loading ? (
@@ -192,8 +158,17 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
           </Typography>
         </Box>
       ) : comparisonData ? (
-        <>
-          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            display: 'grid',
+            flex: 1,
+            minHeight: 0,
+            gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2.2fr) minmax(320px, 1.92fr)' },
+            gap: 2,
+            alignItems: 'stretch',
+          }}
+        >
+          <Box sx={{ minWidth: 0, height: '100%', border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
             <DomainComparisonPlot
               data={comparisonData}
               selectedDomain={selectedDomain}
@@ -201,8 +176,42 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
             />
           </Box>
 
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+          <Box sx={{ minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="tool-a-select-label">Tool A</InputLabel>
+                <Select
+                  labelId="tool-a-select-label"
+                  value={selectedToolAId}
+                  label="Tool A"
+                  onChange={handleToolAChange}
+                >
+                  {tools.map((tool) => (
+                    <MenuItem key={tool.experiment_id} value={tool.experiment_id} disabled={tool.experiment_id === selectedToolBId}>
+                      {tool.tool_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth size="small">
+                <InputLabel id="tool-b-select-label">Tool B</InputLabel>
+                <Select
+                  labelId="tool-b-select-label"
+                  value={selectedToolBId}
+                  label="Tool B"
+                  onChange={handleToolBChange}
+                >
+                  {tools.map((tool) => (
+                    <MenuItem key={tool.experiment_id} value={tool.experiment_id} disabled={tool.experiment_id === selectedToolAId}>
+                      {tool.tool_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               Domain Metrics
             </Typography>
             <DomainMetricsTable
@@ -210,9 +219,10 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
               toolAName={selectedToolNames.a}
               toolBName={selectedToolNames.b}
               selectedDomain={selectedDomain}
+              onDomainSelect={setSelectedDomain}
             />
           </Box>
-        </>
+        </Box>
       ) : (
         <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>

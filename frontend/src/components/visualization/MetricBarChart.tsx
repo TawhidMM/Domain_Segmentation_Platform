@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useState, useLayoutEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Box, Card, CardContent, IconButton, Typography, Tooltip } from '@mui/material';
-import { Download as DownloadIcon, Star } from '@mui/icons-material';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import {
   Bar,
   BarChart,
@@ -181,9 +181,10 @@ const MetricBarChart: React.FC<MetricBarChartProps> = ({
         borderRadius: 2,
         borderColor: 'grey.200',
         bgcolor: 'white',
+        height: '100%',
       }}
     >
-      <CardContent sx={{ p: 2.5 }}>
+      <CardContent sx={{ p: 2.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.5 }}>
           <Box>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'grey.900' }}>
@@ -204,7 +205,7 @@ const MetricBarChart: React.FC<MetricBarChartProps> = ({
             </IconButton>
           </Tooltip>
         </Box>
-        <Box sx={{ height: 220 }}>
+        <Box sx={{ flex: 1, minHeight: 0, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 16, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid vertical={false} stroke="#e5e7eb" strokeDasharray="3 3" />
