@@ -61,6 +61,10 @@ function computeBoxStats(values: number[]) {
   };
 }
 
+// Fraction (of a category's band width) that the box occupies — the midpoint of
+// the boxplot series' boxWidth: ['40%', '50%']. Shared so the mean line width can't drift.
+const BOX_WIDTH_RATIO = 0.45;
+
 const BoxPlot: React.FC<BoxPlotProps> = ({
   metricLabel,
   direction,
@@ -84,7 +88,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
       if (exp.values.length > 1) {
         const q = computeBoxStats(exp.values);
         const stats = calculateStats(exp.values);
-        return { type: 'box' as const, name: exp.toolName, q, stats };
+        return { type: 'box' as const, name: exp.toolName, q, stats, values: exp.values };
       }
       return { type: 'point' as const, name: exp.toolName, value: exp.values[0] };
     });
@@ -126,7 +130,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
             value: [idx, d.stats.mean],
             name: d.name,
             itemStyle: {
-              color: '#facc15',
+              color: '#ffffff',
               borderColor: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
               borderWidth: 2,
             },
@@ -134,20 +138,18 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         : []
     );
 
-    // Median indicator per category (box categories only)
-    const medianData = prepared.flatMap((d, idx) =>
-      d.type === 'box'
-        ? {
-            value: [idx, d.q.median],
-            name: d.name,
-            itemStyle: {
-              color: '#ef4444',
-              borderColor: '#ffffff',
-              borderWidth: 1.5,
-            },
-          }
-        : []
-    );
+    // Raw data points overlay (multi-run boxes only): one point per run value,
+    // horizontally jittered within the category slot so overlapping values stay visible.
+    const DATA_POINT_JITTER = 0.15;
+    const POINT_COLOR = 'rgba(148, 163, 184, 0.45)';
+    const POINT_BORDER = 'rgba(148, 163, 184, 0.75)';
+    const dataPointData = prepared.flatMap((d, idx) => {
+      if (d.type !== 'box') return [];
+      return d.values.map((v) => ({
+        value: [idx + (Math.random() * 2 - 1) * DATA_POINT_JITTER, v],
+        name: d.name,
+      }));
+    });
 
     // Single-run diamond points (aligned to their category slot)
     const singleRunData = prepared.flatMap((d, idx) =>
@@ -166,23 +168,21 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
 
     const hasSingleRun = singleRunData.length > 0;
 
-    // All values for axis range
-    const allValues = validData.flatMap((exp) => exp.values);
-    const minValue = Math.min(...allValues);
-    const maxValue = Math.max(...allValues);
-    let range = maxValue - minValue;
-    
-   
-    if (range < 0.1) {
-      range = 0.1;
-    }
-    
-    const padding = Math.max(range * 0.15, range * 0.15); // 15% padding + minimum buffer
+    const legendData: { name: string; icon?: string; itemStyle?: { color: string } }[] = [
+      { name: 'Distribution', icon: 'rectangle', itemStyle: { color: '#93c5fd' } },
+      { name: 'Data Points', icon: 'circle', itemStyle: { color: 'rgba(148, 163, 184, 0.75)' } },
+      { name: 'Median', icon: 'path://M-10,-1 L10,-1 L10,1 L-10,1 Z', itemStyle: { color: '#000000' } },
+      { name: 'Mean', icon: 'path://M-10,-1 L-3,-1 L-3,1 L-10,1 Z M3,-1 L10,-1 L10,1 L3,1 Z', itemStyle: { color: '#000000' } },
+      ...(hasSingleRun
+        ? [{ name: 'Single Run', icon: 'diamond', itemStyle: { color: '#0f172a' } }]
+        : []),
+    ];
 
     const titleOption = showTitle
       ? {
           text: `${metricLabel} Distribution ${direction === 'higher' ? '↑' : '↓'}`,
           left: 'center',
+          top: 10,
           textStyle: {
             fontSize: 14,
             fontWeight: 700,
@@ -227,8 +227,8 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
             return `<strong>${params.name}</strong><br/>
               Whisker Min: ${fmt(s?.whiskerMin)}<br/>
               Q1: ${fmt(s?.q1)}<br/>
-              Median: ${fmt(s?.median)} ─<br/>
-              Mean: ${fmt(s?.mean)} ═<br/>
+              Median: ${fmt(s?.median)} ─ <br/>
+              Mean: ${fmt(s?.mean)} - - <br/>
               Q3: ${fmt(s?.q3)}<br/>
               Whisker Max: ${fmt(s?.whiskerMax)}<br/>
               Min/Max: ${fmt(s?.min)} / ${fmt(s?.max)}`;
@@ -239,7 +239,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
       grid: {
         left: 70,
         right: 30,
-        top: 80,
+        top: 90,
         bottom: 60,
         containLabel: false,
         backgroundColor: {
@@ -280,6 +280,8 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
       },
       yAxis: {
         type: 'value',
+        scale: true,
+        boundaryGap: ['10%', '10%'],
         nameGap: 15,
         nameTextStyle: {
           color: '#0f172a',
@@ -287,8 +289,6 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
           fontWeight: 600,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         },
-        min: minValue - padding,
-        max: maxValue + padding,
         axisLabel: {
           fontSize: 11,
           color: '#64748b',
@@ -319,7 +319,6 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
           name: 'Distribution',
           type: 'boxplot',
           encode: { x: 0 },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data: boxPlotData as any,
           itemStyle: {
             color: '#93c5fd',
@@ -337,31 +336,77 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
             },
           },
         },
-        // Mean indicators
+        {
+          name: 'Median',
+          type: 'line',
+          data: [],
+          showSymbol: false,
+          symbol: 'none',
+          lineStyle: { type: 'solid', color: '#0f172a', width: 2 },
+          silent: true,
+          legendHoverLink: false,
+          tooltip: { show: false },
+        },
+        // // Raw per-run data points (multi-run boxes only)
+        {
+          name: 'Data Points',
+          type: 'scatter',
+          data: dataPointData,
+          symbolSize: 4,
+          itemStyle: {
+            color: POINT_COLOR,
+            borderColor: POINT_BORDER,
+            borderWidth: 0.5,
+          },
+          large: true,
+          z: 5,
+          tooltip: {
+            formatter: (params: { name: string; value: number[] }) => {
+              return `<strong>${params.name}</strong><br/>Run value: ${params.value[1].toFixed(4)}`;
+            },
+          },
+        },
+        // Mean indicator drawn as a dashed line matching the box width.
+        // The box's own solid line is the median, so a separate median series is not needed.
         {
           name: 'Mean',
-          type: 'scatter',
+          type: 'custom',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          renderItem: (params: any, api: any) => {
+            const idx = api.value(0);
+            const mean = api.value(1);
+            const [x0, y0] = api.coord([idx, mean]);
+            // half the box's rendered width = (BOX_WIDTH_RATIO/2) * category band, matching boxWidth
+            let half = 8;
+            const right = api.coord([idx + 1, mean]);
+            const left = api.coord([idx - 1, mean]);
+            if (right && isFinite(right[0])) {
+              half = Math.abs(right[0] - x0) * (BOX_WIDTH_RATIO / 2);
+            } else if (left && isFinite(left[0])) {
+              half = Math.abs(x0 - left[0]) * (BOX_WIDTH_RATIO / 2);
+            }
+            const y = Math.round(y0);
+            return {
+              type: 'group',
+              children: [
+                {
+                  type: 'line',
+                  shape: { x1: x0 - half, y1: y, x2: x0 + half, y2: y },
+                  style: {
+                    stroke: '#000000',
+                    lineWidth: 2,
+                    lineDash: [6, 4],
+                    strokeNoScale: true,
+                  },
+                },
+              ],
+            };
+          },
           data: meanData,
-          symbol: 'rect',
-          symbolSize: [18, 3],
           z: 6,
           tooltip: {
             formatter: (params: { name: string; value: number[] }) => {
               return `<strong>${params.name}</strong><br/>Mean: ${params.value[1].toFixed(4)}`;
-            },
-          },
-        },
-        // Median indicators
-        {
-          name: 'Median',
-          type: 'scatter',
-          data: medianData,
-          symbol: 'rect',
-          symbolSize: [12, 3],
-          z: 7,
-          tooltip: {
-            formatter: (params: { name: string; value: number[] }) => {
-              return `<strong>${params.name}</strong><br/>Median: ${params.value[1].toFixed(4)}`;
             },
           },
         },
@@ -381,15 +426,19 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         },
       ],
       legend: {
-        data: ['Distribution', 'Mean', 'Median', ...(hasSingleRun ? ['Single Run'] : [])],
-        top: 40,
+        data: legendData,
+        top: 13,
+        right: 12,
         orient: 'horizontal',
         textStyle: {
           color: '#475569',
           fontSize: 12,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         },
-        itemGap: 20,
+        itemGap: 14,
+        itemWidth: 22,
+        itemHeight: 11,
+        padding: [2, 6],
       },
       ...(scroll
         ? {
