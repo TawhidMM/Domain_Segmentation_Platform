@@ -6,6 +6,47 @@ export interface MetricStats {
   values: number[];
 }
 
+export function quantile(sortedValues: number[], q: number): number {
+  if (sortedValues.length === 0) return 0;
+  const position = (sortedValues.length - 1) * q;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+
+  if (lower === upper) {
+    return sortedValues[lower];
+  }
+
+  const weight = position - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+}
+
+export function computeBoxStats(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+
+  const q1 = quantile(sorted, 0.25);
+  const median = quantile(sorted, 0.5);
+  const q3 = quantile(sorted, 0.75);
+
+  const iqr = q3 - q1;
+  const lowerFence = q1 - 1.5 * iqr;
+  const upperFence = q3 + 1.5 * iqr;
+
+  const inFence = sorted.filter((value) => value >= lowerFence && value <= upperFence);
+
+  const lowerWhisker = inFence.length > 0 ? inFence[0] : sorted[0];
+  const upperWhisker = inFence.length > 0 ? inFence[inFence.length - 1] : sorted[sorted.length - 1];
+
+  return {
+    lowerWhisker,
+    q1,
+    median,
+    q3,
+    upperWhisker,
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+  };
+}
+
 export interface ChartDataItem {
   jobId: string;
   toolName: string;
