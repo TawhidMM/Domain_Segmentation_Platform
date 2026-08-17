@@ -24,7 +24,7 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
   isLoading = false,
   domainColors,
 }) => {
-  const [mode, setMode] = useState<ConsensusMode>('consensus');
+  const [viewMode, setViewMode] = useState<ConsensusMode>('consensus');
 
   const spotCount = data?.spots?.length ?? 0;
   const metadataSpotCount = data?.metadata?.num_spots ?? 0;
@@ -60,13 +60,13 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
             View Mode
           </Typography>
           <ViewModeToggle
-            value={mode}
+            value={viewMode}
             options={[
               { value: 'consensus', label: 'Consensus' },
               { value: 'confidence', label: 'Confidence' },
               { value: 'combined', label: 'Combined' },
             ]}
-            onChange={setMode}
+            onChange={setViewMode}
             ariaLabel="consensus view mode"
           />
         </Box>
@@ -89,7 +89,7 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
       >
         <SpatialConsensusPlot
           spots={data?.spots ?? null}
-          mode={mode}
+          mode={viewMode}
           isLoading={isLoading}
           domainColors={domainColors}
         />
@@ -106,19 +106,19 @@ const SpatialConsensusVisualization: React.FC<SpatialConsensusVisualizationProps
         }}
       >
         <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
-          {mode === 'consensus' && (
+          {viewMode === 'consensus' && (
             <>
               <strong>Consensus Mode:</strong> Each spot colored by its assigned domain label. Hover to see coordinates
               and domain information.
             </>
           )}
-          {mode === 'confidence' && (
+          {viewMode === 'confidence' && (
             <>
               <strong>Confidence Mode:</strong> Spots colored by confidence scores using Viridis colormap (dark blue =
               low, bright yellow = high). Color bar shows the confidence scale.
             </>
           )}
-          {mode === 'combined' && (
+          {viewMode === 'combined' && (
             <>
               <strong>Combined Mode:</strong> Domain colors with opacity controlled by confidence. Minimum opacity of 25%
               prevents low-confidence spots from disappearing.
