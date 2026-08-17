@@ -25,7 +25,7 @@ def save_svg_to_string(fig: Figure, dpi: int = 600) -> str:
     return buffer.read().decode("utf-8")
 
 
-def save_svg_to_pdf(fig: Figure, dpi: int = 1200) -> bytes:
+def save_as_pdf(fig: Figure, dpi: int = 1200) -> bytes:
     buffer = BytesIO()
     fig.savefig(buffer, format="pdf", dpi=dpi, bbox_inches="tight")
     buffer.seek(0)

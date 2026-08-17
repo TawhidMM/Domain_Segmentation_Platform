@@ -6,7 +6,7 @@ from matplotlib.lines import Line2D
 import numpy as np
 import umap
 
-from app.visualization.svg_utils import embed_svg_metadata, save_svg_to_string, save_svg_to_pdf
+from app.visualization.svg_utils import embed_svg_metadata, save_svg_to_string, save_as_pdf
 
 # Module-level matplotlib defaults
 matplotlib.use('Agg')
@@ -103,7 +103,7 @@ def _style_axes(
 def _save_and_close(fig):
 
     svg_string = save_svg_to_string(fig, dpi=RASTER_DPI)
-    pdf_bytes = save_svg_to_pdf(fig, dpi=RASTER_DPI)
+    pdf_bytes = save_as_pdf(fig, dpi=RASTER_DPI)
     plt.close(fig)
     return svg_string, pdf_bytes
 
