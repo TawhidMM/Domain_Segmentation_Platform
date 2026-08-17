@@ -109,7 +109,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'grey.900' }}>
-          {hasMultipleRuns ? 'Metrics Comparison (Averages & Distributions)' : 'Average Metrics'}
+                    {hasMultipleRuns ? 'Metric Distributions' : 'Average Metrics'}
         </Typography>
         <Button variant="contained" onClick={onDownloadAll} sx={{ textTransform: 'none' }}>
           Download Metrics
@@ -135,29 +135,31 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
             <Box
               key={`metric-${metric.key}`}
               sx={{
-                display: 'grid',
-                gridTemplateColumns: hasMultipleRuns && boxData.length > 0 ? '1fr 1fr' : '1fr',
+                                display: 'grid',
+                gridTemplateColumns: '1fr',
                 gap: 3,
                 alignItems: 'center',
               }}
             >
-              {/* Bar Chart */}
-              <MetricBarChart
-                title={metric.label}
-                subtitle={subtitle}
-                metricKey={metric.key}
-                data={chartData}
-                colorByJobId={colorMap}
-                bestJobIds={bestJobIds}
-                onDownload={() => {}}
-              />
-
-              {/* Box Plot (only if multiple runs) */}
-              {hasMultipleRuns && boxData.length > 0 && (
+                            {/* Only one plot is rendered at a time:
+                  - box plot when any experiment has >1 run (single-run experiments
+                    still appear as diamonds inside the box plot)
+                  - bar chart only when every experiment has exactly 1 run */}
+              {hasMultipleRuns && boxData.length > 0 ? (
                 <BoxPlot
                   metricLabel={metric.label}
                   direction={metric.better as 'higher' | 'lower'}
                   experimentData={boxData}
+                />
+              ) : (
+                <MetricBarChart
+                  title={metric.label}
+                  subtitle={subtitle}
+                  metricKey={metric.key}
+                  data={chartData}
+                  colorByJobId={colorMap}
+                  bestJobIds={bestJobIds}
+                  onDownload={() => {}}
                 />
               )}
             </Box>

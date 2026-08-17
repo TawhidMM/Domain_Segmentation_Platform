@@ -130,14 +130,15 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
         ref={gridRef}
         sx={{
           display: 'grid',
-          gridTemplateColumns: hasMultipleRuns && layout === 'side-by-side' ? '1fr 1fr' : '1fr',
+          gridTemplateColumns: '1fr',
           gap: 3,
           alignItems: 'stretch',
           flex: 1,
           minHeight: 0,
         }}
       >
-        {/* Bar chart */}
+        {/* Bar chart (shown only when every experiment has a single run) */}
+        {!hasMultipleRuns && (
         <Box
           sx={{
             overflowX: layout === 'stacked-scroll' ? 'auto' : undefined,
@@ -187,6 +188,7 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
             </Box>
           </Paper>
         </Box>
+        )}
 
         {hasMultipleRuns && (
           <Box
