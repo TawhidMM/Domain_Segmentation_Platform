@@ -76,7 +76,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
       data[metric.key] = experimentIds
         .map((expId) => {
           const exp = experimentMetrics.find((m) => m.experimentId === expId);
-          if (!exp?.metricsData?.runs || exp.metricsData.runs.length <= 1) {
+          if (!exp?.metricsData?.runs) {
             return null;
           }
 
@@ -155,11 +155,9 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
               {/* Box Plot (only if multiple runs) */}
               {hasMultipleRuns && boxData.length > 0 && (
                 <BoxPlot
-                  metricKey={metric.key}
                   metricLabel={metric.label}
                   direction={metric.better as 'higher' | 'lower'}
                   experimentData={boxData}
-                  height={380}
                 />
               )}
             </Box>

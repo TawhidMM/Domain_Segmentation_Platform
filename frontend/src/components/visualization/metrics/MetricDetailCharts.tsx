@@ -66,7 +66,7 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
     return experimentIds
       .map((expId) => {
         const exp = experimentMetrics.find((m) => m.experimentId === expId);
-        if (!exp?.metricsData?.runs || exp.metricsData.runs.length <= 1) {
+        if (!exp?.metricsData?.runs) {
           return null;
         }
         const values = exp.metricsData.runs
@@ -83,7 +83,9 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
   }, [experimentMetrics, experimentIds, metricKey]);
 
   const bestJobIds = useMemo(() => findBestJobIds(chartData, metricBetter), [chartData, metricBetter]);
-  const hasMultipleRuns = boxPlotData.length > 0;
+  // Distribution panel renders only when at least one experiment has more than one run.
+  // Single-run experiments (values.length === 1) are drawn as diamonds in the same plot.
+  const hasMultipleRuns = experimentMetrics.some((exp) => (exp.metricsData?.runs?.length ?? 0) > 1);
 
   const gridRef = useRef<HTMLDivElement>(null!);
   const [containerWidth, setContainerWidth] = useState(0);
