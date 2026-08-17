@@ -77,27 +77,94 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
       return { title: { text: 'No data available' } };
     }
 
-    // Prepare data for box plot
-    const boxPlotData = validData.map((exp) => {
-      const q = computeBoxStats(exp.values);
-      const stats = calculateStats(exp.values);
+    // Prepare data: multi-run experiments -> box; single-run -> diamond point
+    const categories = validData.map((exp) => exp.toolName);
 
-      return {
-        name: exp.toolName,
-        value: [q.lowerWhisker, q.q1, q.median, q.q3, q.upperWhisker],
-        stats: {
-          mean: stats.mean,
-          median: q.median,
-          whiskerMin: q.lowerWhisker,
-          whiskerMax: q.upperWhisker,
-          min: q.min,
-          max: q.max,
-          q1: q.q1,
-          q3: q.q3,
-          stdDev: stats.stdDev,
-        },
-      };
+    const prepared = validData.map((exp) => {
+      if (exp.values.length > 1) {
+        const q = computeBoxStats(exp.values);
+        const stats = calculateStats(exp.values);
+        return { type: 'box' as const, name: exp.toolName, q, stats };
+      }
+      return { type: 'point' as const, name: exp.toolName, value: exp.values[0] };
     });
+
+    // Box-plot data positioned by experiment name via encode:{x:0}.
+    // Each box carries its category name as the first value so it lands on the
+    // correct slot even when single-run experiments (diamonds) are interleaved.
+    const boxPlotData = prepared.flatMap((d, idx) => {
+      if (d.type === 'point') return [];
+      return [
+        {
+          name: d.name,
+          value: [d.name, d.q.lowerWhisker, d.q.q1, d.q.median, d.q.q3, d.q.upperWhisker],
+          stats: {
+            mean: d.stats.mean,
+            median: d.q.median,
+            whiskerMin: d.q.lowerWhisker,
+            whiskerMax: d.q.upperWhisker,
+            min: d.q.min,
+            max: d.q.max,
+            q1: d.q.q1,
+            q3: d.q.q3,
+            stdDev: d.stats.stdDev,
+          },
+          itemStyle: {
+            color: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
+            borderColor: '#0f172a',
+            borderWidth: 2,
+            opacity: 0.75,
+          },
+        },
+      ];
+    });
+
+    // Mean indicator per category (box categories only)
+    const meanData = prepared.flatMap((d, idx) =>
+      d.type === 'box'
+        ? {
+            value: [idx, d.stats.mean],
+            name: d.name,
+            itemStyle: {
+              color: '#facc15',
+              borderColor: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
+              borderWidth: 2,
+            },
+          }
+        : []
+    );
+
+    // Median indicator per category (box categories only)
+    const medianData = prepared.flatMap((d, idx) =>
+      d.type === 'box'
+        ? {
+            value: [idx, d.q.median],
+            name: d.name,
+            itemStyle: {
+              color: '#ef4444',
+              borderColor: '#ffffff',
+              borderWidth: 1.5,
+            },
+          }
+        : []
+    );
+
+    // Single-run diamond points (aligned to their category slot)
+    const singleRunData = prepared.flatMap((d, idx) =>
+      d.type === 'point'
+        ? {
+            value: [idx, d.value],
+            name: d.name,
+            itemStyle: {
+              color: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
+              borderColor: '#0f172a',
+              borderWidth: 2,
+            },
+          }
+        : []
+    );
+
+    const hasSingleRun = singleRunData.length > 0;
 
     // All values for axis range
     const allValues = validData.flatMap((exp) => exp.values);
@@ -141,24 +208,30 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
           name: string;
           componentSubType?: string;
           value: number[];
-          data?: { stats?: { mean?: number; min?: number; max?: number } };
+          data?: {
+            stats?: {
+              mean?: number;
+              median?: number;
+              whiskerMin?: number;
+              whiskerMax?: number;
+              min?: number;
+              max?: number;
+              q1?: number;
+              q3?: number;
+            };
+          };
         }) => {
           if (params.componentSubType === 'boxplot') {
-            const stats = params.data?.stats;
-            const [whiskerMin, q1, median, q3, whiskerMax] = params.value;
-            const mean = stats?.mean;
-            const min = stats?.min;
-            const max = stats?.max;
-
-            const meanText = typeof mean === 'number' ? mean.toFixed(4) : 'N/A';
+            const s = params.data?.stats;
+            const fmt = (v: number | undefined) => (typeof v === 'number' ? v.toFixed(4) : 'N/A');
             return `<strong>${params.name}</strong><br/>
-              Whisker Min: ${whiskerMin.toFixed(4)}<br/>
-              Q1: ${q1.toFixed(4)}<br/>
-              Median: ${median.toFixed(4)} ─<br/>
-              Mean: ${meanText} ═<br/>
-              Q3: ${q3.toFixed(4)}<br/>
-              Whisker Max: ${whiskerMax.toFixed(4)}<br/>
-              Min/Max: ${typeof min === 'number' ? min.toFixed(4) : 'N/A'} / ${typeof max === 'number' ? max.toFixed(4) : 'N/A'}`;
+              Whisker Min: ${fmt(s?.whiskerMin)}<br/>
+              Q1: ${fmt(s?.q1)}<br/>
+              Median: ${fmt(s?.median)} ─<br/>
+              Mean: ${fmt(s?.mean)} ═<br/>
+              Q3: ${fmt(s?.q3)}<br/>
+              Whisker Max: ${fmt(s?.whiskerMax)}<br/>
+              Min/Max: ${fmt(s?.min)} / ${fmt(s?.max)}`;
           }
           return params.name;
         },
@@ -183,7 +256,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
       },
       xAxis: {
         type: 'category',
-        data: boxPlotData.map((d) => d.name),
+        data: categories,
         axisLabel: {
           fontSize: 12,
           color: '#475569',
@@ -245,16 +318,9 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         {
           name: 'Distribution',
           type: 'boxplot',
-          data: boxPlotData.map((d, idx) => ({
-            value: d.value,
-            stats: d.stats,
-            itemStyle: {
-              color: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
-              borderColor: '#0f172a',
-              borderWidth: 2,
-              opacity: 0.75,
-            },
-          })),
+          encode: { x: 0 },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data: boxPlotData as any,
           itemStyle: {
             color: '#93c5fd',
             borderColor: '#0f172a',
@@ -275,16 +341,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         {
           name: 'Mean',
           type: 'scatter',
-          data: boxPlotData.map((d, idx) => {
-            return {
-              value: [idx, d.stats.mean],
-              itemStyle: {
-                color: '#facc15',
-                borderColor: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
-                borderWidth: 2,
-              },
-            };
-          }),
+          data: meanData,
           symbol: 'rect',
           symbolSize: [18, 3],
           z: 6,
@@ -298,14 +355,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         {
           name: 'Median',
           type: 'scatter',
-          data: boxPlotData.map((d, idx) => ({
-            value: [idx, d.stats.median],
-            itemStyle: {
-              color: '#ef4444',
-              borderColor: '#ffffff',
-              borderWidth: 1.5,
-            },
-          })),
+          data: medianData,
           symbol: 'rect',
           symbolSize: [12, 3],
           z: 7,
@@ -315,9 +365,23 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
             },
           },
         },
+        // Single-run diamond points (experiments with exactly one run)
+        {
+          name: 'Single Run',
+          type: 'scatter',
+          data: singleRunData,
+          symbol: 'diamond',
+          symbolSize: 14,
+          z: 8,
+          tooltip: {
+            formatter: (params: { name: string; value: number[] }) => {
+              return `<strong>${params.name}</strong><br/>Value: ${params.value[1].toFixed(4)}`;
+            },
+          },
+        },
       ],
       legend: {
-        data: ['Distribution', 'Mean', 'Median'],
+        data: ['Distribution', 'Mean', 'Median', ...(hasSingleRun ? ['Single Run'] : [])],
         top: 40,
         orient: 'horizontal',
         textStyle: {
