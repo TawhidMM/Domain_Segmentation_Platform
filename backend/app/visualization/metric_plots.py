@@ -15,6 +15,9 @@ from app.visualization.plot_style import (
     POINT_ALPHA,
     POINT_COLOR,
     POINT_SIZE,
+    SINGLE_POINT_MARKER,
+    SINGLE_POINT_SIZE,
+    SINGLE_POINT_EDGE_COLOR,
     MAX_X_LABEL_LENGTH_FLAT,
     apply_plot_style,
     apply_y_headroom,
@@ -90,41 +93,61 @@ def create_metric_boxplot(
         for experiment_id in order
     }
 
-    sns.boxplot(
-        data=dataframe,
-        x="experiment",
-        y="value",
-        hue="experiment",
-        order=order,
-        hue_order=order,
-        ax=ax,
-        palette=color_by_experiment,
-        linewidth=1.2,
-        width=0.6,
-        showfliers=False,
-        legend=False,
-        boxprops=dict(alpha=BOX_FILL_ALPHA, zorder=2),
-        whiskerprops=dict(color="#6B7280", linewidth=1.1, zorder=3),
-        capprops=dict(color="#6B7280", linewidth=1.1, zorder=3),
-        medianprops=dict(color=MARKER_COLOR, linewidth=2.0, zorder=30),
-    )
+    # Draw box plots only for groups with more than one observation. Single-run
+    # groups (n==1) are drawn as a single distinct marker to avoid implying
+    # measured spread or producing overlapping median/mean lines.
+    n_per_group = dataframe.groupby("experiment")["value"].count()
 
-    # Mean marker drawn on top of each box. The box's built-in solid line already
-    # represents the median, so we only draw an explicit dashed mean line (kept at
-    # a higher z-order so it stays visible even when mean == median).
     for offset, experiment_id in enumerate(order):
         values = dataframe.loc[dataframe["experiment"] == experiment_id, "value"].to_numpy()
-        mean = float(np.mean(values))
+        if int(n_per_group.get(experiment_id, 0)) > 1:
+            bp = ax.boxplot(
+                [values],
+                positions=[offset],
+                widths=0.6,
+                patch_artist=True,
+                showfliers=False,
+                manage_ticks=False,
+                zorder=2,
+            )
 
-        ax.plot(
-            [offset - 0.30, offset + 0.30],
-            [mean, mean],
-            color=MARKER_COLOR,
-            linewidth=1.7,
-            linestyle="--",
-            solid_capstyle="butt",
-            zorder=31,
-        )
+            # Style elements to match previous seaborn appearance
+            box = bp["boxes"][0]
+            box.set_facecolor(color_by_experiment.get(experiment_id, "#9CA3AF"))
+            box.set_alpha(BOX_FILL_ALPHA)
+            box.set_linewidth(0.8)
+            box.set_edgecolor(MARKER_COLOR)
+
+            for whisker in bp.get("whiskers", []):
+                whisker.set_color("#6B7280")
+                whisker.set_linewidth(1.1)
+                whisker.set_zorder(3)
+
+            for cap in bp.get("caps", []):
+                cap.set_color("#6B7280")
+                cap.set_linewidth(1.1)
+                cap.set_zorder(3)
+
+            for median_line in bp.get("medians", []):
+                median_line.set_color(MARKER_COLOR)
+                median_line.set_linewidth(2.0)
+                median_line.set_zorder(30)
+
+            # Draw explicit dashed mean line on top of the box for multi-run groups
+            mean = float(np.mean(values))
+            ax.plot(
+                [offset - 0.30, offset + 0.30],
+                [mean, mean],
+                color=MARKER_COLOR,
+                linewidth=1.7,
+                linestyle="--",
+                solid_capstyle="butt",
+                zorder=31,
+            )
+        else:
+            # Single-observation group: don't draw a box or mean/median lines.
+            # We'll render the single marker after the stripplot so it sits on top.
+            continue
 
     # Raw values: every point shown, jittered, neutral dark, distinct from boxes.
     sns.stripplot(
@@ -140,6 +163,26 @@ def create_metric_boxplot(
         zorder=4,
     )
 
+    # Overlay single-run markers (n==1). Draw after the strip plot so the marker
+    # is clearly visible and does not get visually merged with the jittered point.
+    single_run_present = False
+    for offset, experiment_id in enumerate(order):
+        n = int(n_per_group.get(experiment_id, 0))
+
+        if n == 1:
+            single_run_present = True
+            val = float(dataframe.loc[dataframe["experiment"] == experiment_id, "value"].to_numpy()[0])
+            ax.scatter(
+                offset,
+                val,
+                marker=SINGLE_POINT_MARKER,
+                s=SINGLE_POINT_SIZE,
+                facecolor=color_by_experiment.get(experiment_id, POINT_COLOR),
+                edgecolor=SINGLE_POINT_EDGE_COLOR,
+                linewidth=0.6,
+                zorder=40,
+            )
+
     ax.set_ylabel(metric_label)
     _apply_x_tick_labels(ax, order, label_map, dataframe)
 
@@ -152,6 +195,11 @@ def create_metric_boxplot(
         Line2D([0], [0], color=MARKER_COLOR, linewidth=1.8, linestyle="-", label="Median"),
         Line2D([0], [0], color=MARKER_COLOR, linewidth=1.6, linestyle="--", label="Mean"),
     ]
+    if single_run_present:
+        legend_handles.append(
+            Line2D([0], [0], marker=SINGLE_POINT_MARKER, color="none", label="Single run (n=1)",
+                   markerfacecolor=MARKER_COLOR, markeredgecolor=SINGLE_POINT_EDGE_COLOR, markersize=6)
+        )
     ax.legend(
         handles=legend_handles,
         fontsize=FONT_SIZE_ANNOTATION,

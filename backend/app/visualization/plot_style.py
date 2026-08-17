@@ -1,10 +1,3 @@
-"""Shared publication-grade styling for manuscript figures.
-
-Centralizes typography, color, layout sizing, and axes styling so every
-figure produced by the backend is visually consistent (same palette, fonts,
-margins, spine/grid treatment). Plotting functions should import from here
-instead of redefining style settings per call.
-"""
 from typing import Dict, List, Tuple
 
 import glasbey
@@ -50,6 +43,10 @@ BOX_FILL_ALPHA = 0.85
 POINT_ALPHA = 0.5
 POINT_SIZE = 2.5
 
+# Marker used to represent a single measured run (n==1).
+SINGLE_POINT_MARKER = "D"  # diamond
+SINGLE_POINT_SIZE = 36
+SINGLE_POINT_EDGE_COLOR = "#FFFFFF"
 # ── Shared configuration ──────────────────────────────────────────────────────
 
 _configured = False

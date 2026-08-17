@@ -32,7 +32,7 @@ from app.visualization.plot_export import (
 )
 from app.visualization.metric_plots import create_metric_barplot, create_metric_boxplot
 from app.visualization.plot_style import build_global_color_map
-from app.visualization.svg_utils import save_svg, save_svg_to_pdf
+from app.visualization.svg_utils import save_svg, save_as_pdf
 
 
 def _build_prediction_df(
@@ -229,22 +229,22 @@ def _build_metric_zip(
     csv_content: str,
     label_map: dict,
     color_map: dict,
-    use_boxplots: bool = True,
+    use_box_plots: bool = True,
 ) -> bytes:
 
-    with tempfile.TemporaryDirectory(prefix="metric_boxplots_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="metric_box_plots_") as temp_dir:
         temp_path = Path(temp_dir)
         plot_paths: List[Path] = []
 
-        # Generate SVG (+ PDF from the same figure object) metric plots.
         for metric_key in METRIC_KEYS:
             metric_values = metrics_by_experiment.get(metric_key) or {}
+
             if not metric_values:
-                # Some tools may not compute a given metric; skip it rather
-                # than failing the whole export.
                 continue
-            plot_kind = "boxplot" if use_boxplots else "barplot"
-            if use_boxplots:
+
+            plot_kind = "boxplot" if use_box_plots else "barplot"
+
+            if use_box_plots:
                 figure = create_metric_boxplot(
                     metric_key, metric_values, label_map, color_map,
                 )
@@ -252,10 +252,13 @@ def _build_metric_zip(
                 figure = create_metric_barplot(
                     metric_key, metric_values, label_map, color_map,
                 )
+
             svg_path = temp_path / f"{metric_key}_{plot_kind}.svg"
             pdf_path = temp_path / f"{metric_key}_{plot_kind}.pdf"
+
             save_svg(figure, svg_path)
-            pdf_path.write_bytes(save_svg_to_pdf(figure))
+            pdf_path.write_bytes(save_as_pdf(figure))
+
             plt.close(figure)
             plot_paths.extend([svg_path, pdf_path])
 
@@ -265,11 +268,10 @@ def _build_metric_zip(
         # Create a ZIP archive with SVGs, PDFs, and the CSV.
         zip_path = temp_path / "metric.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            # Add plot files (SVG + PDF)
+
             for plot_path in plot_paths:
                 archive.write(plot_path, arcname=plot_path.name)
 
-            # Add CSV file
             archive.write(csv_path, arcname=csv_path.name)
 
         return zip_path.read_bytes()
