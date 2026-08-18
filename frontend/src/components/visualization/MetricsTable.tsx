@@ -19,7 +19,7 @@ import { AllExperimentRunMetrics } from '@/hooks/useMultiExperimentBestRuns';
 interface MetricsTableProps {
   experimentMetrics: Array<{
     experimentId: string;
-    toolName: string;
+    experimentName: string;
     metricsData: AllExperimentRunMetrics | null;
   }>;
   experimentIds: string[];
@@ -71,16 +71,16 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
       const chartData = experimentIds.map((expId) => {
         const exp = experimentMetrics.find((m) => m.experimentId === expId);
         if (!exp?.metricsData?.runs) {
-          return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+          return { jobId: expId, experimentName: exp?.experimentName || expId, value: null };
         }
         const values = exp.metricsData.runs
           .map((run) => run.metrics[metric.key as keyof typeof run.metrics])
           .filter((v): v is number => typeof v === 'number' && !isNaN(v));
         if (values.length === 0) {
-          return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+          return { jobId: expId, experimentName: exp?.experimentName || expId, value: null };
         }
         const { mean } = calculateStats(values);
-        return { jobId: expId, toolName: exp?.toolName || expId, value: mean };
+        return { jobId: expId, experimentName: exp?.experimentName || expId, value: mean };
       });
       map[metric.key] = findBestJobIds(chartData, metric.better);
     });
@@ -139,7 +139,7 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
               </TableCell>
               {experimentIds.map((expId, index) => {
                 const expData = experimentMetrics.find((m) => m.experimentId === expId);
-                const toolName = expData?.toolName || `Exp ${index + 1}`;
+                const experimentName = expData?.experimentName || `Exp ${index + 1}`;
                 const color = colorMap[expId] || '#94a3b8';
                 return (
                   <TableCell
@@ -168,7 +168,7 @@ const MetricsTable: React.FC<MetricsTableProps> = ({ experimentMetrics, experime
                           flexShrink: 0,
                         }}
                       />
-                      <span>{toolName}</span>
+                      <span>{experimentName}</span>
                     </Box>
                   </TableCell>
                 );

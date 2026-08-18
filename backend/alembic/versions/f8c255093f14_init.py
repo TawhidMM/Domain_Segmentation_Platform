@@ -1,8 +1,8 @@
 """init
 
-Revision ID: 7216b0fefe42
+Revision ID: f8c255093f14
 Revises: 
-Create Date: 2026-07-21 20:45:53.856508
+Create Date: 2026-08-18 05:32:56.992825
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '7216b0fefe42'
+revision: str = 'f8c255093f14'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -33,7 +33,8 @@ def upgrade() -> None:
     )
     op.create_table('experiments',
     sa.Column('id', sa.String(), nullable=False),
-    sa.Column('tool_name', sa.String(), nullable=False),
+    sa.Column('tool_id', sa.String(length=50), nullable=False),
+    sa.Column('experiment_name', sa.String(length=255), nullable=False),
     sa.Column('workspace_path', sa.String(), nullable=False),
     sa.Column('total_runs', sa.Integer(), nullable=False),
     sa.Column('completed_runs', sa.Integer(), nullable=True),
@@ -43,6 +44,7 @@ def upgrade() -> None:
     sa.Column('finished_at', sa.DateTime(timezone=True), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_experiments_tool_id'), 'experiments', ['tool_id'], unique=False)
     op.create_table('annotations',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('dataset_id', sa.String(), nullable=False),
@@ -84,6 +86,7 @@ def downgrade() -> None:
     op.drop_table('runs')
     op.drop_table('run_configs')
     op.drop_table('annotations')
+    op.drop_index(op.f('ix_experiments_tool_id'), table_name='experiments')
     op.drop_table('experiments')
     op.drop_table('datasets')
     # ### end Alembic commands ###

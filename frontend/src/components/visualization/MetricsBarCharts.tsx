@@ -9,7 +9,7 @@ import { calculateStats, findBestJobIds } from '@/utils/metricsUtils';
 interface MetricsBarChartsProps {
   experimentMetrics: Array<{
     experimentId: string;
-    toolName: string;
+    experimentName: string;
     totalRuns: number;
     metricsData: AllExperimentRunMetrics | null;
   }>;
@@ -31,7 +31,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
 
   // Build bar chart data (using average for multi-run experiments)
   const chartDataByMetric = useMemo(() => {
-    const data: Record<string, Array<{ jobId: string; toolName: string; value: number | null }>> = {};
+    const data: Record<string, Array<{ jobId: string; experimentName: string; value: number | null }>> = {};
 
     METRIC_CONFIG.forEach((metric) => {
       data[metric.key] = experimentIds.map((expId) => {
@@ -39,7 +39,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
         if (!exp?.metricsData?.runs) {
           return {
             jobId: expId,
-            toolName: exp?.toolName || expId,
+            experimentName: exp?.experimentName || expId,
             value: null,
           };
         }
@@ -51,7 +51,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
         if (values.length === 0) {
           return {
             jobId: expId,
-            toolName: exp?.toolName || expId,
+            experimentName: exp?.experimentName || expId,
             value: null,
           };
         }
@@ -59,7 +59,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
         const { mean } = calculateStats(values);
         return {
           jobId: expId,
-          toolName: exp?.toolName || expId,
+          experimentName: exp?.experimentName || expId,
           value: mean,
         };
       });
@@ -70,7 +70,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
 
   // Build box plot data (for experiments with multiple runs)
   const boxPlotDataByMetric = useMemo(() => {
-    const data: Record<string, Array<{ experimentId: string; toolName: string; values: number[] }>> = {};
+    const data: Record<string, Array<{ experimentId: string; experimentName: string; values: number[] }>> = {};
 
     METRIC_CONFIG.forEach((metric) => {
       data[metric.key] = experimentIds
@@ -86,7 +86,7 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
 
           return {
             experimentId: expId,
-            toolName: exp?.toolName || expId,
+            experimentName: exp?.experimentName || expId,
             values,
           };
         })
@@ -141,28 +141,28 @@ const MetricsBarCharts: React.FC<MetricsBarChartsProps> = ({
                 alignItems: 'center',
               }}
             >
-                            {/* Only one plot is rendered at a time:
-                  - box plot when any experiment has >1 run (single-run experiments
-                    still appear as diamonds inside the box plot)
-                  - bar chart only when every experiment has exactly 1 run */}
-              {hasMultipleRuns && boxData.length > 0 ? (
-                <BoxPlot
-                  metricLabel={metric.label}
-                  direction={metric.better as 'higher' | 'lower'}
-                  experimentData={boxData}
-                />
-              ) : (
-                <MetricBarChart
-                  title={metric.label}
-                  subtitle={subtitle}
-                  metricKey={metric.key}
-                  data={chartData}
-                  colorByJobId={colorMap}
-                  bestJobIds={bestJobIds}
-                  onDownload={() => {}}
-                />
-              )}
-            </Box>
+            {/* Only one plot is rendered at a time:
+            - box plot when any experiment has >1 run (single-run experiments
+              still appear as diamonds inside the box plot)
+            - bar chart only when every experiment has exactly 1 run */}
+            {hasMultipleRuns && boxData.length > 0 ? (
+              <BoxPlot
+                metricLabel={metric.label}
+                direction={metric.better as 'higher' | 'lower'}
+                experimentData={boxData}
+              />
+            ) : (
+              <MetricBarChart
+                title={metric.label}
+                subtitle={subtitle}
+                metricKey={metric.key}
+                data={chartData}
+                colorByJobId={colorMap}
+                bestJobIds={bestJobIds}
+                onDownload={() => {}}
+              />
+            )}
+          </Box>
           );
         })}
       </Box>

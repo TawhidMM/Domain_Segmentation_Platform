@@ -259,7 +259,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   const setWorkspaceView = useUIStore((state) => state.setWorkspaceView);
 
   // Import Results Store — single source of truth for import workflow state
-  const toolName = useImportResultsStore((state) => state.toolName);
+  const experimentName = useImportResultsStore((state) => state.experimentName);
   const selectedDatasetId = useImportResultsStore((state) => state.selectedDatasetId);
   const stagedItems = useImportResultsStore((state) => state.stagedItems);
   const submittedDatasetIds = useImportResultsStore((state) => state.submittedDatasetIds);
@@ -327,7 +327,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   const handleFileSelect = useCallback(
     async (files: File[]) => {
       const file = files[0];
-      if (!file || !selectedDatasetId || !toolName.trim()) {
+      if (!file || !selectedDatasetId || !experimentName.trim()) {
         return;
       }
 
@@ -413,7 +413,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         setIsSubmitting(false);
       }
     },
-    [datasetOptions, handleUploadProgress, selectedDatasetId, toolName, addStagedItem, setSelectedDatasetId]
+    [datasetOptions, handleUploadProgress, selectedDatasetId, experimentName, addStagedItem, setSelectedDatasetId]
   );
 
   const handleSubmit = useCallback(async () => {
@@ -426,7 +426,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         dataset_id: item.datasetId,
         stage_id: item.stageId,
       })),
-      tool_name: toolName.trim(),
+      tool_name: experimentName.trim(),
     };
 
     setIsSubmitting(true);
@@ -441,9 +441,8 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
 
       const experiment: Experiment = {
         id: uuid4(),
-        toolId: toolName.trim(),
-        toolName: toolName.trim(),
-        displayName: `Imported: ${toolName.trim()}`,
+        toolId: experimentName.trim(),
+        experimentName: `Imported: ${experimentName.trim()}`,
         datasetIds: stagedItems.map((item) => item.datasetId),
         experimentId: response.experiment_id,
         accessToken: response.access_token,
@@ -478,7 +477,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, stagedItems, toolName, submittedDatasetIds, addSubmittedDatasetId, addExperiment, setActiveExperiment, setWorkspaceView]);
+  }, [isSubmitting, stagedItems, experimentName, submittedDatasetIds, addSubmittedDatasetId, addExperiment, setActiveExperiment, setWorkspaceView]);
 
   const handleBack = useCallback(() => {
     setWorkspaceView('upload');
@@ -506,7 +505,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
 
       <TextField
         label="Tool Name"
-        value={toolName}
+        value={experimentName}
         onChange={(event) => setToolName(event.target.value)}
         fullWidth
         placeholder="my tool"
@@ -524,7 +523,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
             selectedDatasetId={selectedDatasetId}
             availableDatasets={visibleDatasetOptions}
             uploadedFiles={uploadedFiles}
-            uploaderEnabled={Boolean(toolName.trim())}
+            uploaderEnabled={Boolean(experimentName.trim())}
             isSubmitting={isSubmitting}
             onSelectedDatasetChange={setSelectedDatasetId}
             onFileSelect={handleFileSelect}
@@ -557,7 +556,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
       </Box>
 
       <StickyActionsFooter
-        canSubmit={stagedItems.length > 0 && Boolean(toolName.trim())}
+        canSubmit={stagedItems.length > 0 && Boolean(experimentName.trim())}
         isSubmitting={isSubmitting}
         onBack={handleBack}
         onSubmit={handleSubmit}

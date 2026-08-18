@@ -80,12 +80,10 @@ class RunContext:
     experiment_workspace: ExperimentWorkspace
     run_workspace: RunWorkspace
     dataset_space: DatasetSpace
-
-
-    tool_name: str
+    tool_id: str
+    experiment_name: str
     params: Dict[str, Any] = field(default_factory=dict)
     seed: Optional[int] = None
-
 
     @property
     def dataset_path(self) -> Path:
@@ -144,7 +142,8 @@ class RunContext:
         experiment_id: str,
         run_id: str,
         dataset_id: str,
-        tool_name: str,
+        tool_id: str,
+        experiment_name: str,
         params: Dict[str, Any],
         annotation_id: Optional[str] = None,
         seed: Optional[int] = None
@@ -162,7 +161,8 @@ class RunContext:
             experiment_workspace=experiment_workspace,
             run_workspace=run_workspace,
             dataset_space=dataset_space,
-            tool_name=tool_name,
+            tool_id=tool_id,
+            experiment_name=experiment_name,
             params=params,
             seed=seed
         )

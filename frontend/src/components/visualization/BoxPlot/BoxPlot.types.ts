@@ -3,7 +3,7 @@ export interface BoxPlotProps {
   direction: 'higher' | 'lower';
   experimentData: Array<{
     experimentId: string;
-    toolName: string;
+    experimentName: string;
     values: number[];
   }>;
   width?: string | number;

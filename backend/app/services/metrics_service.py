@@ -130,6 +130,6 @@ def get_experiment_run_metrics(
 
     return {
         "experiment_id": request.experiment_id,
-        "tool_name": experiment.tool_name,
+        "experiment_name": experiment.experiment_name,
         "runs": run_metrics
     }

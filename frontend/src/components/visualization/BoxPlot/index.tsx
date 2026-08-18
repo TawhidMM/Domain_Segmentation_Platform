@@ -30,7 +30,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
         const stats = calculateStats(exp.values);
         return {
           type: 'box',
-          name: exp.toolName,
+          name: exp.experimentName,
           color: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
           q,
           stats,
@@ -40,7 +40,7 @@ const BoxPlot: React.FC<BoxPlotProps> = ({
 
       return {
         type: 'point',
-        name: exp.toolName,
+        name: exp.experimentName,
         color: UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length],
         value: exp.values[0],
       };

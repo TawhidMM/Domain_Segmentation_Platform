@@ -7,7 +7,7 @@ import { checkStagedResultsValidity } from '@/services/importResultService';
 const STORAGE_KEY = 'import-results-store-v1';
 
 const initialState: ImportResultsState = {
-  toolName: 'my tool',
+  experimentName: 'my tool',
   selectedDatasetId: '',
   stagedItems: [],
   submittedDatasetIds: [],
@@ -18,7 +18,7 @@ export const useImportResultsStore = create<ImportResultsStore>()(
     (set) => {
       const actions: ImportResultsActions = {
         setToolName: (name: string) =>
-          set((prev) => ({ ...prev, toolName: name })),
+          set((prev) => ({ ...prev, experimentName: name })),
         setSelectedDatasetId: (id: string) =>
           set((prev) => ({ ...prev, selectedDatasetId: id })),
         setStagedItems: (items: StagedResultItem[]) =>
@@ -39,7 +39,7 @@ export const useImportResultsStore = create<ImportResultsStore>()(
           })),
         resetImportResults: () =>
           set({
-            toolName: 'my tool',
+            experimentName: 'my tool',
             selectedDatasetId: '',
             stagedItems: [],
             submittedDatasetIds: [],
@@ -76,7 +76,7 @@ export const useImportResultsStore = create<ImportResultsStore>()(
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        toolName: state.toolName,
+        experimentName: state.experimentName,
         selectedDatasetId: state.selectedDatasetId,
         stagedItems: state.stagedItems,
         submittedDatasetIds: state.submittedDatasetIds,

@@ -91,7 +91,7 @@ def update_status(
     status: ExperimentStatus,
     started_at=None,
     finished_at=None
-) -> Optional[Run]:
+) -> Run:
 
     run.status = status
     if started_at is not None:

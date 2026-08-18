@@ -90,7 +90,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
       const experiment: Experiment = {
         id: uuid4(),
         toolId: selectedToolSchema.tool_id,
-        toolName: selectedToolSchema.label,
+        experimentName: selectedToolSchema.label,
         datasetIds: selectedDatasetIds,
         requirements: selectedToolSchema.requirements,
         parameters: preparedParams,

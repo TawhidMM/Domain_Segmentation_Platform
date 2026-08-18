@@ -20,7 +20,7 @@ function getChartLayout(containerWidth: number, experimentCount: number): ChartL
 interface MetricDetailChartsProps {
   experimentMetrics: Array<{
     experimentId: string;
-    toolName: string;
+    experimentName: string;
     totalRuns: number;
     metricsData: AllExperimentRunMetrics | null;
   }>;
@@ -49,16 +49,16 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
     return experimentIds.map((expId) => {
       const exp = experimentMetrics.find((m) => m.experimentId === expId);
       if (!exp?.metricsData?.runs) {
-        return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+        return { jobId: expId, experimentName: exp?.experimentName || expId, value: null };
       }
       const values = exp.metricsData.runs
         .map((run) => run.metrics[metricKey as keyof typeof run.metrics])
         .filter((v): v is number => typeof v === 'number' && !isNaN(v));
       if (values.length === 0) {
-        return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+        return { jobId: expId, experimentName: exp?.experimentName || expId, value: null };
       }
       const { mean } = calculateStats(values);
-      return { jobId: expId, toolName: exp?.toolName || expId, value: mean };
+      return { jobId: expId, experimentName: exp?.experimentName || expId, value: mean };
     });
   }, [experimentMetrics, experimentIds, metricKey]);
 
@@ -75,7 +75,7 @@ const MetricDetailCharts: React.FC<MetricDetailChartsProps> = ({
         if (values.length === 0) return null;
         return {
           experimentId: expId,
-          toolName: exp?.toolName || expId,
+          experimentName: exp?.experimentName || expId,
           values,
         };
       })

@@ -14,7 +14,7 @@ export function isExperimentReadyToSubmit(exp: Experiment): boolean {
 
 export interface SkippedExperiment {
   id: string;
-  displayName: string;
+  experimentName: string;
   reason: string;
 }
 

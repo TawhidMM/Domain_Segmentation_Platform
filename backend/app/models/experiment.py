@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Column, String, DateTime, JSON, Enum as SAEnum, Integer, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, String, DateTime, Enum as SAEnum, Integer, TIMESTAMP
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -27,7 +27,8 @@ class Experiment(Base):
 
     id = Column(String, primary_key=True)
 
-    tool_name = Column(String, nullable=False)
+    tool_id = Column(String(50), nullable=False, index=True)
+    experiment_name = Column(String(255), nullable=False)
 
     workspace_path = Column(String, nullable=False)
 

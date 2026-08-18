@@ -108,11 +108,11 @@ def _save_and_close(fig):
     return svg_string, pdf_bytes
 
 
-def _build_metadata(run_id, tool_name, parameters, exported_at, extra=None):
+def _build_metadata(run_id, experiment_name, parameters, exported_at, extra=None):
     """Build shared metadata dict."""
     metadata: Dict[str, Any] = {
         "run_id": run_id,
-        "tool": tool_name,
+        "tool": experiment_name,
         "parameters": parameters,
         "exported_at": exported_at.isoformat() if hasattr(exported_at, "isoformat") else exported_at,
         "export_format": "svg"
@@ -124,7 +124,7 @@ def _build_metadata(run_id, tool_name, parameters, exported_at, extra=None):
 
 def export_spatial_plot_svg(
     run_id: str,
-    tool_name: str,
+    experiment_name: str,
     parameters: Dict[str, Any],
     dataset_id: str,
     spots: list,
@@ -165,7 +165,7 @@ def export_spatial_plot_svg(
     legend_handles = _build_legend_handles(domain_colors)
     _style_axes(
         ax, legend_handles, FONT_SIZE, FONT_FAMILY, include_title,
-        title_text=f"Spatial Analysis: {tool_name}",
+        title_text=f"Spatial Analysis: {experiment_name}",
         invert_y=True
     )
 
@@ -175,7 +175,7 @@ def export_spatial_plot_svg(
 
     exported_at = datetime.now(timezone.utc)
     metadata = _build_metadata(
-        run_id, tool_name, parameters, exported_at,
+        run_id, experiment_name, parameters, exported_at,
         extra={"dataset": dataset_id, "plot_type": "spatial"}
     )
 
@@ -187,7 +187,7 @@ def export_spatial_plot_svg(
 
 def export_umap_svg(
     run_id: str,
-    tool_name: str,
+    experiment_name: str,
     parameters: Dict[str, Any],
     embeddings,
     domains,
@@ -246,7 +246,7 @@ def export_umap_svg(
 
     _style_axes(
         ax, legend_handles, FONT_SIZE, FONT_FAMILY, include_title,
-        title_text=f"UMAP: {tool_name}",
+        title_text=f"UMAP: {experiment_name}",
         invert_y=False
     )
 
@@ -256,7 +256,7 @@ def export_umap_svg(
 
     exported_at = datetime.now(timezone.utc).isoformat()
     metadata = _build_metadata(
-        run_id, tool_name, parameters, exported_at,
+        run_id, experiment_name, parameters, exported_at,
         extra={
             "plot_type": "umap",
             "generated_from": "embeddings.csv",

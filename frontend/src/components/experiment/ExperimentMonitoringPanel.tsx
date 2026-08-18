@@ -39,8 +39,6 @@ const ExperimentMonitoringPanel: React.FC<ExperimentMonitoringPanelProps> = ({
     return groups;
   }, {});
 
-  const runStatusCounts: RunStatusValueFrontend = countRunsByStatus(experiment.runs);
-
   const handleViewParams = (datasetId: string) => {
     const datasetName = datasetNameMap.get(datasetId) ?? datasetId;
     const params = resolveDatasetParameters(datasetId, experiment.datasetParams, experiment.parameters);
@@ -72,32 +70,6 @@ const ExperimentMonitoringPanel: React.FC<ExperimentMonitoringPanelProps> = ({
             >
               View Params
             </Button>
-            <Box sx={{ flex: 1 }} />
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {runStatusCounts.running > 0 && (
-                <Box component="span" sx={{ fontSize: '0.75rem', color: '#2563EB' }}>
-                  {runStatusCounts.running} running
-                </Box>
-              )}
-              {runStatusCounts.queued > 0 && (
-                <Box component="span" sx={{ fontSize: '0.75rem', color: '#D97706' }}>
-                  {runStatusCounts.queued} queued
-                </Box>
-              )}
-              {runStatusCounts.completed > 0 && (
-                <Box component="span" sx={{ fontSize: '0.75rem', color: '#16A34A' }}>
-                  {runStatusCounts.completed} completed
-                </Box>
-              )}
-              {runStatusCounts.failed > 0 && (
-                <Box component="span" sx={{ fontSize: '0.75rem', color: '#DC2626' }}>
-                  {runStatusCounts.failed} failed
-                </Box>
-              )}
-              <Box component="span" sx={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                {runStatusCounts.total} total
-              </Box>
-            </Box>
           </Box>
           <DatasetRunsTable
             datasetId={datasetId}

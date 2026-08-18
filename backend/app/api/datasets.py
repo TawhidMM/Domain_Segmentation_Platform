@@ -16,9 +16,8 @@ from app.schemas.dataset import (
     DownloadProgressRequest,
     DownloadProgressResponse,
     SampleDownloadRequest,
-    UpdateDatasetNameRequest,
+    UpdateDatasetNameRequest, DataSetRequest, DataSetRequests,
 )
-from app.schemas.experiment import DataSetRequest, DataSetRequests
 from app.services import spatial_data_service
 from app.services.dataset_service import create_dataset, delete_dataset, update_dataset_name
 from app.services.run_service import require_run_with_access, build_run_context

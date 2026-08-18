@@ -95,7 +95,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const reason = exp.datasetIds.length === 0
           ? 'No datasets selected'
           : 'Missing required manual annotation for one or more datasets';
-        skipped.push({ id: exp.id, displayName: exp.displayName ?? exp.toolName, reason });
+        skipped.push({ id: exp.id, experimentName: exp.experimentName ?? exp.experimentName, reason });
         continue;
       }
       ready.push(exp);
@@ -132,7 +132,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const response = await axios.post('/experiments/submit', {
           dataset_configs: datasetConfigs,
-          tool_name: exp.toolId,
+          tool_id: exp.toolId,
+          experiment_name: exp.experimentName,
           seed_list: exp.seedList
         });
 

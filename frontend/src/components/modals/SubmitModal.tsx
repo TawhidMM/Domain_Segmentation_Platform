@@ -100,7 +100,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
                 <Science sx={{ fontSize: 20, color: 'primary.main' }} />
               </ListItemIcon>
               <ListItemText
-                primary={exp.displayName ?? exp.toolName}
+                primary={exp.experimentName}
                 slotProps={{
                   primary: { variant: 'body2', fontWeight: 500 },
                   secondary: { variant: 'caption' },
@@ -127,7 +127,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
                       <Science sx={{ fontSize: 20, color: 'warning.dark' }} />
                     </ListItemIcon>
                     <ListItemText
-                      primary={exp.displayName ?? exp.toolName}
+                      primary={exp.experimentName}
                       secondary={reason}
                       slotProps={{
                         primary: { variant: 'body2', fontWeight: 500, color: 'warning.dark' },

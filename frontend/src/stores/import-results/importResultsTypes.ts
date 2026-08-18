@@ -6,7 +6,7 @@ export interface StagedResultItem {
 }
 
 export interface ImportResultsState {
-  toolName: string;
+  experimentName: string;
   selectedDatasetId: string;
   stagedItems: StagedResultItem[];
   submittedDatasetIds: string[];

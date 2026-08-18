@@ -11,8 +11,7 @@ interface CompareIconButtonProps {
     id: string;
     experimentId?: string;
     accessToken?: string;
-    toolName: string;
-    displayName?: string;
+    experimentName?: string;
     status: string;
   };
   selected: boolean;
@@ -31,7 +30,7 @@ const CompareIconButton: React.FC<CompareIconButtonProps> = ({ exp, selected }) 
     if (isInBasket) {
       removeExperiment(exp.experimentId);
     } else {
-      addExperiment(exp.experimentId, exp.accessToken, exp.displayName ?? exp.toolName);
+      addExperiment(exp.experimentId, exp.accessToken, exp.experimentName);
     }
   };
 
@@ -79,7 +78,7 @@ const ExperimentsList: React.FC = () => {
     <List sx={{ p: 0 }}>
       {experiments.map((experiment) => {
         const isSelected = experiment.id === activeExperimentId;
-        const displayText = experiment.displayName ?? experiment.toolName;
+        const displayText = experiment.experimentName;
 
         return (
           <ListItemButton
