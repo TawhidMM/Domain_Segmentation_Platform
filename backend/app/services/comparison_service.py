@@ -30,7 +30,7 @@ def discover_datasets_for_comparison(
         dataset_ids = get_datasets_for_experiment(db, experiment_request.experiment_id)
 
         for dataset_id in dataset_ids:
-            dataset_tools[dataset_id][experiment.id] = experiment.tool_name
+            dataset_tools[dataset_id][experiment.id] = experiment.experiment_name
 
     dataset_ids = sorted(dataset_tools.keys())
     dataset_entities = dataset_repository.get_datasets_by_ids(db, dataset_ids)
@@ -45,9 +45,9 @@ def discover_datasets_for_comparison(
             tools=[
                 ComparisonDatasetToolItem(
                     experiment_id=experiment_id,
-                    tool_name=tool_name,
+                    experiment_name=experiment_name,
                 )
-                for experiment_id, tool_name in sorted(tools.items())
+                for experiment_id, experiment_name in sorted(tools.items())
             ],
         )
         for dataset_id, tools in sorted(dataset_tools.items())

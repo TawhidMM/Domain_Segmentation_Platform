@@ -1,11 +1,11 @@
 from typing import Dict, Any
 from copy import deepcopy
 
+from app.schemas.tool import ToolManifest
 
-def generate_frontend_schema(tool_definition: dict) -> dict:
+
+def generate_frontend_schema(tool_definition: ToolManifest) -> dict:
     frontend_schema = {
-        "tool_id": tool_definition.get("tool_id"),
-        "label": tool_definition.get("label"),
         "description": tool_definition.get("description"),
         "requirements": tool_definition.get("requirements", {}),
         "parameters": tool_definition.get("parameters", {}),
@@ -21,7 +21,7 @@ def generate_frontend_schema(tool_definition: dict) -> dict:
 
 
 def resolve_config(
-    manifest: Dict[str, Any],
+    manifest: ToolManifest,
     user_input: Dict[str, Any]
 ) -> Dict[str, Any]:
 

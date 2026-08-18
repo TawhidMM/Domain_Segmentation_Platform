@@ -90,10 +90,12 @@ def build_run_context(
         run_id=run.id,
         dataset_id=run_config.dataset_id,
         annotation_id=run_config.annotation_id,
-        tool_name=experiment.tool_name,
+        tool_id=experiment.tool_id,
+        experiment_name=experiment.experiment_name,
         params=run_config.params_json,
         seed=run.seed
     )
+
     return context
 
 

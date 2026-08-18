@@ -57,8 +57,7 @@ export interface ParameterValue {
 export interface Experiment {
   id: string;
   toolId: string;
-  toolName: string;
-  displayName?: string;
+  experimentName: string;
   datasetIds: string[];
   requirements?: ToolRequirements;
   experimentId?: string;
@@ -91,7 +90,7 @@ export interface Domain {
 
 export interface ExperimentResult {
   experimentId: string;
-  toolName?: string;
+  experimentName?: string;
   spots: Spot[];
   domains: Domain[];
   has_histology?: boolean;
@@ -237,7 +236,8 @@ export interface DatasetGroup {
 
 export interface ExperimentDetails {
   experiment_id: string;
-  tool_name: string;
+  tool_registry_key: string;
+  experimentName: string;
   experiment_status: JobStatus;
   started_at: string | null;
   finished_at: string | null;

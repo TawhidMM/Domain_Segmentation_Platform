@@ -8,7 +8,7 @@ import { AllExperimentRunMetrics } from '@/hooks/useMultiExperimentBestRuns';
 interface MetricSummaryCardsProps {
   experimentMetrics: Array<{
     experimentId: string;
-    toolName: string;
+    experimentName: string;
     metricsData: AllExperimentRunMetrics | null;
   }>;
   experimentIds: string[];
@@ -35,16 +35,16 @@ const MetricSummaryCards: React.FC<MetricSummaryCardsProps> = ({
       const chartData = experimentIds.map((expId) => {
         const exp = experimentMetrics.find((m) => m.experimentId === expId);
         if (!exp?.metricsData?.runs) {
-          return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+          return { jobId: expId, experimentName: exp?.experimentName || expId, value: null };
         }
         const values = exp.metricsData.runs
           .map((run) => run.metrics[metric.key as keyof typeof run.metrics])
           .filter((v): v is number => typeof v === 'number' && !isNaN(v));
         if (values.length === 0) {
-          return { jobId: expId, toolName: exp?.toolName || expId, value: null };
+          return { jobId: expId, experimentName: exp?.experimentName || expId, value: null };
         }
         const { mean } = calculateStats(values);
-        return { jobId: expId, toolName: exp?.toolName || expId, value: mean };
+        return { jobId: expId, experimentName: exp?.experimentName || expId, value: mean };
       });
 
       const bestJobIds = findBestJobIds(chartData, metric.better);
@@ -181,7 +181,7 @@ const MetricSummaryCards: React.FC<MetricSummaryCardsProps> = ({
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        {item.toolName}
+                        {item.experimentName}
                       </Typography>
                       <Box
                         sx={{

@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
+from typing import Optional, List
 from datetime import datetime
+
+from app.schemas.dataset import DatasetConfigRequest
 
 
 class ResultSubmitResponse(BaseModel):
@@ -23,21 +25,11 @@ class ExperimentSubmitResponse(BaseModel):
     status: str
     runs_by_dataset: List[DatasetRunMapping]
 
-class DataSetRequest(BaseModel):
-    dataset_id: str
-
-class DataSetRequests(BaseModel):
-    dataset_ids: List[str] = Field(min_length=1)
-
-class DatasetConfigRequest(BaseModel):
-    dataset_id: str = Field(min_length=1)
-    params: Dict[str, Any] = Field(min_length=1)
-    annotation_id: Optional[str] = None
-
 
 class ExperimentSubmitRequest(BaseModel):
     dataset_configs: List[DatasetConfigRequest] = Field(min_length=1)
-    tool_name: str
+    tool_id: str = Field(..., description="Registry key identifying the tool (e.g., 'scribbledom', 'staig', 'deepst')")
+    experiment_name: str = Field(..., min_length=1, max_length=255, description="Human-readable experiment name")
     seed_list: List[int] = Field(min_length=1)
 
 class ImportResultsDatasetRequest(BaseModel):
@@ -46,11 +38,12 @@ class ImportResultsDatasetRequest(BaseModel):
 
 class ImportResultRequest(BaseModel):
     results: List[ImportResultsDatasetRequest] = Field(min_length=1)
-    tool_name: str
+    experiment_name: str = Field(..., min_length=1, max_length=255, description="Human-readable experiment name")
 
 class RunStatusResponse(BaseModel):
     run_id: str
     status: str
+    seed: int
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
 
@@ -69,7 +62,7 @@ class DatasetWithRunsResponse(BaseModel):
 
 class ExperimentStatusResponse(BaseModel):
     experiment_id: str
-    tool_name: str
+    experiment_name: str
     experiment_status: str
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
@@ -77,10 +70,6 @@ class ExperimentStatusResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class CompareBoxplotsDownloadRequest(BaseModel):
-    experiment_ids: List[str]
 
 
 class ExperimentRequest(BaseModel):
@@ -121,7 +110,7 @@ class DomainData(BaseModel):
 
 class PredictionResult(BaseModel):
     runId: str
-    toolName: str
+    experimentName: str
     spots: List[SpotData]
     domains: List[DomainData]
     has_histology: bool = False

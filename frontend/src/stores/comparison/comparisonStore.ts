@@ -9,7 +9,7 @@ export interface ComparisonState {
 }
 
 export interface ComparisonActions {
-  addExperiment: (id: string, token: string, toolName?: string) => void;
+  addExperiment: (id: string, token: string, experimentName?: string) => void;
   removeExperiment: (id: string) => void;
   isExperimentInBasket: (id: string) => boolean;
   getCompareUrl: () => string;
@@ -23,12 +23,12 @@ export const useComparisonStore = create<ComparisonStore>()(
     (set, get) => ({
       basket: [],
 
-      addExperiment: (id: string, token: string, toolName?: string) => {
+      addExperiment: (id: string, token: string, experimentName?: string) => {
         set((state) => {
           if (state.basket.some((exp) => exp.id === id)) {
             return state;
           }
-          return { basket: [...state.basket, { id, token, toolName }] };
+          return { basket: [...state.basket, { id, token, experimentName }] };
         });
       },
 

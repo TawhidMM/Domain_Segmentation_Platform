@@ -77,7 +77,7 @@ const FloatingCompareBar: React.FC = () => {
           {basket.map((exp) => (
             <Chip
               key={exp.id}
-              label={exp.toolName || exp.id}
+              label={exp.experimentName}
               onDelete={() => removeExperiment(exp.id)}
               deleteIcon={
                 <X size={14} style={{ color: 'text.secondary' }} />

@@ -33,7 +33,7 @@ class ComparisonDatasetsRequest(BaseModel):
 
 class ComparisonDatasetToolItem(BaseModel):
     experiment_id: str
-    tool_name: str
+    experiment_name: str
 
 
 class ComparisonDatasetsResponseItem(BaseModel):

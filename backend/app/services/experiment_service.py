@@ -12,9 +12,10 @@ from app.models.experiment import Experiment, ExperimentStatus
 from app.models.run import Run
 from app.models.run_config import RunConfig
 from app.repositories import dataset_repository, experiment_repository, run_config_repository, run_repository
-from app.schemas.experiment import DatasetConfigRequest, DatasetRunMapping, ImportResultsDatasetRequest
-from app.services.dataset_service import require_dataset
+from app.schemas.experiment import DatasetRunMapping, ImportResultsDatasetRequest
+from app.schemas.dataset import DatasetConfigRequest
 from app.services.annotation_service import get_annotation_json
+from app.services.dataset_service import require_dataset
 from app.utils.security import generate_token_pair, verify_token
 
 
@@ -43,7 +44,8 @@ def _create_run_config_entity(
 
 def _create_experiment_entity(
     experiment_id: str,
-    tool_name: str,
+    tool_id: str,
+    experiment_name: str,
     workspace_path: str,
     total_runs: int,
     token_hash: str
@@ -51,7 +53,8 @@ def _create_experiment_entity(
 
     return Experiment(
         id=experiment_id,
-        tool_name=tool_name,
+        tool_id=tool_id,
+        experiment_name=experiment_name,
         workspace_path=workspace_path,
         total_runs=total_runs,
         completed_runs=0,
@@ -146,7 +149,8 @@ def _prepare_runs_for_configs(
 def create_experiment_record(
     db: Session,
     dataset_param_configs: List[DatasetConfigRequest],
-    tool_name: str,
+    tool_id: str,
+    experiment_name: str,
     seed_list: List[int]
 ) -> Tuple[str, str, List[DatasetRunMapping]]:
 
@@ -171,7 +175,8 @@ def create_experiment_record(
     # Create Experiment: high-level metadata only
     experiment = _create_experiment_entity(
         experiment_id=experiment_id,
-        tool_name=tool_name,
+        tool_id=tool_id,
+        experiment_name=experiment_name,
         workspace_path=str(exp_workspace.workspace_root),
         total_runs=len(seed_list) * len(dataset_param_configs),
         token_hash=token_hash
@@ -265,7 +270,8 @@ def build_experiment_details(
     
     return {
         "experiment_id": experiment.id,
-        "tool_name": experiment.tool_name,
+        "tool_id": experiment.tool_id,
+        "experiment_name": experiment.experiment_name,
         "experiment_status": experiment.status.value,
         "started_at": experiment.started_at,
         "finished_at": experiment.finished_at,
@@ -276,7 +282,7 @@ def build_experiment_details(
 def create_imported_experiment_record(
     db: Session,
     results: list[ImportResultsDatasetRequest],
-    tool_name: str,
+    experiment_name: str,
 ) -> Tuple[ str, str, List[Dict[str, str]] ]:
 
     for result in results:
@@ -289,7 +295,8 @@ def create_imported_experiment_record(
     
     experiment = _create_experiment_entity(
         experiment_id=experiment_id,
-        tool_name=tool_name,
+        tool_id=experiment_name,
+        experiment_name=experiment_name,
         workspace_path=str(exp_workspace.workspace_root),
         total_runs=1,
         token_hash=token_hash

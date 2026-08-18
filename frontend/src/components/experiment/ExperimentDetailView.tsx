@@ -66,7 +66,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
     setActiveExperiment(null);
   }, [experiment, setSelectedDatasetIds, setActiveExperiment]);
 
-  const toolName = experiment.displayName ?? experiment.toolName;
+  const experimentName = experiment.experimentName;
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -86,7 +86,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" fontWeight={600}>
-            {toolName}
+            {experimentName}
           </Typography>
           {experiment.runs && experiment.runs.length > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -13,7 +13,7 @@ import {
 
 interface MetricBarChartDataItem {
   jobId: string;
-  toolName: string;
+  experimentName: string;
   value: number | null;
 }
 
@@ -77,7 +77,7 @@ const MetricTooltip: React.FC<{ active?: boolean; payload?: Array<{ value: numbe
       }}
     >
       <Typography variant="caption" sx={{ color: 'grey.700', display: 'block' }}>
-        {item?.toolName}
+        {item?.experimentName}
       </Typography>
       <Typography variant="caption" sx={{ color: 'grey.500', display: 'block' }}>
         {item?.jobId}
@@ -210,7 +210,7 @@ const MetricBarChart: React.FC<MetricBarChartProps> = ({
             <BarChart data={data} margin={{ top: 16, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid vertical={false} stroke="#e5e7eb" strokeDasharray="3 3" />
               <XAxis
-                dataKey="toolName"
+                dataKey="experimentName"
                 tick={<ToolNameTick data={data} bestJobIds={bestJobIds} />}
                 axisLine={{ stroke: '#e5e7eb' }}
                 tickLine={false}

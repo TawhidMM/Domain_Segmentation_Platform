@@ -1,7 +1,7 @@
 import json
 from io import BytesIO
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request, status
+from fastapi import APIRouter, HTTPException, Depends, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -45,7 +45,8 @@ async def submit_experiment(
     experiment_id, access_token, runs_by_dataset = experiment_service.create_experiment_record(
         db=db,
         dataset_param_configs=request.dataset_configs,
-        tool_name=request.tool_name,
+        tool_id=request.tool_id,
+        experiment_name=request.experiment_name,
         seed_list=request.seed_list
     )
 
@@ -70,7 +71,7 @@ async def submit_imported_experiment(
     experiment_id, access_token, staging_data = experiment_service.create_imported_experiment_record(
         db=db,
         results=request.results,
-        tool_name=request.tool_name
+        experiment_name=request.experiment_name
     )
 
     process_imported_results.delay(
@@ -133,13 +134,6 @@ def get_experiment_run_metrics(
     return metrics_service.get_experiment_run_metrics(db, request)
 
 
-@router.get("/compare/export/metrics")
-def export_compare_metrics(
-    c: str = Query(...),
-    format: str = Query("svg"),
-    db: Session = Depends(get_db)
-):
-    pass
 
 
 @router.post("/compare/consensus")

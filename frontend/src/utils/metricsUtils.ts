@@ -49,7 +49,7 @@ export function computeBoxStats(values: number[]) {
 
 export interface ChartDataItem {
   jobId: string;
-  toolName: string;
+  experimentName: string;
   value: number | null;
 }
 

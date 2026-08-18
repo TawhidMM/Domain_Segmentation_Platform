@@ -169,7 +169,7 @@ const ComparePageContent: React.FC = () => {
   // Prepare metrics data for MetricsTable and MetricsBarCharts
   const experimentMetricsData = experimentIds.map((expId, index) => ({
     experimentId: expId,
-    toolName: bestRunState[expId]?.result?.toolName || `Experiment ${index + 1}`,
+    experimentName: bestRunState[expId]?.result?.experimentName || `Experiment ${index + 1}`,
     totalRuns: bestRunState[expId]?.totalRuns || 0,
     metricsData: metricsState[expId]?.metricsData || null,
   }));
@@ -179,7 +179,7 @@ const ComparePageContent: React.FC = () => {
       experimentIds.map((expId, index) => ({
         experiment_id: expId,
         token: tokens[index],
-        tool_name: bestRunState[expId]?.result?.toolName || `Experiment ${index + 1}`,
+        tool_name: bestRunState[expId]?.result?.experimentName || `Experiment ${index + 1}`,
       })),
     [experimentIds, tokens, bestRunState],
   );
@@ -344,12 +344,12 @@ const ComparePageContent: React.FC = () => {
                       >
                         <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
                           <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-                            {exp.result?.toolName}
+                            {exp.result?.experimentName}
                           </Typography>
                           <SpatialPlot
                             result={exp.result}
                             metrics={exp.metrics}
-                            title={exp.result?.toolName}
+                            title={exp.result?.experimentName}
                             height={500}
                             showLegend={false}
                             compact

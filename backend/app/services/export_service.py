@@ -71,7 +71,7 @@ def export_spatial_plot(
     # Generate SVG + PDF bytes
     svg_content, pdf_bytes, metadata = export_spatial_plot_svg(
         run_id=run_id,
-        tool_name=run_context.tool_name,
+        experiment_name=run_context.experiment_name,
         parameters=run_context.params,
         dataset_id=run_context.dataset_id,
         spots=spots,
@@ -115,7 +115,7 @@ def export_umap(
     # Generate UMAP SVG + PDF bytes
     svg_content, pdf_bytes, metadata = export_umap_svg(
         run_id=run_id,
-        tool_name=run_context.tool_name,
+        experiment_name=run_context.experiment_name,
         parameters=run_context.params,
         embeddings=embeddings_df.values,
         domains=prediction_df["domain"].values,
@@ -140,11 +140,11 @@ def export_metric_zip(
 
     metrics_by_experiment = _group_metrics(metrics_df)
 
-    csv_columns = ["tool_name", "dataset_name", "seed", "metric", "value"]
+    csv_columns = ["experiment_name", "dataset_name", "seed", "metric", "value"]
     csv_content = metrics_df[csv_columns].to_csv(index=False)
 
     label_map = {
-        experiment_id: exp_info["tool_name"]
+        experiment_id: exp_info["experiment_name"]
         for experiment_id, exp_info in experiment_metrics.items()
     }
     color_map = build_global_color_map(list(label_map.values()))
@@ -191,7 +191,7 @@ def _build_metrics_dataframe(
             dataset_name = dataset_names.get(run["dataset_id"], run["dataset_id"])
             for metric_key, metric_value in run["metrics"].items():
                 rows.append({
-                    "tool_name": exp_info["tool_name"],
+                    "experiment_name": exp_info["experiment_name"],
                     "dataset_name": dataset_name,
                     "seed": run.get("seed"),
                     "metric": metric_key,
@@ -367,8 +367,8 @@ def build_domain_comparison(
 
     return {
         "experiments": {
-            "A": {"experiment_id": item_a.experiment_id, "tool_name": experiment_a.tool_name},
-            "B": {"experiment_id": item_b.experiment_id, "tool_name": experiment_b.tool_name}
+            "A": {"experiment_id": item_a.experiment_id, "experiment_name": experiment_a.experiment_name},
+            "B": {"experiment_id": item_b.experiment_id, "experiment_name": experiment_b.experiment_name}
         },
         "spots": spots,
         "domain_metrics": domain_metrics
@@ -492,7 +492,7 @@ def build_overlay_domain_map(
         })
 
     return {
-        "tools": [exp["tool_name"] for exp in experiment_data],
+        "tools": [exp["experiment_name"] for exp in experiment_data],
         "spots": spots
     }
 
@@ -522,7 +522,7 @@ def _load_experiment_consensus_data(
 
         experiment_data.append({
             "experiment_id": exp_item.experiment_id,
-            "tool_name": experiment.tool_name,
+            "experiment_name": experiment.experiment_name,
             "consensus_df": consensus_df,
             "mean_metric_score": mean_metric_score
         })

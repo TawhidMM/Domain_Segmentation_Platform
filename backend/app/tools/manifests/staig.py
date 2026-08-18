@@ -1,6 +1,4 @@
 STAIG_MANIFEST = {
-    "tool_id": "STAIG",
-    "label": "STAIG",
     "description": "Self-supervised spatial domain identification with graph contrastive learning",
     "parameters": {
         "profile": {

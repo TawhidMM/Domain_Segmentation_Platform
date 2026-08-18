@@ -1,6 +1,4 @@
 DEEPST_MANIFEST = {
-    "tool_id": "DeepST",
-    "label": "DeepST",
     "description": (
         "Deep learning-based spatial domain identification using morphological "
         "and spatial information"

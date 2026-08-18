@@ -23,13 +23,13 @@ export interface ExperimentsActions {
 
 export type ExperimentsStore = ExperimentsState & ExperimentsActions;
 
-function computeDisplayName(toolName: string, allExperiments: Experiment[]): string {
+function computeDisplayName(experimentName: string, allExperiments: Experiment[]): string {
   const sameToolExperiments = allExperiments
-    .filter((e) => e.toolName === toolName)
+    .filter((e) => e.experimentName === experimentName)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const count = sameToolExperiments.length;
-  if (count === 0) return toolName;
-  return `${toolName} #${count + 1}`;
+  if (count === 0) return experimentName;
+  return `${experimentName} #${count + 1}`;
 }
 
 function buildInitialRuns(experiment: Experiment): Run[] {
@@ -57,9 +57,9 @@ export const useExperimentsStore = create<ExperimentsStore>()(
       const actions = {
         addExperiment: (experiment: Experiment) => {
           set((prev) => {
-            const displayName = computeDisplayName(experiment.toolName, prev.experiments);
+            const experimentName = computeDisplayName(experiment.toolId, prev.experiments);
             const initialRuns = buildInitialRuns(experiment);
-            const experimentWithDisplayName = { ...experiment, displayName, runs: initialRuns };
+            const experimentWithDisplayName = { ...experiment, experimentName, runs: initialRuns };
             return { experiments: [...prev.experiments, experimentWithDisplayName], activeExperimentId: experiment.id };
           });
         },

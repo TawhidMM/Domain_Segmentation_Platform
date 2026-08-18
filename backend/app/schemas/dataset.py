@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import List, Dict, Any, Optional
+
 from pydantic import BaseModel, Field
 
 from app.models.dataset import DatasetTechnology
@@ -38,3 +40,17 @@ class DownloadProgressResponse(BaseModel):
     downloaded_bytes: int | None = None
     total_bytes: int | None = None
     error: str | None = None
+
+
+class DataSetRequest(BaseModel):
+    dataset_id: str
+
+
+class DataSetRequests(BaseModel):
+    dataset_ids: List[str] = Field(min_length=1)
+
+
+class DatasetConfigRequest(BaseModel):
+    dataset_id: str = Field(min_length=1)
+    params: Dict[str, Any] = Field(min_length=1)
+    annotation_id: Optional[str] = None

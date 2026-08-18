@@ -12,7 +12,7 @@ export type MetricsView = 'overview' | 'table' | 'charts';
 interface MetricsTabProps {
   experimentMetrics: Array<{
     experimentId: string;
-    toolName: string;
+    experimentName: string;
     totalRuns: number;
     metricsData: AllExperimentRunMetrics | null;
   }>;
@@ -128,12 +128,12 @@ const MetricsTab: React.FC<MetricsTabProps> = ({
             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
               {experimentIds.map((expId, idx) => {
                 const exp = experimentMetrics.find((m) => m.experimentId === expId);
-                const toolName = exp?.toolName || `Experiment ${idx + 1}`;
+                const experimentName = exp?.experimentName || `Experiment ${idx + 1}`;
                 return (
                   <Chip
                     key={expId}
                     size="small"
-                    label={toolName}
+                    label={experimentName}
                     sx={{
                       bgcolor: colorMap[expId] || '#94a3b8',
                       color: 'white',

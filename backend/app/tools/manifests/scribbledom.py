@@ -1,6 +1,4 @@
 SCRIBBLEDOM_MANIFEST = {
-    "tool_id": "ScribbleDom",
-    "label": "ScribbleDom",
     "description": "Weakly supervised spatial domain detection",
     "requirements": {
             "manual_annotation": {
