@@ -1,37 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { Box, Typography, Stack, IconButton, Tooltip, Collapse, Chip, Skeleton, Alert, LinearProgress } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Stack, IconButton, Tooltip, Collapse, Chip, Skeleton, Alert } from '@mui/material';
 import { X, ExternalLink, ChevronDown, ChevronRight, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useComparisonDataset } from '@/context/ComparisonDatasetContext';
-import { UNIFIED_CHART_COLORS } from '@/config/metricsConfig';
 
 const PANEL_WIDTH = 256;
 const PANEL_WIDTH_COLLAPSED = 40;
 
-interface ExperimentResultPayload {
-  status?: string;
-}
-
-interface ExperimentMetricsPayload {
-  runs?: Array<{ status?: string }>;
-}
-
-interface Experiment {
-  id: string;
-  token: string;
-  result: ExperimentResultPayload | null;
-  metrics: ExperimentMetricsPayload | null;
-  isLoading: boolean;
-  error: string | null;
-  errorCode?: number;
-}
-
 interface CompareExperimentListProps {
-  experiments: Experiment[];
   onRemoveExperiment: (experimentId: string) => void;
 }
 
-const CompareExperimentList: React.FC<CompareExperimentListProps> = ({ experiments, onRemoveExperiment }) => {
+const CompareExperimentList: React.FC<CompareExperimentListProps> = ({ onRemoveExperiment }) => {
   const navigate = useNavigate();
   const { datasets, selectedDataset, setSelectedDataset, isLoading, error } = useComparisonDataset();
   const [collapsed, setCollapsed] = useState(false);
@@ -51,34 +31,27 @@ const CompareExperimentList: React.FC<CompareExperimentListProps> = ({ experimen
     if (!token || token === 'undefined') return;
     navigate(`/experiment/${experimentId}?t=${token}`);
   };
-    useMemo(() => {
-        const map: Record<string, string> = {};
-        experiments.forEach((exp, idx) => {
-            map[exp.id] = UNIFIED_CHART_COLORS[idx % UNIFIED_CHART_COLORS.length];
-        });
-        return map;
-    }, [experiments]);
 
-    if (isLoading) {
-        return (
-            <Box
-                sx={{
-                    width: collapsed ? PANEL_WIDTH_COLLAPSED : PANEL_WIDTH,
-                    borderRight: '1px solid',
-                    borderColor: 'divider',
-                    background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)',
-                    transition: 'width 0.2s ease',
-                }}
-            >
-                <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Skeleton variant="rounded" height={28} />
-                    <Skeleton variant="rounded" height={48} />
-                    <Skeleton variant="rounded" height={48} />
-                </Box>
+  if (isLoading) {
+    return (
+        <Box
+            sx={{
+                width: collapsed ? PANEL_WIDTH_COLLAPSED : PANEL_WIDTH,
+                borderRight: '1px solid',
+                borderColor: 'divider',
+                background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)',
+                transition: 'width 0.2s ease',
+            }}
+        >
+            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Skeleton variant="rounded" height={28} />
+                <Skeleton variant="rounded" height={48} />
+                <Skeleton variant="rounded" height={48} />
             </Box>
-        );
-    }
-    if (error) {
+        </Box>
+    );
+  }
+  if (error) {
     return (
       <Box
         sx={{
@@ -167,15 +140,12 @@ const CompareExperimentList: React.FC<CompareExperimentListProps> = ({ experimen
               const isExpanded = expandedDatasets.has(dataset.dataset_id);
               const isSelected = dataset.dataset_id === selectedDataset;
               const datasetLabel = dataset.dataset_name?.trim() || dataset.dataset_id;
-                dataset.tools.reduce((sum, tool) => {
-                    const exp = experiments.find((e) => e.id === tool.experiment_id);
-                    return sum + (exp?.metrics?.runs?.length ?? 0);
-                }, 0);
-                return (
-                    <Box
-                        key={dataset.dataset_id}
-                        sx={{ position: 'relative' }}
-                    >
+
+              return (
+                <Box
+                    key={dataset.dataset_id}
+                    sx={{ position: 'relative' }}
+                >
                   {isSelected && (
                     <Box sx={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: '3px', bgcolor: 'primary.main', borderRadius: '0 4px 4px 0' }} />
                   )}
@@ -214,15 +184,13 @@ const CompareExperimentList: React.FC<CompareExperimentListProps> = ({ experimen
                   <Collapse in={isExpanded}>
                     <Box sx={{ px: 0.5, pb: 1, pt: 0.5 }}>
                       <Stack spacing={1}>
-                        {dataset.tools.map((tool) => {
-                          const expObj = experiments.find((e) => e.id === tool.experiment_id);
-                          const navigationToken = expObj?.token || tool.token;
-                          const statusKey = (expObj?.result as ExperimentResultPayload | undefined)?.status as string | undefined;
-                          const isRunning = statusKey === 'running';
+                        {dataset.experiments.map((exp) => {
+                          const navigationToken = exp.token;
+                          const experimentLabel = exp.experiment_name || exp.experiment_id;
 
                           return (
                             <Box
-                              key={tool.experiment_id}
+                              key={exp.experiment_id}
                               sx={{
                                 p: '0.5rem 0.75rem',
                                 borderRadius: '6px',
@@ -234,29 +202,23 @@ const CompareExperimentList: React.FC<CompareExperimentListProps> = ({ experimen
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <Typography variant="caption" sx={{ fontWeight: 600, color: 'grey.900', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {tool.tool_name}
+                                      {experimentLabel}
                                     </Typography>
                                   </Box>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, opacity: 0.75, '&:hover': { opacity: 1 } }}>
                                   <Tooltip title="Open experiment" placement="top" arrow>
-                                    <IconButton size="small" onClick={() => handleViewIndividually(tool.experiment_id, navigationToken)} aria-label={"Open " + tool.tool_name} sx={{ padding: 0.5, color: 'text.secondary' }}>
+                                    <IconButton size="small" onClick={() => handleViewIndividually(exp.experiment_id, navigationToken)} aria-label={"Open " + experimentLabel} sx={{ padding: 0.5, color: 'text.secondary' }}>
                                       <ExternalLink size={14} />
                                     </IconButton>
                                   </Tooltip>
                                   <Tooltip title="Remove from comparison" placement="top" arrow>
-                                    <IconButton size="small" onClick={() => onRemoveExperiment(tool.experiment_id)} aria-label={"Remove " + tool.tool_name} sx={{ padding: 0.5, color: 'text.secondary' }}>
+                                    <IconButton size="small" onClick={() => onRemoveExperiment(exp.experiment_id)} aria-label={"Remove " + experimentLabel} sx={{ padding: 0.5, color: 'text.secondary' }}>
                                       <X size={14} />
                                     </IconButton>
                                   </Tooltip>
                                 </Box>
                               </Stack>
-
-                              {isRunning && (
-                                <Box sx={{ mt: 0.75 }}>
-                                  <LinearProgress sx={{ height: 3, borderRadius: 1, bgcolor: 'grey.100', '& .MuiLinearProgress-bar': { bgcolor: 'primary.main' } }} />
-                                </Box>
-                              )}
                             </Box>
                           );
                         })}

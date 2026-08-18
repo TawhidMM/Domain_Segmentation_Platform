@@ -45,7 +45,7 @@ export const ComparisonDatasetProvider: React.FC<ComparisonDatasetProviderProps>
         const resolvedDatasets = response.datasets.map((dataset) => ({
           dataset_id: dataset.dataset_id,
           dataset_name: dataset.dataset_name ?? null,
-          tools: dataset.tools
+          experiments: dataset.tools
             .map((tool) => {
               const token = tokenByExperimentId.get(tool.experiment_id);
               if (!token) {
@@ -57,7 +57,7 @@ export const ComparisonDatasetProvider: React.FC<ComparisonDatasetProviderProps>
                 token,
               };
             })
-            .filter((tool): tool is ComparisonDataset['tools'][number] => tool !== null),
+            .filter((tool): tool is ComparisonDataset['experiments'][number] => tool !== null),
         }));
 
         setDatasets(resolvedDatasets);

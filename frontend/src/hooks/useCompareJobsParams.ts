@@ -2,7 +2,7 @@ import { useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 interface CompareJobsParams {
-  jobIds: string[];
+  experimentIds: string[];
   tokens: string[];
   isValid: boolean;
 }
@@ -44,5 +44,5 @@ export function useCompareJobsParams(): CompareJobsParams {
     }
   }, [isValid, jobIds, tokens, navigate]);
 
-  return { jobIds, tokens, isValid };
+  return { experimentIds: jobIds, tokens, isValid };
 }
