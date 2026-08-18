@@ -2,7 +2,6 @@ import axios from '@/lib/axios';
 import {
   ExperimentMetrics,
   ExperimentResult,
-  JobStatusResponse,
   ConsensusResponse,
   ExperimentDetails,
   RunStatus,
@@ -35,31 +34,6 @@ export interface ImportResultRequestPayload {
   experiment_name: string;
 }
 
-function getAggregateExperimentStatus(details: ExperimentDetails): JobStatusResponse {
-  const runStatuses = details.datasets.flatMap((dataset) => dataset.runs.map((run) => run.status));
-
-  if (runStatuses.length === 0) {
-    return { status: 'failed' };
-  }
-
-  if (runStatuses.some((status) => status === 'running')) {
-    return { status: 'running' };
-  }
-
-  if (runStatuses.some((status) => status === 'queued')) {
-    return { status: 'queued' };
-  }
-
-  if (runStatuses.every((status) => status === 'failed')) {
-    return { status: 'failed' };
-  }
-
-  if (runStatuses.some((status) => status === 'finished')) {
-    return { status: 'finished' };
-  }
-
-  return { status: 'failed' };
-}
 
 export async function fetchExperimentResult(runId: string, token: string): Promise<ExperimentResult> {
   const res = await axios.get(`/runs/${runId}/result`, { params: { token } });
@@ -70,12 +44,6 @@ export async function fetchExperimentMetrics(runId: string, token: string): Prom
   const res = await axios.get(`/runs/${runId}/metrics`, { params: { token } });
   return res.data as ExperimentMetrics;
 }
-
-export async function fetchJobStatus(experimentId: string, token: string): Promise<JobStatusResponse> {
-  const details = await fetchExperimentDetails(experimentId, token);
-  return getAggregateExperimentStatus(details);
-}
-
 
 export async function fetchExperimentDetails(experimentId: string, token: string): Promise<ExperimentDetails> {
   if (!token) {
@@ -129,16 +97,6 @@ export async function downloadCompareMetricBoxplots(experiments: ExperimentReque
   );
   return res.data as Blob;
 }
-
-export async function exportComparisonMetricSvg(encodedPayload: string, metricKey: string): Promise<Blob> {
-  const params = { c: encodedPayload, metric: metricKey };
-  const res = await axios.get(`/experiments/compare/export/metrics`, {
-    params,
-    responseType: 'blob'
-  });
-  return res.data as Blob;
-}
-
 export async function fetchConsensusData(experiments: ExperimentRequest[], datasetId: string): Promise<ConsensusResponse> {
   const res = await axios.post(`/experiments/compare/consensus`, { experiments, dataset_id: datasetId });
   return res.data as ConsensusResponse;
