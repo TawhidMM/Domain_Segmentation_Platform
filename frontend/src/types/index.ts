@@ -236,8 +236,8 @@ export interface DatasetGroup {
 
 export interface ExperimentDetails {
   experiment_id: string;
-  tool_registry_key: string;
-  experimentName: string;
+  tool_id: string;
+  experiment_name: string;
   experiment_status: JobStatus;
   started_at: string | null;
   finished_at: string | null;
@@ -274,14 +274,14 @@ export interface ExperimentSubmitResponse {
 }
 
 // Comparison datasets types
-export interface ComparisonDatasetTool {
-  tool_name: string;
+export interface ComparisonExperiments {
+  experiment_name: string;
   experiment_id: string;
   token: string;
 }
 
 export interface ComparisonDatasetToolResponse {
-  tool_name: string;
+  experiment_name: string;
   experiment_id: string;
 }
 
@@ -294,7 +294,7 @@ export interface ComparisonDatasetResponse {
 export interface ComparisonDataset {
   dataset_id: string;
   dataset_name: string;
-  tools: ComparisonDatasetTool[];
+  experiments: ComparisonExperiments[];
 }
 
 export interface ComparisonDatasetsResponse {

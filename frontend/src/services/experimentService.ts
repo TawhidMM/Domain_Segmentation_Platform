@@ -32,7 +32,7 @@ export interface ImportResultsDatasetRequestPayload {
 
 export interface ImportResultRequestPayload {
   results: ImportResultsDatasetRequestPayload[];
-  tool_name: string;
+  experiment_name: string;
 }
 
 function getAggregateExperimentStatus(details: ExperimentDetails): JobStatusResponse {

@@ -254,10 +254,10 @@ const FocusPage: React.FC = () => {
       removeExperiment(experimentId);
       toast.success('Removed from comparison');
     } else {
-      addExperiment(experimentId, accessToken, experimentData?.tool_name);
+      addExperiment(experimentId, accessToken, experimentData?.experiment_name);
       toast.success('Added to comparison');
     }
-  }, [experimentId, accessToken, isInBasket, addExperiment, removeExperiment, experimentData?.tool_name]);
+  }, [experimentId, accessToken, isInBasket, addExperiment, removeExperiment, experimentData?.experiment_name]);
 
   const handleDownloadSVG = useCallback(async () => {
     if (!selectedRunId || !accessToken) return;
@@ -424,10 +424,10 @@ const FocusPage: React.FC = () => {
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <AlertCircle size={48} style={{ color: '#EF4444', marginBottom: 16 }} />
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-              Job Not Found
+              Result Not Found
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              The job you're looking for doesn't exist or has expired.
+              The result you're looking for doesn't exist or has expired.
             </Typography>
             <Button variant="contained" href="/">
               Return to Home

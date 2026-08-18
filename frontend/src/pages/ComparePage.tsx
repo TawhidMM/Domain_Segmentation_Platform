@@ -13,7 +13,7 @@ import { Link2, Check } from 'lucide-react';
 import { useMultiExperimentBestRuns } from '@/hooks/useMultiExperimentBestRuns';
 import { useCompareJobsParams } from '@/hooks/useCompareJobsParams';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
-import { useJobReordering } from '@/hooks/useJobReordering';
+import { useManageComparingExperiments } from '@/hooks/useManageComparingExperiments.ts';
 import CompareExperimentList from '@/components/visualization/CompareExperimentList';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
 import MetricsTab from '@/components/visualization/metrics/MetricsTab';
@@ -23,6 +23,7 @@ import OverlayDomainTab from '@/components/compare/overlayDomain/OverlayDomainTa
 import { downloadCompareMetricBoxplots, fetchConsensusData } from '@/services/experimentService';
 import { ComparisonDatasetProvider, useComparisonDataset } from '@/context/ComparisonDatasetContext';
 import { toast } from 'sonner';
+import {ConsensusResponse} from "@/types";
 
 const ComparePageContent: React.FC = () => {
   const [, setSearchParams] = useSearchParams();
@@ -30,27 +31,23 @@ const ComparePageContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     'plots' | 'metrics' | 'consensus' | 'domain-comparison' | 'overlay-domain-map'
   >('plots');
-  const [consensusData, setConsensusData] = useState<any>(null);
+  const [consensusData, setConsensusData] = useState<ConsensusResponse>(null);
   const [consensusLoading, setConsensusLoading] = useState(false);
   const [consensusError, setConsensusError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const copyLink = useCallback(async () => {
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(window.location.href);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = window.location.href;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API not available');
       }
+
+      await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       toast.success('Link copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    }
+    catch (error) {
       toast.error('Failed to copy link');
     }
   }, []);
@@ -59,14 +56,14 @@ const ComparePageContent: React.FC = () => {
   const { selectedDataset } = useComparisonDataset();
 
   // Parse and validate URL params
-  const { jobIds: experimentIds, tokens, isValid } = useCompareJobsParams();
+  const { experimentIds, tokens } = useCompareJobsParams();
 
   // Drag and drop functionality
   const { isDragging, isDragOver, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } =
     useDragAndDrop();
 
   // Job reordering and removal
-  const { handleReorderJobs, handleRemoveJob: handleRemoveExperiment } = useJobReordering({ jobIds: experimentIds, tokens, setSearchParams });
+  const { handleReorderExperiment, handleRemoveExperiment } = useManageComparingExperiments({ experimentIds, tokens, setSearchParams });
 
   // Fetch best-run results and all metrics for experiments
   const { bestRunState, metricsState } = useMultiExperimentBestRuns(experimentIds, tokens, selectedDataset);
@@ -149,27 +146,22 @@ const ComparePageContent: React.FC = () => {
     }
   }, [experimentIds, tokens]);
 
-  // Build experiment list for comparison sidebar
-  const comparisonExperiments = experimentIds.map((expId, index) => ({
-    id: expId,
-    token: tokens[index],
-    result: bestRunState[expId]?.result || null,
-    metrics: bestRunState[expId]?.metrics || null,
-    isLoading: bestRunState[expId]?.isLoading || false,
-    error: bestRunState[expId]?.error || null,
-    errorCode: bestRunState[expId]?.errorCode,
-  }));
-
   // Filter experiments with results for plot display
-  const experimentsWithResults = comparisonExperiments.filter((exp) => exp.result);
+  const experimentsWithResults = experimentIds
+    .map((expId) => ({
+      id: expId,
+      result: bestRunState[expId]?.result ?? null,
+      metrics: bestRunState[expId]?.metrics ?? null,
+    }))
+    .filter((exp) => exp.result);
 
   // Calculate grid columns based on number of experiments
   const gridCols = experimentsWithResults.length <= 2 ? experimentsWithResults.length : 2;
 
   // Prepare metrics data for MetricsTable and MetricsBarCharts
-  const experimentMetricsData = experimentIds.map((expId, index) => ({
+  const experimentMetricsData = experimentIds.map((expId) => ({
     experimentId: expId,
-    experimentName: bestRunState[expId]?.result?.experimentName || `Experiment ${index + 1}`,
+    experimentName: bestRunState[expId]?.result?.experimentName,
     totalRuns: bestRunState[expId]?.totalRuns || 0,
     metricsData: metricsState[expId]?.metricsData || null,
   }));
@@ -179,7 +171,7 @@ const ComparePageContent: React.FC = () => {
       experimentIds.map((expId, index) => ({
         experiment_id: expId,
         token: tokens[index],
-        tool_name: bestRunState[expId]?.result?.experimentName || `Experiment ${index + 1}`,
+        tool_name: bestRunState[expId]?.result?.experimentName,
       })),
     [experimentIds, tokens, bestRunState],
   );
@@ -279,7 +271,7 @@ const ComparePageContent: React.FC = () => {
       {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Panel */}
-        <CompareExperimentList experiments={comparisonExperiments} onRemoveExperiment={handleRemoveExperiment} />
+        <CompareExperimentList onRemoveExperiment={handleRemoveExperiment} />
 
         {/* Right Content */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
@@ -323,7 +315,7 @@ const ComparePageContent: React.FC = () => {
                         onDragStart={() => handleDragStart(exp.id)}
                         onDragOver={(e) => handleDragOver(e, exp.id)}
                         onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, exp.id, handleReorderJobs)}
+                        onDrop={(e) => handleDrop(e, exp.id, handleReorderExperiment)}
                         onDragEnd={handleDragEnd}
                         sx={{
                           cursor: 'grab',
@@ -475,7 +467,7 @@ const ComparePageContent: React.FC = () => {
  * Wrapper component that provides the ComparisonDatasetProvider context
  */
 const ComparePage: React.FC = () => {
-  const { jobIds: experimentIds, tokens } = useCompareJobsParams();
+  const { experimentIds: experimentIds, tokens } = useCompareJobsParams();
 
   if (experimentIds.length < 2) {
     return (

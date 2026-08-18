@@ -426,7 +426,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         dataset_id: item.datasetId,
         stage_id: item.stageId,
       })),
-      tool_name: experimentName.trim(),
+      experiment_name: experimentName.trim(),
     };
 
     setIsSubmitting(true);
