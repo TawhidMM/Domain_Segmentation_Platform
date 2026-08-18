@@ -73,7 +73,7 @@ export interface Experiment {
   runs?: Run[];
   datasetParams?: Record<string, Record<string, unknown>>;
   annotationIds?: Record<string, string>;
-  toolSchema: ToolSchema;
+  toolSchema?: ToolSchema;
 }
 
 export interface Spot {
@@ -212,11 +212,6 @@ export interface JobSubmissionResponse {
   experiment_id: string;
   access_token: string;
   status: JobStatus;
-}
-
-export interface JobStatusResponse {
-  status: JobStatus;
-  error?: string;
 }
 
 // Experiment Details Page Types

@@ -23,13 +23,27 @@ export interface ExperimentsActions {
 
 export type ExperimentsStore = ExperimentsState & ExperimentsActions;
 
-function computeDisplayName(experimentName: string, allExperiments: Experiment[]): string {
-  const sameToolExperiments = allExperiments
-    .filter((e) => e.experimentName === experimentName)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  const count = sameToolExperiments.length;
-  if (count === 0) return experimentName;
-  return `${experimentName} #${count + 1}`;
+function computeExperimentName(toolName: string, allExperiments: Experiment[]): string {
+  const numberedPrefix = `${toolName} #`;
+
+  let maxSuffix = 0;
+
+  for (const experiment of allExperiments) {
+    if (experiment.experimentName === toolName) {
+      maxSuffix = Math.max(maxSuffix, 1);
+    }
+    else if (experiment.experimentName.startsWith(numberedPrefix)) {
+      const suffix = experiment.experimentName.slice(numberedPrefix.length);
+
+      if (/^\d+$/.test(suffix)) {
+        maxSuffix = Math.max(maxSuffix, Number(suffix));
+      }
+    }
+  }
+
+  if (maxSuffix === 0) return toolName;
+
+  return `${toolName} #${maxSuffix + 1}`;
 }
 
 function buildInitialRuns(experiment: Experiment): Run[] {
@@ -57,7 +71,7 @@ export const useExperimentsStore = create<ExperimentsStore>()(
       const actions = {
         addExperiment: (experiment: Experiment) => {
           set((prev) => {
-            const experimentName = computeDisplayName(experiment.toolId, prev.experiments);
+            const experimentName = computeExperimentName(experiment.toolId, prev.experiments);
             const initialRuns = buildInitialRuns(experiment);
             const experimentWithDisplayName = { ...experiment, experimentName, runs: initialRuns };
             return { experiments: [...prev.experiments, experimentWithDisplayName], activeExperimentId: experiment.id };
