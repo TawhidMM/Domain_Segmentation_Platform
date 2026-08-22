@@ -2,13 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, IconButton, Tooltip } from '@mui/material';
 import { Refresh, ArrowBack } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
-import { useExperimentsStore } from '@/stores/experiments';
-import { Experiment, ExperimentStatus, countRunsByStatus } from '@/types';
+import { Experiment, countRunsByStatus } from '@/types';
 import SubmitModal from '@/components/modals/SubmitModal';
 import DatasetAnnotationPanel from './DatasetAnnotationPanel';
 import ExperimentMonitoringPanel from './ExperimentMonitoringPanel';
 import { useExperimentPolling } from '@/hooks/useExperimentPolling';
-import { fetchExperimentDetails, mapDetailsToRuns } from '@/services/experimentService';
 import DatasetParamsDialog from './DatasetParamsDialog';
 import { usePipelineStore } from "@/stores/pipeline";
 import { isExperimentReadyToSubmit } from '@/utils/annotationStatus';
@@ -18,8 +16,6 @@ interface ExperimentDetailViewProps {
 }
 
 const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment }) => {
-  const updateExperimentRuns = useExperimentsStore((state) => state.updateExperimentRuns);
-  const updateExperimentStatus = useExperimentsStore((state) => state.updateExperimentStatus);
   const {
     experiments,
     setSelectedDatasetIds,
@@ -38,24 +34,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
     setParamsDialogOpen(true);
   }, []);
 
-  const pollExperimentDetails = useCallback(async () => {
-    if (!experiment.experimentId || !experiment.accessToken) return;
-    try {
-      const experimentDetails = await fetchExperimentDetails(experiment.experimentId, experiment.accessToken);
-      const runs = mapDetailsToRuns(experimentDetails, experiment.seedList);
-      updateExperimentRuns(experiment.id, runs);
-      updateExperimentStatus(experiment.id, experimentDetails.experiment_status as ExperimentStatus);
-    } catch (error) {
-      console.error('Failed to poll experiment details:', error);
-    }
-  }, [experiment.experimentId, experiment.accessToken, experiment.id, experiment.seedList, updateExperimentRuns, updateExperimentStatus]);
-
-  const { manualRefresh, isPolling } = useExperimentPolling({
-    experimentId: experiment.experimentId,
-    accessToken: experiment.accessToken,
-    status: experiment.status,
-    pollFn: experiment.experimentId && experiment.accessToken ? pollExperimentDetails : undefined,
-  });
+  const { manualRefresh, isPolling } = useExperimentPolling({ experimentId: experiment.id });
 
   const handleEditParameters = useCallback(async () => {
     const pipelineStore = usePipelineStore.getState();

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { WorkspaceMode, ExperimentSubmitResponse } from '@/types';
-import { fetchExperimentDetails, fetchExperimentMetrics, fetchExperimentResult } from '@/services/experimentService';
 import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
 import { usePipelineStore } from '@/stores/pipeline';
@@ -44,7 +43,6 @@ interface AppContextType {
 
   // Submit action
   submitExperiments: (email: string) => Promise<SubmitSkipResult>;
-  refreshExperimentResult: (experimentId: string) => Promise<void>;
   toggleComparisonExperiment: (id: string) => void;
   clearComparisonExperiments: () => void;
 
@@ -191,54 +189,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { redirectInfo: firstJobRedirect, submittedCount, skipped };
   }, [successfulDatasets, datasetParamOverrides]);
 
-  const refreshExperimentResult = useCallback(
-    async (experimentId: string) => {
-      const currentExperiments = useExperimentsStore.getState().experiments;
-      const target = currentExperiments.find((e) => e.id === experimentId);
-      if (!target?.experimentId || !target.accessToken) {
-        console.error('No experiment id or access token found for experiment');
-        return;
-      }
-
-      try {
-        const experimentDetails = await fetchExperimentDetails(target.experimentId, target.accessToken);
-        const finishedRunId = experimentDetails.datasets
-          .flatMap((dataset) => dataset.runs)
-          .find((run) => run.status === 'finished')?.run_id;
-
-        if (!finishedRunId) {
-          console.error(`No finished run found for experiment ${experimentId}`);
-          return;
-        }
-
-        const result = await fetchExperimentResult(finishedRunId, target.accessToken);
-        let metrics = null;
-        try {
-          metrics = await fetchExperimentMetrics(finishedRunId, target.accessToken);
-        } catch (metricsError) {
-          console.error(`Failed to fetch metrics for experiment ${experimentId}:`, metricsError);
-        }
-        useExperimentsStore.setState((prev) => ({
-          experiments: prev.experiments.map((e) =>
-            e.id === experimentId
-              ? {
-                  ...e,
-                  status: 'completed' as import('@/types').ExperimentStatus,
-                  completedAt: new Date(),
-                  result: { ...result, experimentId: target.experimentId },
-                  metrics,
-                }
-              : e
-          ),
-        }));
-      } catch (error) {
-        // If result not ready (404), keep current status
-        console.error(`Failed to fetch result for experiment ${experimentId}:`, error);
-      }
-    },
-    []
-  );
-
   const toggleComparisonExperiment = useCallback((id: string) => {
     setComparisonExperimentIds((prev) => {
       if (prev.includes(id)) {
@@ -311,7 +261,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         selectedDatasetIds,
         focusDatasetId,
         submitExperiments,
-        refreshExperimentResult,
         toggleComparisonExperiment,
         clearComparisonExperiments,
         setWorkspaceMode,

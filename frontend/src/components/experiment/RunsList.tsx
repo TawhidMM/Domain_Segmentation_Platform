@@ -105,7 +105,7 @@ const RunsList: React.FC<RunsListProps> = ({ runs, datasetId, selectedRunId, onR
                   textOverflow: 'ellipsis',
                 }}
               >
-                run_{index + 1}
+                seed-{run.seed}
               </Typography>
               <Typography
                 variant="caption"

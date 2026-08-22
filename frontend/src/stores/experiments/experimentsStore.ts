@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { v4 as UUID } from 'uuid';
 import type { Experiment, ExperimentStatus, Run, DatasetRunMapping } from '@/types';
 import { validateExperimentsWithBackend } from './experimentsActions';
 
@@ -48,13 +49,16 @@ function computeExperimentName(toolName: string, allExperiments: Experiment[]): 
 
 function buildInitialRuns(experiment: Experiment): Run[] {
   return experiment.datasetIds.flatMap((datasetId) =>
-    experiment.seedList.map((seed) => ({
-      runId: '',
-      datasetId,
-      seed,
-      status: 'not-submitted' as const,
-      result: null,
-    }))
+    experiment.seedList.map((seed) => {
+      return {
+        id: UUID(),
+        runId: '',
+        datasetId,
+        seed,
+        status: 'not-submitted' as const,
+        result: null,
+      };
+    })
   );
 }
 
@@ -121,13 +125,17 @@ export const useExperimentsStore = create<ExperimentsStore>()(
                 const seedList = updates.seedList ?? e.seedList;
                 const datasetIds = updates.datasetIds ?? e.datasetIds;
                 next.runs = datasetIds.flatMap((datasetId) =>
-                  seedList.map((seed) => ({
-                    runId: '',
-                    datasetId,
-                    seed,
-                    status: 'not-submitted' as const,
-                    result: null,
-                  }))
+                  seedList.map((seed) => {
+
+                    return {
+                      id: UUID(),
+                      runId: '',
+                      datasetId,
+                      seed,
+                      status: 'not-submitted' as const,
+                      result: null,
+                    };
+                  })
                 );
               }
               return next;
