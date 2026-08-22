@@ -69,7 +69,7 @@ const DatasetRunsTable: React.FC<DatasetRunsTableProps> = ({
     >
       {runs.map((run) => (
         <div
-          key={run.runId}
+          key={run.id}
           style={{
             display: 'flex',
             alignItems: 'center',

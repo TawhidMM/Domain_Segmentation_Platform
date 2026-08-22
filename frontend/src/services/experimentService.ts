@@ -172,21 +172,26 @@ export async function submitImportedResult(
 }
 
 /**
- * Map experiment details to flat Run array.
- * Each run is tagged with datasetId and seed from the frontend seedList.
- * The seedList is applied per-dataset (each dataset runs through all seeds).
- * Status is mapped from backend ('finished' -> 'completed').
+ * Patch backend run details onto the existing frontend runs.
+ * The existing array owns display order and client-side run identity.
  */
-export function mapDetailsToRuns(details: ExperimentDetails, seedList: number[]): Run[] {
-  return details.datasets.flatMap((dataset) =>
-    dataset.runs.map((run, index) => ({
-      runId: run.run_id,
-      datasetId: dataset.dataset_id,
-      seed: seedList[index] ?? run.seed,
-      status: mapRunStatus(run.status) as Run['status'],
-      result: null,
-    }))
+export function patchRunsWithDetails(existingRuns: Run[], details: ExperimentDetails): Run[] {
+  const detailsByRun = new Map(
+    details.datasets.flatMap((dataset) =>
+      dataset.runs.map((run) => [`${dataset.dataset_id}::${run.seed}`, run] as const)
+    )
   );
+
+  return existingRuns.map((run) => {
+    const incoming = detailsByRun.get(`${run.datasetId}::${run.seed}`);
+    if (!incoming) return run;
+
+    return {
+      ...run,
+      runId: incoming.run_id || run.runId,
+      status: mapRunStatus(incoming.status) as Run['status'],
+    };
+  });
 }
 
 /**

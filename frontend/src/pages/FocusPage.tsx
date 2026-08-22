@@ -19,9 +19,20 @@ import { useComparisonStore } from '@/stores/comparison';
 import FloatingCompareBar from '@/components/visualization/FloatingCompareBar';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
 import { DatasetExplorer } from '@/components/experiment';
-import { exportExperiment, exportExperimentUmap, fetchExperimentDetails, fetchRunStatus, fetchExperimentResult, fetchExperimentMetrics } from '@/services/experimentService';
+import { exportExperiment, exportExperimentUmap, fetchExperimentDetails, fetchExperimentResult, fetchExperimentMetrics } from '@/services/experimentService';
 import { toast } from 'sonner';
-import { ExperimentDetails, ExperimentResult, ExperimentMetrics } from '@/types';
+import { ExperimentDetails, ExperimentResult, ExperimentMetrics, RunDetail } from '@/types';
+
+
+
+const findRunDetail = (details: ExperimentDetails | null, runId: string | null): RunDetail | null => {
+  if (!details || !runId) return null;
+  for (const ds of details.datasets) {
+    const run = ds.runs.find((r) => r.run_id === runId);
+    if (run) return run;
+  }
+  return null;
+};
 
 const FocusPage: React.FC = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
@@ -53,7 +64,6 @@ const FocusPage: React.FC = () => {
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [metrics, setMetrics] = useState<ExperimentMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
 
@@ -97,11 +107,12 @@ const FocusPage: React.FC = () => {
 
           if (targetRunId && targetDatasetId) {
             setSelectedRunId(targetRunId);
+            setStatus(findRunDetail(data, targetRunId)?.status ?? null);
             setExpandedDatasets(new Set([targetDatasetId]));
           }
         }
-      } catch (err: any) {
-        const code = err.response?.status;
+      } catch (err) {
+        const code = (err as { response?: { status?: number } })?.response?.status;
         setErrorCode(code);
         setError(code === 403 ? 'Unauthorized access' : code === 404 ? 'Experiment not found' : 'Failed to load experiment');
       } finally {
@@ -112,109 +123,87 @@ const FocusPage: React.FC = () => {
     loadExperiment();
   }, [experimentId, accessToken, runParam]);
 
-  // Load run data when selected run changes
+  // Consolidated single poller: keeps ALL run statuses in the sidebar fresh while any run is
+  // queued/running, and loads the selected run's result/metrics once it finishes.
   useEffect(() => {
-    let pollingInterval: NodeJS.Timeout | null = null;
+    if (!experimentId || !accessToken || !selectedRunId) return;
 
-    const loadRunData = async () => {
-      if (!selectedRunId || !accessToken) return;
+    let cancelled = false;
+    let inFlight = false;
+    let hasSucceeded = false;
+    let resultLoaded = false;
+    let intervalRef: NodeJS.Timeout | null = null;
 
+    const loadRunResult = async (runId: string) => {
       try {
-        // Fetch run status
-        const runStatus = await fetchRunStatus(selectedRunId, accessToken);
-        setStatus(runStatus.status);
-
-        if (runStatus.status === 'finished') {
-          const [resultData, metricsData] = await Promise.all([
-            fetchExperimentResult(selectedRunId, accessToken),
-            fetchExperimentMetrics(selectedRunId, accessToken).catch(() => null),
-          ]);
-          setResult(resultData);
-          setMetrics(metricsData);
-          setIsPolling(false);
-          
-          // Update the run status in experimentData so the left panel reflects it
-          setExperimentData(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              datasets: prev.datasets.map(ds => ({
-                ...ds,
-                runs: ds.runs.map(r =>
-                  r.run_id === selectedRunId ? { ...r, status: runStatus.status } : r
-                )
-              }))
-            };
-          });
-        } else if (runStatus.status === 'queued' || runStatus.status === 'running') {
-          // Update the run status in experimentData (for cases where initial fetch shows queued/running)
-          setExperimentData(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              datasets: prev.datasets.map(ds => ({
-                ...ds,
-                runs: ds.runs.map(r =>
-                  r.run_id === selectedRunId ? { ...r, status: runStatus.status } : r
-                )
-              }))
-            };
-          });
-          
-          // Start polling
-          setIsPolling(true);
-          pollingInterval = setInterval(async () => {
-            try {
-              const updatedStatus = await fetchRunStatus(selectedRunId, accessToken);
-              setStatus(updatedStatus.status);
-
-              // Update experimentData for any status change during polling
-              setExperimentData(prev => {
-                if (!prev) return prev;
-                return {
-                  ...prev,
-                  datasets: prev.datasets.map(ds => ({
-                    ...ds,
-                    runs: ds.runs.map(r =>
-                      r.run_id === selectedRunId ? { ...r, status: updatedStatus.status } : r
-                    )
-                  }))
-                };
-              });
-
-              if (updatedStatus.status === 'finished') {
-                const [resultData, metricsData] = await Promise.all([
-                  fetchExperimentResult(selectedRunId, accessToken),
-                  fetchExperimentMetrics(selectedRunId, accessToken).catch(() => null),
-                ]);
-                setResult(resultData);
-                setMetrics(metricsData);
-                setIsPolling(false);
-                
-                if (pollingInterval) clearInterval(pollingInterval);
-              } else if (updatedStatus.status === 'failed') {
-                setIsPolling(false);
-                if (pollingInterval) clearInterval(pollingInterval);
-              }
-            } catch (err) {
-              console.error('Polling error:', err);
-            }
-          }, 5000);
-        }
-      } catch (err: any) {
-        const code = err.response?.status;
-        setErrorCode(code);
-        setError('Failed to load run data');
-        toast.error('Failed to load run data');
+        const [resultData, metricsData] = await Promise.all([
+          fetchExperimentResult(runId, accessToken),
+          fetchExperimentMetrics(runId, accessToken).catch(() => null),
+        ]);
+        if (cancelled) return;
+        setResult(resultData);
+        setMetrics(metricsData);
+      } catch (err) {
+        console.error('Failed to load run result:', err);
+        resultLoaded = false;
+        if (!cancelled) toast.error('Failed to load run data');
       }
     };
 
-    loadRunData();
+    const pollOnce = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const fresh = await fetchExperimentDetails(experimentId, accessToken);
+        if (cancelled) return;
+        hasSucceeded = true;
+
+        // Keep BOTH the sidebar and the action-bar chip in sync with all runs
+        setExperimentData(fresh);
+
+        // Derive the selected run's current status from the fresh details
+        const selectedRunDetail = findRunDetail(fresh, selectedRunId);
+        const selectedRunStatus = selectedRunDetail?.status ?? null;
+        if (selectedRunStatus) setStatus(selectedRunStatus);
+
+        // Load the selected run's result + metrics exactly once when it finishes
+        if (selectedRunStatus === 'finished' && !resultLoaded) {
+          resultLoaded = true;
+          await loadRunResult(selectedRunId);
+        }
+
+        // Keep polling only while at least one run is still queued/running
+        const hasActiveRuns = fresh.datasets.some((ds) =>
+          ds.runs.some((r) => r.status === 'queued' || r.status === 'running')
+        );
+        if (!hasActiveRuns && intervalRef) {
+          clearInterval(intervalRef);
+          intervalRef = null;
+        }
+      } catch (err) {
+
+        console.error('Polling error:', err);
+
+        if (!hasSucceeded && !cancelled) {
+          const code = (err as { response?: { status?: number } })?.response?.status;
+          setErrorCode(code);
+          setError('Failed to load run data');
+          toast.error('Failed to load run data');
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    // Immediate first check, then a 5s heartbeat while any run is active
+    pollOnce();
+    intervalRef = setInterval(pollOnce, 5000);
 
     return () => {
-      if (pollingInterval) clearInterval(pollingInterval);
+      cancelled = true;
+      if (intervalRef) clearInterval(intervalRef);
     };
-  }, [selectedRunId, accessToken]);
+  }, [experimentId, accessToken, selectedRunId]);
 
   const handleRunSelect = (runId: string) => {
     if (runId === selectedRunId) {
@@ -604,26 +593,60 @@ const FocusPage: React.FC = () => {
               ) : (
                 <Box sx={{ width: 40 }} />
               )}
+              <Typography
+                variant="body1"
+                sx={{
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  minWidth: 0,
+                }}
+                title={experimentData?.experiment_name}
+              >
+                {experimentData?.experiment_name || 'Untitled Experiment'}
+              </Typography>
               {status && getStatusIcon(status) && (
                 <Chip
                   icon={getStatusIcon(status) as React.ReactElement}
                   label={status.charAt(0).toUpperCase() + status.slice(1)}
-                  color={getStatusColor(status) as any}
+                  color={getStatusColor(status)}
                   variant="outlined"
                   size="small"
                 />
               )}
-              <Typography
-                variant="body2"
-                sx={{
-                  color: 'text.secondary',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {selectedRunId ? `Run ${selectedRunId.substring(0, 12)}...` : 'No run selected'}
-              </Typography>
+              {selectedRunId ? (
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      flexShrink: 0,
+                    }}
+                  >
+                    Seed {findRunDetail(experimentData, selectedRunId)?.seed ?? '—'}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    title={selectedRunId}
+                    sx={{
+                      color: 'text.secondary',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {selectedRunId}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  No run selected
+                </Typography>
+              )}
             </Box>
           </Box>
 

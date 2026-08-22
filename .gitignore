@@ -4,3 +4,4 @@ ss/
 .env
 tast.txt
 .vscode
+dev.sh

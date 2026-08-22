@@ -231,7 +231,6 @@ export interface DatasetGroup {
 
 export interface ExperimentDetails {
   experiment_id: string;
-  tool_id: string;
   experiment_name: string;
   experiment_status: JobStatus;
   started_at: string | null;
@@ -249,6 +248,7 @@ export interface RunStatus {
 export type RunStatusValue = 'queued' | 'running' | 'finished' | 'failed';
 
 export interface Run {
+  id: string;
   runId: string;
   datasetId: string;
   seed: number;

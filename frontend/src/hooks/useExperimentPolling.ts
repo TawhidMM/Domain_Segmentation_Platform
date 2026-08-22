@@ -1,61 +1,62 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useApp } from '@/context/AppContext';
+import { useExperimentsStore } from '@/stores/experiments';
+import { fetchExperimentDetails, patchRunsWithDetails } from '@/services/experimentService';
 import type { ExperimentStatus } from '@/types';
 
 interface UseExperimentPollingOptions {
-  experimentId?: string;
-  accessToken?: string;
-  /** Current status from store - used to determine if polling should start */
-  status?: ExperimentStatus;
-  /** Optional custom poll function. If not provided, uses refreshExperimentResult. */
-  pollFn?: () => Promise<void>;
+  /** Store experiment id (Experiment['id']) to track while in-flight */
+  experimentId: string;
+  /** Polling interval in milliseconds (defaults to 5000) */
   intervalMs?: number;
 }
 
 /**
- * Shared hook for polling experiment status while it's in-flight.
- * Usage:
- *   const { refreshExperimentResult } = useApp(); // for manual refresh
- *   useExperimentPolling({ experimentId, accessToken, status });
+ * Polls experiment details while the experiment is in-flight.
  *
- *   // Or with custom poll function:
- *   useExperimentPolling({ pollFn: () => fetchDetailsAndUpdate() });
- *
- * The hook automatically:
- * - Starts polling when status is 'queued' or 'running' (or when pollFn is provided without status check)
+ * - Starts polling when the experiment status is 'queued' or 'running'
+ * - Fetches backend experiment details, patches run statuses, and updates the store
  * - Stops when status becomes 'completed' or 'failed'
  * - Cleans up on unmount
+ *
+ * Usage:
+ *   const { manualRefresh, isPolling } = useExperimentPolling({ experimentId: experiment.id });
  */
 export function useExperimentPolling({
   experimentId,
-  accessToken,
-  status,
-  pollFn,
   intervalMs = 5000,
 }: UseExperimentPollingOptions): { manualRefresh: () => void; isPolling: boolean } {
-  const { refreshExperimentResult } = useApp();
+  const updateExperimentRuns = useExperimentsStore((state) => state.updateExperimentRuns);
+  const updateExperimentStatus = useExperimentsStore((state) => state.updateExperimentStatus);
+
+  // Live status from the store - drives polling on/off.
+  const status = useExperimentsStore((state) =>
+    state.experiments.find((e) => e.id === experimentId)?.status
+  );
+
+  const pollExperimentDetails = useCallback(async () => {
+    // Read freshest state from the store so we never patch against stale runs.
+    const current = useExperimentsStore.getState().experiments.find((e) => e.id === experimentId);
+    if (!current?.experimentId || !current.accessToken) return;
+
+    try {
+      const experimentDetails = await fetchExperimentDetails(current.experimentId, current.accessToken);
+      const runs = patchRunsWithDetails(current.runs ?? [], experimentDetails);
+      updateExperimentRuns(current.id, runs);
+      updateExperimentStatus(current.id, experimentDetails.experiment_status as ExperimentStatus);
+    } catch (error) {
+      console.error('Failed to poll experiment details:', error);
+    }
+  }, [experimentId, updateExperimentRuns, updateExperimentStatus]);
+
   const isPollingRef = useRef(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Determine if we should poll based on status (if no pollFn provided)
-  const shouldPoll = status === 'queued' || status === 'running';
-
-  // Default poll function uses refreshExperimentResult if no custom pollFn provided
-  const defaultPollFn = useCallback(() => {
-    if (experimentId && accessToken) {
-      return refreshExperimentResult(experimentId);
-    }
-    return Promise.resolve();
-  }, [experimentId, accessToken, refreshExperimentResult]);
-
-  const effectivePollFn = pollFn ?? defaultPollFn;
+  // Determine if we should poll based on live store status.
+  const shouldStartPolling = status === 'queued' || status === 'running';
 
   const pollOnce = useCallback(() => {
-    effectivePollFn();
-  }, [effectivePollFn]);
-
-  // Use status check to determine polling (pollFn is just the function to call)
-  const shouldStartPolling = shouldPoll;
+    pollExperimentDetails();
+  }, [pollExperimentDetails]);
 
   useEffect(() => {
     if (!shouldStartPolling) {

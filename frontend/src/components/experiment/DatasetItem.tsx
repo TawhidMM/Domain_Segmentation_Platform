@@ -78,7 +78,7 @@ const DatasetItem: React.FC<DatasetItemProps> = ({
               textOverflow: 'ellipsis',
             }}
           >
-            {dataset.dataset_name || dataset.dataset_id}
+            { dataset.dataset_name }
           </Typography>
           {dataset.dataset_name && (
             <Typography
