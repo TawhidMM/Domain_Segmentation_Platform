@@ -150,7 +150,7 @@ def mark_finished(
     return _update_run_status(
         db,
         run,
-        ExperimentStatus.FINISHED,
+        ExperimentStatus.COMPLETED,
         finished_at=datetime.now(timezone.utc)
     )
 
@@ -190,7 +190,7 @@ def _update_run_status(
 def check_run_finished(
     run: Run
 ) -> None:
-    if run.status != ExperimentStatus.FINISHED:
+    if run.status != ExperimentStatus.COMPLETED:
         raise HTTPException(
             status_code=422,
             detail=f"Execution is {run.status.value}, not finished"

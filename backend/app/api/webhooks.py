@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.post("")
 async def tus_webhook(hook: TusdHook):
-    print(f"Received webhook: \n {hook} ")
+
     metadata = hook.Event.get("Upload", {}).get("MetaData", {})
     handler = get_handler(metadata.get("upload_type"))
 

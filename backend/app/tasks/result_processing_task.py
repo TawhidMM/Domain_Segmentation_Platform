@@ -90,7 +90,7 @@ def _mark_experiment_completed(
         raise RuntimeError(f"Experiment '{experiment_id}' not found during background processing")
 
     experiment.completed_runs = 1
-    experiment.status = ExperimentStatus.FINISHED
+    experiment.status = ExperimentStatus.COMPLETED
     experiment.finished_at = datetime.now(timezone.utc)
     db.commit()
 

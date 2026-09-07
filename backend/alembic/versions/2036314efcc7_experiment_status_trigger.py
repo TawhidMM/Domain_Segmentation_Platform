@@ -1,8 +1,8 @@
 """experiment status trigger
 
-Revision ID: d77580391a67
-Revises: f8c255093f14
-Create Date: 2026-08-18 05:33:06.716276
+Revision ID: 2036314efcc7
+Revises: bb9ed45c60ad
+Create Date: 2026-09-07 12:58:21.507293
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd77580391a67'
-down_revision: Union[str, Sequence[str], None] = 'f8c255093f14'
+revision: str = '2036314efcc7'
+down_revision: Union[str, Sequence[str], None] = 'bb9ed45c60ad'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -39,7 +39,7 @@ def upgrade() -> None:
                 END IF;
 
                 SELECT
-                    COUNT(*) FILTER (WHERE r.status = 'FINISHED'),
+                    COUNT(*) FILTER (WHERE r.status = 'COMPLETED'),
                     COUNT(*) FILTER (WHERE r.status = 'RUNNING'),
                     COUNT(*) FILTER (WHERE r.status = 'QUEUED'),
                     COUNT(*) FILTER (WHERE r.status = 'FAILED')
@@ -53,14 +53,14 @@ def upgrade() -> None:
                 ELSIF v_queued > 0 THEN
                     v_new_status := 'QUEUED';
                 ELSE
-                    v_new_status := 'FINISHED';
+                    v_new_status := 'COMPLETED';
                 END IF;
 
                 UPDATE experiments
                 SET completed_runs = v_completed,
                     status = v_new_status::experimentstatus,
                     finished_at = CASE
-                        WHEN v_new_status IN ('FINISHED', 'failed') AND finished_at IS NULL
+                        WHEN v_new_status IN ('COMPLETED', 'failed') AND finished_at IS NULL
                         THEN now()
                         ELSE finished_at
                     END
@@ -85,3 +85,5 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.execute("DROP TRIGGER IF EXISTS trg_recompute_experiment_status ON runs;")
     op.execute("DROP FUNCTION IF EXISTS recompute_experiment_status();")
+
+

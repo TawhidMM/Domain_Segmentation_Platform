@@ -10,14 +10,14 @@ from app.core.database import Base
 class ExperimentStatus(str, Enum):
     QUEUED = "queued"
     RUNNING = "running"
-    FINISHED = "finished"
+    COMPLETED = "completed"
     FAILED = "failed"
 
 
 VALID_EXPERIMENT_TRANSITIONS = {
     ExperimentStatus.QUEUED: {ExperimentStatus.RUNNING, ExperimentStatus.FAILED},
-    ExperimentStatus.RUNNING: {ExperimentStatus.FINISHED, ExperimentStatus.FAILED},
-    ExperimentStatus.FINISHED: set(),
+    ExperimentStatus.RUNNING: {ExperimentStatus.COMPLETED, ExperimentStatus.FAILED},
+    ExperimentStatus.COMPLETED: set(),
     ExperimentStatus.FAILED: {ExperimentStatus.RUNNING},
 }
 
