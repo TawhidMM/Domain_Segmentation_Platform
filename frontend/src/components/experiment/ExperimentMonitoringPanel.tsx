@@ -50,7 +50,7 @@ const ExperimentMonitoringPanel: React.FC<ExperimentMonitoringPanelProps> = ({
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Loading runs...
+            No runs available for this experiment...
           </Typography>
         </Box>
       );
