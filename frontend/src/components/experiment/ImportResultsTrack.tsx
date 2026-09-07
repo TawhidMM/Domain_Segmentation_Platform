@@ -449,7 +449,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         accessToken: response.access_token,
         parameters: {},
         numberOfRuns: stagedItems.length,
-        seedList: [],
+        seedList: [0],
         status: ExperimentStatus.QUEUED,
         createdAt: new Date(),
         completedAt: null,
