@@ -42,12 +42,6 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    /* Status Colors */
-    --status-queued: 45 93% 47%;
-    --status-running: 221 83% 53%;
-    --status-completed: 142 76% 36%;
-    --status-not-submitted: 215 16% 47%;
-    
     /* Border & Input */
     --border: 214 32% 91%;
     --input: 214 32% 91%;

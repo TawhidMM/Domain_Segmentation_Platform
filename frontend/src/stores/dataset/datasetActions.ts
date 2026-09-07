@@ -9,6 +9,7 @@ import {
 } from '@/services/uploadService';
 import { validateDatasetExistence } from '@/services/uploadService';
 import { DatasetItem } from '@/types';
+import { DatasetUploadStatus, DatasetExtractionStatus, DownloadPhase } from '@/types';
 import type { DatasetStore, DatasetStoreState } from './datasetTypes';
 
 /**
@@ -38,8 +39,8 @@ export const processUploadQueue = async (
   try {
     const startPending = () => {
       const current = get().datasets;
-      const uploading = current.filter((item) => item.status === 'UPLOADING').length;
-      const pending = current.filter((item) => item.status === 'PENDING');
+      const uploading = current.filter((item) => item.status === DatasetUploadStatus.UPLOADING).length;
+      const pending = current.filter((item) => item.status === DatasetUploadStatus.PENDING);
 
       const slotsAvailable = Math.max(0, CONCURRENT_LIMIT - uploading);
       const toStart = pending.slice(0, slotsAvailable);
@@ -60,7 +61,7 @@ export const processUploadQueue = async (
     const interval = setInterval(() => {
       const current = get().datasets;
       const hasActive = current.some(
-        (item) => item.status === 'PENDING' || item.status === 'UPLOADING'
+        (item) => item.status === DatasetUploadStatus.PENDING || item.status === DatasetUploadStatus.UPLOADING
       );
       if (!hasActive) {
         clearInterval(interval);
@@ -75,7 +76,7 @@ export const processUploadQueue = async (
     const unsubscribe = (get() as any).subscribe?.(() => {
       const current = get().datasets;
       const hasActive = current.some(
-        (item) => item.status === 'PENDING' || item.status === 'UPLOADING'
+        (item) => item.status === DatasetUploadStatus.PENDING || item.status === DatasetUploadStatus.UPLOADING
       );
       if (!hasActive) {
         clearInterval(interval);
@@ -103,7 +104,7 @@ async function uploadOne(
   set((prev) => ({
     datasets: prev.datasets.map((d) =>
       d.id === item.id
-        ? { ...d, status: 'UPLOADING' as const, uploadProgress: 0, error: undefined }
+        ? { ...d, status: DatasetUploadStatus.UPLOADING, uploadProgress: 0, error: undefined }
         : d
     ),
   }));
@@ -126,7 +127,7 @@ async function uploadOne(
               ...d,
               datasetId,
               datasetName,
-              status: 'PROCESSING' as const,
+              status: DatasetUploadStatus.PROCESSING,
               uploadProgress: 100,
               error: undefined,
               file: undefined,
@@ -144,7 +145,7 @@ async function uploadOne(
         d.id === item.id
           ? {
               ...d,
-              status: 'ERROR' as const,
+              status: DatasetUploadStatus.ERROR,
               uploadProgress: 0,
               error: err instanceof Error ? err.message : 'Upload failed',
             }
@@ -155,9 +156,9 @@ async function uploadOne(
 
    // Try to start next pending item
    const current = get().datasets;
-   const uploadingCount = current.filter((d) => d.status === 'UPLOADING').length;
+   const uploadingCount = current.filter((d) => d.status === DatasetUploadStatus.UPLOADING).length;
    if (uploadingCount < CONCURRENT_LIMIT) {
-     const nextPending = current.find((d) => d.status === 'PENDING');
+     const nextPending = current.find((d) => d.status === DatasetUploadStatus.PENDING);
      if (nextPending) {
        uploadOne(nextPending, get, set);
      }
@@ -185,10 +186,10 @@ async function uploadOne(
               d.id === itemId
                 ? {
                     ...d,
-                    status: statusData.status === 'ready'
-                      ? ('SUCCESS' as const)
-                      : statusData.status === 'failed'
-                        ? ('ERROR' as const)
+                    status: statusData.status === DatasetExtractionStatus.READY
+                      ? DatasetUploadStatus.SUCCESS
+                      : statusData.status === DatasetExtractionStatus.FAILED
+                        ? DatasetUploadStatus.ERROR
                         : d.status,
                     error: statusData.error || d.error,
                   }
@@ -196,7 +197,7 @@ async function uploadOne(
           ),
           }));
 
-          if (statusData.status === 'ready' || statusData.status === 'failed') {
+          if (statusData.status === DatasetExtractionStatus.READY || statusData.status === DatasetExtractionStatus.FAILED) {
             clearInterval(timer);
             resolve();
           }
@@ -238,22 +239,22 @@ async function pollSampleDownload(
           ),
         }));
 
-        if (progress.phase === 'handed_off') {
+        if (progress.phase === DownloadPhase.HANDED_OFF) {
           clearInterval(timer);
           set((prev) => ({
             datasets: prev.datasets.map((d) =>
               d.id === itemId
-                ? { ...d, status: 'PROCESSING' as const, uploadProgress: 100 }
+                ? { ...d, status: DatasetUploadStatus.PROCESSING, uploadProgress: 100 }
                 : d
             ),
           }));
           resolve();
-        } else if (progress.phase === 'failed') {
+        } else if (progress.phase === DownloadPhase.FAILED) {
           clearInterval(timer);
           set((prev) => ({
             datasets: prev.datasets.map((d) =>
               d.id === itemId
-                ? { ...d, status: 'ERROR' as const, error: progress.error || 'Download failed' }
+                ? { ...d, status: DatasetUploadStatus.ERROR, error: progress.error || 'Download failed' }
                 : d
             ),
           }));
@@ -278,7 +279,7 @@ export const validateDatasetsWithBackend = async (
 ): Promise<boolean> => {
   const { datasets } = get();
   const currentIds = datasets
-    .filter((d) => d.status === 'SUCCESS' && d.datasetId !== null)
+    .filter((d) => d.status === DatasetUploadStatus.SUCCESS && d.datasetId !== null)
     .map((d) => d.datasetId as string);
 
   if (currentIds.length === 0) return true;
@@ -288,12 +289,12 @@ export const validateDatasetsWithBackend = async (
 
     set((prev) => ({
       datasets: prev.datasets.filter(
-        (d) => !(d.status === 'SUCCESS' && d.datasetId && !validIds.includes(d.datasetId))
+        (d) => !(d.status === DatasetUploadStatus.SUCCESS && d.datasetId && !validIds.includes(d.datasetId))
       ),
     }));
 
     const survivingCount = get().datasets.filter(
-      (d) => d.status === 'SUCCESS' && d.datasetId !== null
+      (d) => d.status === DatasetUploadStatus.SUCCESS && d.datasetId !== null
     ).length;
     const lostCount = currentIds.length - survivingCount;
 
@@ -333,7 +334,7 @@ export const createDatasetActions = (
       datasetId: null,
       size: file.size,
       uploadProgress: 0,
-      status: 'PENDING',
+      status: DatasetUploadStatus.PENDING,
     }));
 
     set((prev) => ({
@@ -345,7 +346,7 @@ export const createDatasetActions = (
     set((prev) => ({
       datasets: prev.datasets.map((item) =>
         item.id === queueItemId
-          ? { ...item, status: 'PENDING' as const, uploadProgress: 0, error: undefined, datasetId: null }
+          ? { ...item, status: DatasetUploadStatus.PENDING, uploadProgress: 0, error: undefined, datasetId: null }
           : item
       ),
     }));
@@ -416,7 +417,7 @@ export const createDatasetActions = (
   validateDatasetsWithBackend: () => validateDatasetsWithBackend(get, set),
 
   isDatasetReady: () => {
-    return get().datasets.some((d) => d.status === 'SUCCESS' && d.datasetId !== null);
+    return get().datasets.some((d) => d.status === DatasetUploadStatus.SUCCESS && d.datasetId !== null);
   },
 
   resetDatasetState: () => {
@@ -439,7 +440,7 @@ export const createDatasetActions = (
         taskId: d.task_id,
         size: 0,
         uploadProgress: 0,
-        status: 'DOWNLOADING' as const,
+        status: DatasetUploadStatus.DOWNLOADING,
       }));
 
       set((prev) => ({

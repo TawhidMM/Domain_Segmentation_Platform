@@ -5,6 +5,7 @@ import { useApp } from '@/context/AppContext';
 import { useDatasetStore } from '@/stores/dataset';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
 import { useComparisonStore } from '@/stores/comparison';
+import { ExperimentStatus, WorkspaceView } from '@/types';
 import ExperimentsList from './ExperimentsList';
 
 const LeftPanel: React.FC = () => {
@@ -12,8 +13,8 @@ const LeftPanel: React.FC = () => {
   const { startNewExperiment, experiments } = useApp();
   const count = useComparisonStore((state) => state.basket.length);
 
-  const unsubmittedCount = useMemo(() => experiments.filter((e) => e.status === 'not-submitted').length, [experiments]);
-  const completedCount = useMemo(() => experiments.filter((e) => e.status === 'completed').length, [experiments]);
+  const unsubmittedCount = useMemo(() => experiments.filter((e) => e.status === ExperimentStatus.NOT_SUBMITTED).length, [experiments]);
+  const completedCount = useMemo(() => experiments.filter((e) => e.status === ExperimentStatus.COMPLETED).length, [experiments]);
 
   return (
     <Box
@@ -37,7 +38,7 @@ const LeftPanel: React.FC = () => {
           Dataset
         </Typography>
         <Box
-          onClick={() => useUIStore.getState().setWorkspaceView('upload')}
+          onClick={() => useUIStore.getState().setWorkspaceView(WorkspaceView.UPLOAD)}
           sx={{
             mt: 1,
             p: 1.5,

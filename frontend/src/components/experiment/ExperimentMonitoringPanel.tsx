@@ -3,9 +3,9 @@ import { Box, Typography, Button } from '@mui/material';
 import { useShallow } from 'zustand/react/shallow';
 import { useDatasetStore } from '@/stores/dataset';
 import { resolveDatasetParameters } from '@/utils/parameterUtils';
-import { countRunsByStatus } from '@/types';
 import DatasetRunsTable from './DatasetRunsTable';
-import type { Experiment, Run, RunStatusValueFrontend } from '@/types';
+import type { Experiment, Run } from '@/types';
+import { DatasetUploadStatus } from '@/types';
 
 interface ExperimentMonitoringPanelProps {
   experiment: Experiment;
@@ -17,7 +17,7 @@ const ExperimentMonitoringPanel: React.FC<ExperimentMonitoringPanelProps> = ({
   onViewParams,
 }) => {
   const uploadedDatasets = useDatasetStore(
-    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+    useShallow((state) => state.datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS))
   );
 
   const datasetNameMap = useMemo(() => {

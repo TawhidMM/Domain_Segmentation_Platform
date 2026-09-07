@@ -1,21 +1,12 @@
 import axiosInstance from '@/lib/axios';
 import { UploadType } from '@/types/upload';
+import { ValidationStatus, ValidationErrorType } from '@/types';
 import { tusUpload } from '@/services/tusUpload';
 
-export type ImportValidationStatus = 'processing' | 'success' | 'failed';
-
-export type ImportValidationErrorType =
-  | 'MISSING_FILES'
-  | 'FILE_SHAPE_MISMATCH'
-  | 'BARCODE_ALIGNMENT_FAILURE'
-  | 'SCHEMA_VIOLATION'
-  | 'INVALID_DATA_TYPES'
-  | 'INTERNAL_SYSTEM_ERROR';
-
 export interface ImportValidationPayload {
-  status: ImportValidationStatus;
+  status: ValidationStatus;
   message: string;
-  error_type?: ImportValidationErrorType;
+  error_type?: ValidationErrorType;
 }
 
 interface UploadProgressHandler {
@@ -64,7 +55,7 @@ export async function pollImportResultStatus(
   while (Date.now() < deadline) {
     const payload = await fetchImportResultStatus(stageId);
 
-    if (payload.status !== 'processing') {
+    if (payload.status !== ValidationStatus.PROCESSING) {
       return payload;
     }
 

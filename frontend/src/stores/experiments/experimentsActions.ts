@@ -1,5 +1,6 @@
 import type { ExperimentsStore } from './experimentsStore';
 import { checkExperimentsExistence } from '@/services/experimentService';
+import { ExperimentStatus } from '@/types';
 
 
 export const validateExperimentsWithBackend = async (
@@ -30,10 +31,10 @@ export const validateExperimentsWithBackend = async (
       survivingExperiments.flatMap((e) => e.datasetIds)
     );
     const prunedUnsubmitted = survivingExperiments.filter(
-      (e) => e.status === 'not-submitted' && e.datasetIds.some((id) => !survivingDatasetIds.has(id))
+      (e) => e.status === ExperimentStatus.NOT_SUBMITTED && e.datasetIds.some((id) => !survivingDatasetIds.has(id))
     );
     const finalExperiments = survivingExperiments.filter(
-      (e) => !(e.status === 'not-submitted' && e.datasetIds.some((id) => !survivingDatasetIds.has(id)))
+      (e) => !(e.status === ExperimentStatus.NOT_SUBMITTED && e.datasetIds.some((id) => !survivingDatasetIds.has(id)))
     );
 
     const nextActiveId = state.activeExperimentId && finalExperiments.some((e) => e.id === state.activeExperimentId)

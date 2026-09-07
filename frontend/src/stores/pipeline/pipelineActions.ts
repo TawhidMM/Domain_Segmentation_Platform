@@ -1,5 +1,6 @@
 import type { PipelineStore, PipelineState } from './pipelineTypes';
 import type { ToolSchema, Experiment } from '@/types';
+import { WorkspaceView } from '@/types';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
 import {initializeParameterValues} from "@/utils/parameterUtils.ts";
 
@@ -55,11 +56,11 @@ export const createPipelineActions = (
       },
       activeStep: 1, lastCreatedExperiment: null, editingExperimentId: experiment.id,
     }));
-    useUIStore.getState().setWorkspaceView('builder');
+    useUIStore.getState().setWorkspaceView(WorkspaceView.BUILDER);
   },
   handleStepBack: () => {
     const currentStep = get().activeStep;
     if (currentStep > 0) set({ activeStep: currentStep - 1 });
-    else useUIStore.getState().setWorkspaceView('upload');
+    else useUIStore.getState().setWorkspaceView(WorkspaceView.UPLOAD);
   },
 });

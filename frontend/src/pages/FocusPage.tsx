@@ -21,7 +21,7 @@ import SpatialPlot from '@/components/visualization/SpatialPlot';
 import { DatasetExplorer } from '@/components/experiment';
 import { exportExperiment, exportExperimentUmap, fetchExperimentDetails, fetchExperimentResult, fetchExperimentMetrics } from '@/services/experimentService';
 import { toast } from 'sonner';
-import { ExperimentDetails, ExperimentResult, ExperimentMetrics, RunDetail } from '@/types';
+import { ExperimentDetails, ExperimentResult, ExperimentMetrics, RunDetail, ExperimentStatus } from '@/types';
 
 
 
@@ -60,7 +60,7 @@ const FocusPage: React.FC = () => {
   const [expandedDatasets, setExpandedDatasets] = useState<Set<string>>(new Set());
   
   // Run data state (replaces useJobTracking)
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<ExperimentStatus | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [metrics, setMetrics] = useState<ExperimentMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -167,14 +167,14 @@ const FocusPage: React.FC = () => {
         if (selectedRunStatus) setStatus(selectedRunStatus);
 
         // Load the selected run's result + metrics exactly once when it finishes
-        if (selectedRunStatus === 'finished' && !resultLoaded) {
+        if (selectedRunStatus === ExperimentStatus.COMPLETED && !resultLoaded) {
           resultLoaded = true;
           await loadRunResult(selectedRunId);
         }
 
         // Keep polling only while at least one run is still queued/running
         const hasActiveRuns = fresh.datasets.some((ds) =>
-          ds.runs.some((r) => r.status === 'queued' || r.status === 'running')
+          ds.runs.some((r) => r.status === ExperimentStatus.QUEUED || r.status === ExperimentStatus.RUNNING)
         );
         if (!hasActiveRuns && intervalRef) {
           clearInterval(intervalRef);
@@ -336,30 +336,30 @@ const FocusPage: React.FC = () => {
     }
   }, [selectedRunId, accessToken]);
 
-  const getStatusColor = (stat: string | null): 'warning' | 'info' | 'success' | 'error' | 'default' => {
+  const getStatusColor = (stat: ExperimentStatus | null): 'warning' | 'info' | 'success' | 'error' | 'default' => {
     switch (stat) {
-      case 'queued':
+      case ExperimentStatus.QUEUED:
         return 'warning';
-      case 'running':
+      case ExperimentStatus.RUNNING:
         return 'info';
-      case 'finished':
+      case ExperimentStatus.COMPLETED:
         return 'success';
-      case 'failed':
+      case ExperimentStatus.FAILED:
         return 'error';
       default:
         return 'default';
     }
   };
 
-  const getStatusIcon = (stat: string | null): React.ReactElement | null => {
+  const getStatusIcon = (stat: ExperimentStatus | null): React.ReactElement | null => {
     switch (stat) {
-      case 'queued':
+      case ExperimentStatus.QUEUED:
         return <Clock size={16} />;
-      case 'running':
+      case ExperimentStatus.RUNNING:
         return <Zap size={16} />;
-      case 'finished':
+      case ExperimentStatus.COMPLETED:
         return <CheckCircle size={16} />;
-      case 'failed':
+      case ExperimentStatus.FAILED:
         return <AlertCircle size={16} />;
       default:
         return null;
@@ -662,7 +662,7 @@ const FocusPage: React.FC = () => {
               </Button>
             </Tooltip>
 
-            {status === 'finished' && (
+            {status === ExperimentStatus.COMPLETED && (
               <Tooltip title={isInBasket ? 'Remove this result from the comparing' : 'Add this result to for comparing'}>
                 <Button
                   size="small"
@@ -676,7 +676,7 @@ const FocusPage: React.FC = () => {
               </Tooltip>
             )}
 
-            {status === 'finished' && (
+            {status === ExperimentStatus.COMPLETED && (
               <ExportMenu
                 onDownloadSvg={handleDownloadSVG}
                 onDownloadUmap={handleDownloadUmap}
@@ -701,7 +701,7 @@ const FocusPage: React.FC = () => {
 
         {/* Content area with scroll */}
         <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
-          {status === 'failed' && (
+          {status === ExperimentStatus.FAILED && (
             <Alert severity="error" sx={{ mb: 2 }}>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
                 Job failed to complete. Please try again or contact support if the problem persists.
@@ -709,7 +709,7 @@ const FocusPage: React.FC = () => {
             </Alert>
           )}
 
-          {status === 'finished' && result ? (
+          {status === ExperimentStatus.COMPLETED && result ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -755,14 +755,14 @@ const FocusPage: React.FC = () => {
                 />
               </Box>
             </Box>
-          ) : status === 'queued' || status === 'running' ? (
+          ) : status === ExperimentStatus.QUEUED || status === ExperimentStatus.RUNNING ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <CircularProgress size={56} sx={{ mb: 3 }} />
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-                {status === 'queued' ? 'Job is queued' : 'Job is running'}
+                {status === ExperimentStatus.QUEUED ? 'Job is queued' : 'Job is running'}
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-                {status === 'queued'
+                {status === ExperimentStatus.QUEUED
                   ? 'Your job is waiting to be processed. This page will update automatically.'
                   : 'Your job is being processed. This page will update automatically.'}
               </Typography>
@@ -770,7 +770,7 @@ const FocusPage: React.FC = () => {
                 Checking for updates every 5 seconds...
               </Typography>
             </Box>
-          ) : status === 'failed' ? (
+          ) : status === ExperimentStatus.FAILED ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <AlertCircle size={56} style={{ color: '#EF4444', marginBottom: 24 }} />
               <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>

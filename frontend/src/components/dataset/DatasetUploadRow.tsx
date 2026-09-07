@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Typography, TextField, Button, IconButton, LinearProgress, Chip } from '@mui/material';
 import { DeleteOutline, ErrorOutline, HourglassEmpty } from '@mui/icons-material';
-import type { DatasetItem } from '@/types';
+import { DatasetItem, DatasetUploadStatus } from '@/types';
 
 interface DatasetUploadRowProps {
   item: DatasetItem;
@@ -81,7 +81,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minWidth: 0 }}>
         {/* Name field or display */}
-        {item.status === 'SUCCESS' && item.datasetId ? (
+        {item.status === DatasetUploadStatus.SUCCESS && item.datasetId ? (
           <TextField
             inputRef={inputRef}
             size="small"
@@ -106,7 +106,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
         )}
 
         {/* Progress bar for uploading */}
-        {item.status === 'UPLOADING' && (
+        {item.status === DatasetUploadStatus.UPLOADING && (
           <Box sx={{ maxWidth: 360 }}>
             <LinearProgress
               variant="determinate"
@@ -120,7 +120,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
         )}
 
         {/* Progress bar for sample download */}
-        {item.status === 'DOWNLOADING' && (
+        {item.status === DatasetUploadStatus.DOWNLOADING && (
           <Box sx={{ maxWidth: 360 }}>
             <LinearProgress
               variant="determinate"
@@ -134,7 +134,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
         )}
 
         {/* Processing spinner */}
-        {item.status === 'PROCESSING' && (
+        {item.status === DatasetUploadStatus.PROCESSING && (
           <Box sx={{ maxWidth: 360, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ width: '100%' }}>
               <LinearProgress sx={{ height: 6, borderRadius: 999 }} />
@@ -162,7 +162,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
         {/* PENDING badge */}
-        {item.status === 'PENDING' && (
+        {item.status === DatasetUploadStatus.PENDING && (
           <Chip
             icon={<HourglassEmpty sx={{ fontSize: 14 }} />}
             label="Queued"
@@ -173,7 +173,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
         )}
 
         {/* UPLOADING badge */}
-        {(item.status === 'UPLOADING' || item.status === 'DOWNLOADING') && (
+        {(item.status === DatasetUploadStatus.UPLOADING || item.status === DatasetUploadStatus.DOWNLOADING) && (
           <Chip
             label={`${item.uploadProgress}%`}
             size="small"
@@ -183,20 +183,8 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
           />
         )}
 
-        {/* DOWNLOADING badge */}
-        {/*{item.status === 'DOWNLOADING' && (*/}
-        {/*  <Chip*/}
-        {/*    icon={<Download sx={{ fontSize: 14 }} />}*/}
-        {/*    label={`${item.uploadProgress}%`}*/}
-        {/*    size="small"*/}
-        {/*    color="secondary"*/}
-        {/*    variant="outlined"*/}
-        {/*    sx={{ fontSize: '0.75rem' }}*/}
-        {/*  />*/}
-        {/*)}*/}
-
         {/* ERROR actions */}
-        {item.status === 'ERROR' && (
+        {item.status === DatasetUploadStatus.ERROR && (
           <>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'error.main' }}>
               <ErrorOutline sx={{ fontSize: 16 }} />
@@ -214,7 +202,7 @@ const DatasetUploadRow: React.FC<DatasetUploadRowProps> = ({
         )}
 
         {/* Delete button for SUCCESS and ERROR */}
-        {(item.status === 'SUCCESS' || item.status === 'ERROR') && (
+        {(item.status === DatasetUploadStatus.SUCCESS || item.status === DatasetUploadStatus.ERROR) && (
           <IconButton
             size="small"
             aria-label={`Remove ${item.fileName}`}

@@ -4,13 +4,14 @@ import { Box } from '@mui/material';
 import { useDatasetStore } from '@/stores/dataset';
 import { useExperimentsStore } from '@/stores/experiments';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
+import { DatasetUploadStatus, WorkspaceView } from '@/types';
 import DatasetUpload from '../dataset/DatasetUpload';
 import ExperimentBuilder from '@/components/experiment/ExperimentBuilder';
 import ExperimentDetailView from '@/components/experiment/ExperimentDetailView';
 
 const MainWorkspace: React.FC = () => {
   const uploadedDatasets = useDatasetStore(
-    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+    useShallow((state) => state.datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS))
   );
 
   const experiments = useExperimentsStore((state) => state.experiments);
@@ -30,13 +31,13 @@ const MainWorkspace: React.FC = () => {
 
     // Authoritative State Machine Core Routing
     switch (workspaceMode) {
-      case 'upload':
+      case WorkspaceView.UPLOAD:
         return <DatasetUpload />;
 
-      case 'builder':
+      case WorkspaceView.BUILDER:
         return <ExperimentBuilder />;
 
-      case 'focus':
+      case WorkspaceView.FOCUS:
         // Render detail view if data exists; otherwise fallback gracefully
         return experimentForFocus ? (
           <ExperimentDetailView experiment={experimentForFocus} />

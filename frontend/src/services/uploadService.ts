@@ -1,5 +1,6 @@
 import axios from '@/lib/axios';
 import { UploadType, DatasetTechnology } from '@/types/upload';
+import { DatasetExtractionStatus, DownloadPhase } from '@/types';
 import { tusUpload } from '@/services/tusUpload';
 
 export async function uploadViaTus(
@@ -38,7 +39,7 @@ export async function validateDatasetExistence(datasetIds: string[]): Promise<st
 
 export interface DatasetExtractionStatusResponse {
   dataset_id: string;
-  status: 'processing' | 'ready' | 'failed';
+  status: DatasetExtractionStatus;
   error?: string;
 }
 
@@ -78,8 +79,6 @@ export async function downloadSampleDatasets(
   return response.data;
 }
 
-
-export type DownloadPhase = 'pending' | 'downloading' | 'handed_off' | 'failed';
 
 export interface DownloadProgressResponse {
   dataset_id: string;

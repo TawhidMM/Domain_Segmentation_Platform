@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, IconButton, Tooltip } from '@mui/material';
 import { Refresh, ArrowBack } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
-import { Experiment, countRunsByStatus } from '@/types';
+import { Experiment, countRunsByStatus, ExperimentStatus } from '@/types';
 import SubmitModal from '@/components/modals/SubmitModal';
 import DatasetAnnotationPanel from './DatasetAnnotationPanel';
 import ExperimentMonitoringPanel from './ExperimentMonitoringPanel';
@@ -25,7 +25,7 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
   const [paramsDialogOpen, setParamsDialogOpen] = useState(false);
   const [paramsDialogDataset, setParamsDialogDataset] = useState<{ id: string; name: string; params: Record<string, unknown> } | null>(null);
 
-  const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
+  const unsubmittedExperiments = experiments.filter((e) => e.status === ExperimentStatus.NOT_SUBMITTED);
   const unsubmittedCount = unsubmittedExperiments.length;
   const readyCount = unsubmittedExperiments.filter((e) => isExperimentReadyToSubmit(e)).length;
 
@@ -93,13 +93,13 @@ const ExperimentDetailView: React.FC<ExperimentDetailViewProps> = ({ experiment 
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {experiment.status === 'not-submitted' && (
+          {experiment.status === ExperimentStatus.NOT_SUBMITTED && (
             <Button variant="outlined" startIcon={<ArrowBack />} onClick={handleEditParameters} size="small">
               Edit Parameters
             </Button>
           )}
 
-          {(experiment.status === 'queued' || experiment.status === 'running') && (
+          {(experiment.status === ExperimentStatus.QUEUED || experiment.status === ExperimentStatus.RUNNING) && (
             <Tooltip title="Refresh status">
               <span>
                 <IconButton size="small" onClick={manualRefresh}>

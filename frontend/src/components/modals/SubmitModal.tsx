@@ -20,6 +20,7 @@ import { Send, Science, Email, Schedule } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 import { isExperimentReadyToSubmit } from '@/utils/annotationStatus';
+import { ExperimentStatus } from '@/types';
 
 interface SubmitModalProps {
   open: boolean;
@@ -32,7 +33,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ open, onClose }) => {
   const [emailError, setEmailError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const unsubmittedExperiments = experiments.filter((e) => e.status === 'not-submitted');
+  const unsubmittedExperiments = experiments.filter((e) => e.status === ExperimentStatus.NOT_SUBMITTED);
   const readyExperiments = unsubmittedExperiments.filter((e) => isExperimentReadyToSubmit(e));
   const skippedExperiments = unsubmittedExperiments.filter((e) => !isExperimentReadyToSubmit(e));
 

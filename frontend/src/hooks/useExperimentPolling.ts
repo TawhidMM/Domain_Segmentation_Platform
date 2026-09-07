@@ -1,21 +1,19 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useExperimentsStore } from '@/stores/experiments';
 import { fetchExperimentDetails, patchRunsWithDetails } from '@/services/experimentService';
-import type { ExperimentStatus } from '@/types';
+import { ExperimentStatus } from '@/types';
 
 interface UseExperimentPollingOptions {
-  /** Store experiment id (Experiment['id']) to track while in-flight */
   experimentId: string;
-  /** Polling interval in milliseconds (defaults to 5000) */
   intervalMs?: number;
 }
 
 /**
  * Polls experiment details while the experiment is in-flight.
  *
- * - Starts polling when the experiment status is 'queued' or 'running'
+ * - Starts polling when the experiment status is queued or running
  * - Fetches backend experiment details, patches run statuses, and updates the store
- * - Stops when status becomes 'completed' or 'failed'
+ * - Stops when status becomes completed or failed
  * - Cleans up on unmount
  *
  * Usage:
@@ -42,7 +40,7 @@ export function useExperimentPolling({
       const experimentDetails = await fetchExperimentDetails(current.experimentId, current.accessToken);
       const runs = patchRunsWithDetails(current.runs ?? [], experimentDetails);
       updateExperimentRuns(current.id, runs);
-      updateExperimentStatus(current.id, experimentDetails.experiment_status as ExperimentStatus);
+      updateExperimentStatus(current.id, experimentDetails.experiment_status);
     } catch (error) {
       console.error('Failed to poll experiment details:', error);
     }
@@ -52,7 +50,7 @@ export function useExperimentPolling({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Determine if we should poll based on live store status.
-  const shouldStartPolling = status === 'queued' || status === 'running';
+  const shouldStartPolling = status === ExperimentStatus.QUEUED || status === ExperimentStatus.RUNNING;
 
   const pollOnce = useCallback(() => {
     pollExperimentDetails();

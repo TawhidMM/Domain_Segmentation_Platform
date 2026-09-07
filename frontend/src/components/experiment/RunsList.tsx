@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { CheckCircle2, Clock, AlertCircle, Play } from 'lucide-react';
-import { RunDetail } from '@/types';
+import { RunDetail, ExperimentStatus } from '@/types';
 
 export interface RunsListProps {
   runs: RunDetail[];
@@ -10,29 +10,29 @@ export interface RunsListProps {
   onRunSelect: (runId: string) => void;
 }
 
-const getStatusIcon = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'finished':
+const getStatusIcon = (status: ExperimentStatus) => {
+  switch (status) {
+    case ExperimentStatus.COMPLETED:
       return <CheckCircle2 size={14} style={{ flexShrink: 0 }} />;
-    case 'running':
+    case ExperimentStatus.RUNNING:
       return <Play size={14} style={{ flexShrink: 0 }} />;
-    case 'failed':
+    case ExperimentStatus.FAILED:
       return <AlertCircle size={14} style={{ flexShrink: 0 }} />;
-    case 'queued':
+    case ExperimentStatus.QUEUED:
     default:
       return <Clock size={14} style={{ flexShrink: 0 }} />;
   }
 };
 
-const getStatusColor = (status: string): 'success' | 'info' | 'warning' | 'error' | 'default' => {
-  switch (status.toLowerCase()) {
-    case 'finished':
+const getStatusColor = (status: ExperimentStatus): 'success' | 'info' | 'warning' | 'error' | 'default' => {
+  switch (status) {
+    case ExperimentStatus.COMPLETED:
       return 'success';
-    case 'running':
+    case ExperimentStatus.RUNNING:
       return 'info';
-    case 'failed':
+    case ExperimentStatus.FAILED:
       return 'error';
-    case 'queued':
+    case ExperimentStatus.QUEUED:
       return 'warning';
     default:
       return 'default';
@@ -131,8 +131,8 @@ const RunsList: React.FC<RunsListProps> = ({ runs, datasetId, selectedRunId, onR
                 px: 1,
                 py: 0.25,
                 borderRadius: '999px',
-                backgroundColor: run.status === 'finished' ? '#e6f7ee' : run.status === 'running' ? '#e3f2fd' : run.status === 'failed' ? '#ffebee' : '#fff3cd',
-                color: run.status === 'finished' ? '#16a34a' : run.status === 'running' ? '#1976d2' : run.status === 'failed' ? '#d32f2f' : '#856404',
+                backgroundColor: run.status === ExperimentStatus.COMPLETED ? '#e6f7ee' : run.status === ExperimentStatus.RUNNING ? '#e3f2fd' : run.status === ExperimentStatus.FAILED ? '#ffebee' : '#fff3cd',
+                color: run.status === ExperimentStatus.COMPLETED ? '#16a34a' : run.status === ExperimentStatus.RUNNING ? '#1976d2' : run.status === ExperimentStatus.FAILED ? '#d32f2f' : '#856404',
                 fontSize: '10px',
                 fontWeight: 600,
                 minWidth: 50,

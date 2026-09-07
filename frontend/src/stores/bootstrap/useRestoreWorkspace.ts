@@ -6,8 +6,9 @@ import { useExperimentsStore } from '@/stores/experiments';
 import { useComparisonStore } from '@/stores/comparison';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
 import { useBootstrapStore } from './bootstrapStore';
+import { BootstrapPhase, DatasetUploadStatus, WorkspaceView } from '@/types';
 
-export type RestoredWorkspaceMode = 'upload' | 'builder' | 'focus' | 'comparison' | undefined;
+export type RestoredWorkspaceMode = WorkspaceView | undefined;
 
 /**
  * Singleton workspace restoration hook.
@@ -43,7 +44,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
   useEffect(() => {
     const run = () => {
       ran.current = true;
-      setPhase('validating');
+      setPhase(BootstrapPhase.VALIDATING);
       void runValidation();
     };
 
@@ -61,7 +62,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
     ) {
       run();
     } else {
-      setPhase('hydrating');
+      setPhase(BootstrapPhase.HYDRATING);
       // Guard against double fire in edge cases
       onRehydrateRef.current = () => {
         if (
@@ -86,15 +87,15 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
 
   async function runValidation() {
     try {
-      setPhase('validating');
+      setPhase(BootstrapPhase.VALIDATING);
 
-      const datasetsAfterHydration = useDatasetStore.getState().datasets.filter((d) => d.status === 'SUCCESS');
+      const datasetsAfterHydration = useDatasetStore.getState().datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS);
 
       if (!datasetsAfterHydration || datasetsAfterHydration.length === 0) {
         resetPipeline();
         useExperimentsStore.getState().resetExperiments();
-        setPhase('completed');
-        onRestored?.('upload');
+        setPhase(BootstrapPhase.COMPLETED);
+        onRestored?.(WorkspaceView.UPLOAD);
         return;
       }
 
@@ -106,28 +107,28 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
         useExperimentsStore.getState().resetExperiments();
         useImportResultsStore.getState().resetImportResults();
         useUIStore.getState().resetUIState();
-        setPhase('completed');
-        onRestored?.('upload');
+        setPhase(BootstrapPhase.COMPLETED);
+        onRestored?.(WorkspaceView.UPLOAD);
         return;
       }
 
-      const remaining = useDatasetStore.getState().datasets.filter((d) => d.status === 'SUCCESS');
+      const remaining = useDatasetStore.getState().datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS);
 
       if (!remaining || remaining.length === 0) {
         resetPipeline();
         useExperimentsStore.getState().resetExperiments();
         useImportResultsStore.getState().resetImportResults();
         useUIStore.getState().resetUIState();
-        setPhase('completed');
-        onRestored?.('upload');
+        setPhase(BootstrapPhase.COMPLETED);
+        onRestored?.(WorkspaceView.UPLOAD);
         return;
       }
 
-      setPhase('restoring');
+      setPhase(BootstrapPhase.RESTORING);
 
       // Validate experiments against backend
       const experimentValidation = await validateExperimentsWithBackend();
-      const validDatasetIds = new Set(useDatasetStore.getState().datasets.filter((d) => d.status === 'SUCCESS').map((d) => d.datasetId));
+      const validDatasetIds = new Set(useDatasetStore.getState().datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS).map((d) => d.datasetId));
 
       if (experimentValidation.removedSubmitted > 0 || experimentValidation.removedUnsubmitted > 0) {
         const parts: string[] = [];
@@ -152,10 +153,10 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
         // Cascade: if UI is locked in focus mode but lastCreatedExperiment references pruned datasets, fall back to builder
         const rehydratedMode = useUIStore.getState().currentView;
         const lastExperiment = pipeline.lastCreatedExperiment;
-        if (rehydratedMode === 'focus' && lastExperiment) {
+        if (rehydratedMode === WorkspaceView.FOCUS && lastExperiment) {
           const hasPrunedDataset = lastExperiment.datasetIds.some((id) => !validDatasetIds.has(id));
           if (hasPrunedDataset) {
-            useUIStore.getState().setWorkspaceView('builder');
+            useUIStore.getState().setWorkspaceView(WorkspaceView.BUILDER);
           }
         }
       }
@@ -167,14 +168,14 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       await useImportResultsStore.getState().validateStagedItems();
 
       let restoredMode: RestoredWorkspaceMode;
-      if (rehydratedMode === 'focus') {
+      if (rehydratedMode === WorkspaceView.FOCUS) {
         // Integrity check: only allow 'focus' layout if the snapshot database records match up
         if (lastExperiment) {
-          restoredMode = 'focus';
+          restoredMode = WorkspaceView.FOCUS;
         } else {
           // Self-healing fallback: snapshot data missing, break out of layout lock
-          useUIStore.getState().setWorkspaceView('builder');
-          restoredMode = 'builder';
+          useUIStore.getState().setWorkspaceView(WorkspaceView.BUILDER);
+          restoredMode = WorkspaceView.BUILDER;
         }
       } else {
         // Explicitly preserves 'builder' or 'upload' views matching exactly where they refreshed
@@ -182,15 +183,15 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       }
 
       // Final safety: if focus mode was requested but there are no surviving experiments, force builder
-      if (restoredMode === 'focus') {
+      if (restoredMode === WorkspaceView.FOCUS) {
         const hasAnyExperiment = useExperimentsStore.getState().experiments.length > 0;
         if (!hasAnyExperiment) {
-          useUIStore.getState().setWorkspaceView('upload');
-          restoredMode = 'upload';
+          useUIStore.getState().setWorkspaceView(WorkspaceView.UPLOAD);
+          restoredMode = WorkspaceView.UPLOAD;
         }
       }
 
-      setPhase('completed');
+      setPhase(BootstrapPhase.COMPLETED);
       onRestored?.(restoredMode);
     } catch (err) {
       console.error('[Bootstrap] Workspace restoration failed:', err);
@@ -202,7 +203,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       useBootstrapStore.getState().setError(
         err instanceof Error ? err.message : 'Failed to restore workspace'
       );
-      setPhase('failed');
+      setPhase(BootstrapPhase.FAILED);
     }
   }
 }

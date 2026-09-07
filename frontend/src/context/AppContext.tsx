@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { WorkspaceMode, ExperimentSubmitResponse } from '@/types';
+import { WorkspaceView, WorkspaceTab, ExperimentSubmitResponse, ExperimentStatus, DatasetUploadStatus } from '@/types';
 import axios from '@/lib/axios';
 import { useDatasetStore } from '@/stores/dataset';
 import { usePipelineStore } from '@/stores/pipeline';
@@ -47,7 +47,6 @@ interface AppContextType {
   clearComparisonExperiments: () => void;
 
   // Workspace actions
-  setWorkspaceMode: (mode: WorkspaceMode) => void;
   startNewExperiment: () => void;
 }
 
@@ -60,7 +59,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const removeExperimentFromStore = useExperimentsStore((state) => state.removeExperiment);
   const setActiveExperimentInStore = useExperimentsStore((state) => state.setActiveExperiment);
 
-  const [, setWorkspaceMode] = useState<WorkspaceMode>('upload');
   const [, setComparisonExperimentIds] = useState<string[]>([]);
 
   // Multi-dataset parameter management
@@ -68,7 +66,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
   const [focusDatasetId, setFocusDatasetId] = useState<string | null>(null);
   const successfulDatasets = useDatasetStore(
-    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+    useShallow((state) => state.datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS))
   );
 
   const submitExperiments = useCallback(async (email: string): Promise<SubmitSkipResult> => {
@@ -78,7 +76,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     const currentExperiments = useExperimentsStore.getState().experiments;
-    const unsubmittedExperiments = currentExperiments.filter((e) => e.status === 'not-submitted');
+    const unsubmittedExperiments = currentExperiments.filter((e) => e.status === ExperimentStatus.NOT_SUBMITTED);
 
     if (unsubmittedExperiments.length === 0) {
       console.log('No experiments to submit');
@@ -106,7 +104,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Update status to queued for ready experiments only
     useExperimentsStore.setState((prev) => ({
       experiments: prev.experiments.map((e) =>
-        ready.some((r) => r.id === e.id) ? { ...e, status: 'queued' as import('@/types').ExperimentStatus } : e
+        ready.some((r) => r.id === e.id) ? { ...e, status: ExperimentStatus.QUEUED } : e
       ),
     }));
 
@@ -163,7 +161,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             e.id === exp.id
               ? {
                   ...e,
-                  status: 'queued' as import('@/types').ExperimentStatus,
+                  status: ExperimentStatus.QUEUED,
                   experimentId: experimentId,
                   accessToken,
                   result: null,
@@ -180,7 +178,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Mark as failed
         useExperimentsStore.setState((prev) => ({
           experiments: prev.experiments.map((e) =>
-            e.id === exp.id ? { ...e, status: 'not-submitted' as import('@/types').ExperimentStatus } : e
+            e.id === exp.id ? { ...e, status: ExperimentStatus.NOT_SUBMITTED } : e
           ),
         }));
       }
@@ -215,8 +213,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Use resetBuilderState to preserve already-created experiments, only reset builder state
     usePipelineStore.getState().resetBuilderState();
     useImportResultsStore.getState().resetImportResults();
-    useUIStore.getState().setWorkspaceView('builder');
-    useUIStore.getState().setWorkspaceTab('pipeline');
+    useUIStore.getState().setWorkspaceView(WorkspaceView.BUILDER);
+    useUIStore.getState().setWorkspaceTab(WorkspaceTab.PIPELINE);
   }, []);
 
   // Multi-dataset parameter management callbacks
@@ -263,7 +261,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         submitExperiments,
         toggleComparisonExperiment,
         clearComparisonExperiments,
-        setWorkspaceMode,
         startNewExperiment,
         updateDatasetParamOverride,
         setSelectedDatasetIds,

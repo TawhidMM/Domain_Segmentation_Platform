@@ -3,6 +3,7 @@ import { Box, Paper, Tab, Tabs } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useDatasetStore } from '@/stores/dataset';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
+import { DatasetUploadStatus, WorkspaceTab } from '@/types';
 import ImportResultsTrack from './ImportResultsTrack';
 import PipelineExecutionTrack from './PipelineExecutionTrack';
 
@@ -12,7 +13,7 @@ const ExperimentBuilder: React.FC = () => {
   const availableDatasets = useMemo(
     () =>
       datasets
-        .filter((d) => d.status === 'SUCCESS' && Boolean(d.datasetId))
+        .filter((d) => d.status === DatasetUploadStatus.SUCCESS && Boolean(d.datasetId))
         .map((dataset) => ({
           id: dataset.datasetId as string,
           name: dataset.datasetName,
@@ -38,7 +39,7 @@ const ExperimentBuilder: React.FC = () => {
   }, [location.pathname, location.search, navigate]);
 
   const handleTabChange = useCallback(
-    (_: React.SyntheticEvent, nextTab: 'pipeline' | 'import') => {
+    (_: React.SyntheticEvent, nextTab: WorkspaceTab) => {
       setWorkspaceTab(nextTab);
     },
     [setWorkspaceTab]
@@ -76,9 +77,9 @@ const ExperimentBuilder: React.FC = () => {
             </Tabs>
           </Box>
 
-          {activeTab === 'pipeline' && <PipelineExecutionTrack availableDatasets={availableDatasets} />}
+          {activeTab === WorkspaceTab.PIPELINE && <PipelineExecutionTrack availableDatasets={availableDatasets} />}
 
-          {activeTab === 'import' && <ImportResultsTrack availableDatasets={availableDatasets} />}
+          {activeTab === WorkspaceTab.IMPORT && <ImportResultsTrack availableDatasets={availableDatasets} />}
         </Paper>
       </Box>
     </Box>
