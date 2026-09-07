@@ -1,8 +1,8 @@
 """init
 
-Revision ID: f8c255093f14
+Revision ID: bb9ed45c60ad
 Revises: 
-Create Date: 2026-08-18 05:32:56.992825
+Create Date: 2026-09-07 12:57:19.491120
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'f8c255093f14'
+revision: str = 'bb9ed45c60ad'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -38,7 +38,7 @@ def upgrade() -> None:
     sa.Column('workspace_path', sa.String(), nullable=False),
     sa.Column('total_runs', sa.Integer(), nullable=False),
     sa.Column('completed_runs', sa.Integer(), nullable=True),
-    sa.Column('status', sa.Enum('QUEUED', 'RUNNING', 'FINISHED', 'FAILED', name='experimentstatus'), nullable=False),
+    sa.Column('status', sa.Enum('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', name='experimentstatus'), nullable=False),
     sa.Column('access_token_hash', sa.String(), nullable=False),
     sa.Column('started_at', sa.TIMESTAMP(), nullable=False),
     sa.Column('finished_at', sa.DateTime(timezone=True), nullable=True),
@@ -69,7 +69,7 @@ def upgrade() -> None:
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('run_config_id', sa.String(), nullable=False),
     sa.Column('seed', sa.Integer(), nullable=False),
-    sa.Column('status', sa.Enum('QUEUED', 'RUNNING', 'FINISHED', 'FAILED', name='experimentstatus'), nullable=False),
+    sa.Column('status', sa.Enum('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', name='experimentstatus'), nullable=False),
     sa.Column('output_path', sa.String(), nullable=False),
     sa.Column('metrics_json', sa.JSON(), nullable=True),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
