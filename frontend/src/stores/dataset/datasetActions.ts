@@ -3,7 +3,6 @@ import {
   uploadViaTus,
   updateDatasetName as updateDatasetNameApi,
   getDatasetStatus,
-  deleteDataset,
   downloadSampleDatasets as downloadSampleDatasetsApi,
   getDownloadProgress,
 } from '@/services/uploadService';
@@ -397,15 +396,6 @@ export const createDatasetActions = (
       (item) => item.datasetId === idOrDatasetId || item.id === idOrDatasetId
     );
     const datasetId = match?.datasetId || (match?.id === idOrDatasetId ? null : idOrDatasetId);
-
-    if (datasetId) {
-      try {
-        await deleteDataset(datasetId);
-      } catch (err) {
-        console.error(`Failed to delete dataset ${datasetId}:`, err);
-        return;
-      }
-    }
 
     set((prev) => ({
       datasets: prev.datasets.filter(

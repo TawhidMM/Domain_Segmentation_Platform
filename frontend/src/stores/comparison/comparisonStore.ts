@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ComparisonExperiment } from './comparisonTypes';
+import { useExperimentsStore } from '@/stores/experiments';
 
 const BASKET_STORAGE_KEY = 'comparison_basket';
 
@@ -11,6 +12,8 @@ export interface ComparisonState {
 export interface ComparisonActions {
   addExperiment: (id: string, token: string, experimentName?: string) => void;
   removeExperiment: (id: string) => void;
+  removeExperiments: (ids: string[]) => void;
+  pruneNotIn: (validIds: string[]) => void;
   isExperimentInBasket: (id: string) => boolean;
   getCompareUrl: () => string;
   clear: () => void;
@@ -41,6 +44,12 @@ export const useComparisonStore = create<ComparisonStore>()(
         const { basket } = get();
         const idSet = new Set(ids);
         set({ basket: basket.filter((exp) => !idSet.has(exp.id)) });
+      },
+
+      pruneNotIn: (validIds: string[]) => {
+        const { basket } = get();
+        const validSet = new Set(validIds);
+        set({ basket: basket.filter((exp) => validSet.has(exp.id)) });
       },
 
       isExperimentInBasket: (id: string): boolean => {
@@ -84,5 +93,23 @@ if (typeof window !== 'undefined') {
     } catch {
         /* empty */
     }
+  });
+}
+
+// Referential integrity: basket must be a subset of live experiments.
+// Enforces the invariant no matter how experiments disappear (UI delete,
+// bootstrap validation, resetExperiments, raw set() calls) — one enforcement
+// point, zero call-site discipline required.
+if (typeof window !== 'undefined') {
+  useExperimentsStore.subscribe((state, prevState) => {
+    if (!useComparisonStore.persist.hasHydrated()) return;
+
+    const prevIds = new Set(prevState.experiments.map((e) => e.id));
+    const nextIds = new Set(state.experiments.map((e) => e.id));
+
+    const shrank = prevIds.size > 0 && [...prevIds].some((id) => !nextIds.has(id));
+    if (!shrank) return;
+
+    useComparisonStore.getState().pruneNotIn(state.experiments.map((e) => e.id));
   });
 }
