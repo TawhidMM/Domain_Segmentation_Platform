@@ -189,18 +189,7 @@ export function patchRunsWithDetails(existingRuns: Run[], details: ExperimentDet
     return {
       ...run,
       runId: incoming.run_id || run.runId,
-      status: mapRunStatus(incoming.status) as Run['status'],
+      status: incoming.status,
     };
   });
-}
-
-/**
- * Map backend run status to frontend Run status type.
- * 'finished' becomes 'completed' to match ExperimentStatus.
- */
-function mapRunStatus(status: string): string {
-  if (status === 'finished') {
-    return 'completed';
-  }
-  return status;
 }

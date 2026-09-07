@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import type { BootstrapStore, BootstrapState } from './bootstrapTypes';
+import { BootstrapPhase } from '@/types';
 
 const initialState: BootstrapState = {
-  phase: 'pending',
+  phase: BootstrapPhase.PENDING,
   hasValidDatasets: false,
   shouldRestorePipeline: false,
   error: null,

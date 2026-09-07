@@ -1,4 +1,6 @@
-export type BootstrapPhase = 'pending' | 'hydrating' | 'validating' | 'restoring' | 'completed' | 'failed';
+import { BootstrapPhase } from '@/types';
+
+export type { BootstrapPhase };
 
 export interface BootstrapState {
   phase: BootstrapPhase;

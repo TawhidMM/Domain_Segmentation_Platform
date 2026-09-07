@@ -3,10 +3,10 @@ import { Alert, Box } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { useDatasetStore } from '@/stores/dataset';
-import { useApp } from '@/context/AppContext';
 import { checkDependsOn } from '@/utils/dependsOn';
 import DatasetAnnotationTable from './DatasetAnnotationTable';
 import type { Experiment } from '@/types';
+import { DatasetUploadStatus } from '@/types';
 import type { AnnotationDatasetItem } from './DatasetAnnotationTable';
 
 interface DatasetAnnotationPanelProps {
@@ -19,7 +19,7 @@ const DatasetAnnotationPanel: React.FC<DatasetAnnotationPanelProps> = ({ experim
   const location = useLocation();
 
   const uploadedDatasets = useDatasetStore(
-    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+    useShallow((state) => state.datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS))
   );
 
   const annotationRequirement = experiment.requirements?.manual_annotation;

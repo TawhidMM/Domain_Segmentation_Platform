@@ -6,7 +6,7 @@ import { useApp } from '@/context/AppContext';
 import { usePipelineStore } from '@/stores/pipeline';
 import { useExperimentsStore } from '@/stores/experiments';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
-import { ToolSchema, Experiment } from '@/types';
+import { ToolSchema, Experiment, ExperimentStatus, WorkspaceView } from '@/types';
 import { prepareParametersForSubmission } from '@/utils/parameterUtils';
 import ParameterConfig from './ParameterConfig';
 import DatasetSelectionBar from './DatasetSelectionBar';
@@ -96,7 +96,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
         parameters: preparedParams,
         numberOfRuns: seedList.length,
         seedList,
-        status: 'not-submitted',
+        status: ExperimentStatus.NOT_SUBMITTED,
         createdAt: new Date(),
         completedAt: null,
         result: null,
@@ -107,7 +107,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
       addExperiment(experiment);
     }
     // Switch to focus view after creating/updating experiment
-    setWorkspaceView('focus');
+    setWorkspaceView(WorkspaceView.FOCUS);
   }, [
     selectedToolSchema,
     parameters,

@@ -1,29 +1,8 @@
-export type ExperimentStatus = 'not-submitted' | 'queued' | 'running' | 'finished' | 'completed';
+import { ExperimentStatus, DatasetUploadStatus } from './status';
 
-export type DatasetUploadStatus = 'idle' | 'uploading' | 'uploaded' | 'processing' | 'ready' | 'error';
+export * from './status';
+export * from './workspace';
 
-export type DatasetQueueStatus = 'PENDING' | 'UPLOADING' | 'DOWNLOADING' | 'PROCESSING' | 'SUCCESS' | 'ERROR';
-
-export interface DatasetUploadEntry {
-  id: string;
-  datasetId: string | null;
-  name: string;
-  size: number;
-  uploadProgress: number;
-  status: DatasetUploadStatus;
-}
-
-export interface DatasetUploadQueueItem {
-  id: string;
-  file: File;
-  fileName: string;
-  datasetName: string;
-  datasetId: string | null;
-  size: number;
-  uploadProgress: number;
-  status: DatasetQueueStatus;
-  error?: string;
-}
 
 export interface DatasetItem {
   id: string;
@@ -34,20 +13,8 @@ export interface DatasetItem {
   taskId?: string;
   size: number;
   uploadProgress: number;
-  status: DatasetQueueStatus;
+  status: DatasetUploadStatus;
   error?: string;
-}
-
-export interface Dataset {
-  id: string;
-  uploadId: string | null;
-  datasetUploadQueue: DatasetUploadQueueItem[];
-  spatialCoordinatesFile: File | null;
-  tissueImageFile: File | null;
-  summary: {
-    spotCount: number;
-    geneCount: number;
-  } | null;
 }
 
 export interface ParameterValue {
@@ -126,30 +93,7 @@ export interface ConsensusResponse {
   spots: ConsensusSpot[];
 }
 
-export type ParameterType = 'slider' | 'number' | 'select' | 'checkbox';
 
-export interface ParameterConfig {
-  id: string;
-  label: string;
-  type: ParameterType;
-  defaultValue: number | string | boolean;
-  description?: string;
-  min?: number;
-  max?: number;
-  step?: number;
-  options?: { value: string | number; label: string }[];
-  advanced?: boolean;
-}
-
-export interface ToolConfig {
-  id: string;
-  name: string;
-  description: string;
-  fullDescription: string;
-  parameters: ParameterConfig[];
-}
-
-// API-based tool schema types
 export type ToolParameterType = 'int' | 'enum' | 'float_range' | 'int_list' | 'float_list' | 'bool' | 'float';
 
 export interface FloatRangeDefault {
@@ -203,22 +147,18 @@ export interface ToolSchema {
   };
 }
 
-export type WorkspaceMode = 'upload' | 'builder' | 'focus';
-
 // Job tracking types
-export type JobStatus = 'queued' | 'running' | 'finished' | 'failed';
-
 export interface JobSubmissionResponse {
   experiment_id: string;
   access_token: string;
-  status: JobStatus;
+  status: ExperimentStatus;
 }
 
 // Experiment Details Page Types
 export interface RunDetail {
   run_id: string;
   seed: number;
-  status: string;
+  status: ExperimentStatus;
   started_at: string | null;
   finished_at: string | null;
 }
@@ -232,7 +172,7 @@ export interface DatasetGroup {
 export interface ExperimentDetails {
   experiment_id: string;
   experiment_name: string;
-  experiment_status: JobStatus;
+  experiment_status: ExperimentStatus;
   started_at: string | null;
   finished_at: string | null;
   datasets: DatasetGroup[];
@@ -240,19 +180,17 @@ export interface ExperimentDetails {
 
 export interface RunStatus {
   run_id: string;
-  status: string;
+  status: ExperimentStatus;
   started_at: string | null;
   finished_at: string | null;
 }
-
-export type RunStatusValue = 'queued' | 'running' | 'finished' | 'failed';
 
 export interface Run {
   id: string;
   runId: string;
   datasetId: string;
   seed: number;
-  status: RunStatusValue | 'completed' | 'not-submitted';
+  status: ExperimentStatus;
   result?: ExperimentResult | null;
 }
 
@@ -296,7 +234,7 @@ export interface ComparisonDatasetsResponse {
   datasets: ComparisonDatasetResponse[];
 }
 
-export interface RunStatusValueFrontend {
+export interface RunStatusCounts {
   queued: number;
   running: number;
   completed: number;
@@ -305,14 +243,14 @@ export interface RunStatusValueFrontend {
   total: number;
 }
 
-export function countRunsByStatus(runs: Run[] | undefined): RunStatusValueFrontend {
+export function countRunsByStatus(runs: Run[] | undefined): RunStatusCounts {
   const allRuns = runs ?? [];
   return {
-    queued: allRuns.filter((r) => r.status === 'queued').length,
-    running: allRuns.filter((r) => r.status === 'running').length,
-    completed: allRuns.filter((r) => r.status === 'finished').length,
-    failed: allRuns.filter((r) => r.status === 'failed').length,
-    notSubmitted: allRuns.filter((r) => r.status === 'not-submitted').length,
+    queued: allRuns.filter((r) => r.status === ExperimentStatus.QUEUED).length,
+    running: allRuns.filter((r) => r.status === ExperimentStatus.RUNNING).length,
+    completed: allRuns.filter((r) => r.status === ExperimentStatus.COMPLETED).length,
+    failed: allRuns.filter((r) => r.status === ExperimentStatus.FAILED).length,
+    notSubmitted: allRuns.filter((r) => r.status === ExperimentStatus.NOT_SUBMITTED).length,
     total: allRuns.length,
   };
 }

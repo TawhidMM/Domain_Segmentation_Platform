@@ -9,30 +9,30 @@ interface StatusIndicatorProps {
 }
 
 const statusConfig: Record<ExperimentStatus, { color: string; icon: React.ReactNode; label: string }> = {
-  'not-submitted': {
+  [ExperimentStatus.NOT_SUBMITTED]: {
     color: '#94A3B8',
     icon: <RadioButtonUnchecked sx={{ fontSize: 16 }} />,
     label: 'Not Submitted',
   },
-  queued: {
+  [ExperimentStatus.QUEUED]: {
     color: '#EAB308',
     icon: <Schedule sx={{ fontSize: 16 }} />,
     label: 'Queued',
   },
-  running: {
+  [ExperimentStatus.RUNNING]: {
     color: '#2563EB',
     icon: <CircularProgress size={14} sx={{ color: '#2563EB' }} />,
     label: 'Running',
   },
-  completed: {
+  [ExperimentStatus.COMPLETED]: {
     color: '#16A34A',
     icon: <Check sx={{ fontSize: 16 }} />,
     label: 'Completed',
   },
-  finished: {
-    color: '#16A34A',
-    icon: <Check sx={{ fontSize: 16 }} />,
-    label: 'Completed',
+  [ExperimentStatus.FAILED]: {
+    color: '#EF4444',
+    icon: <RadioButtonUnchecked sx={{ fontSize: 16 }} />,
+    label: 'Failed',
   },
 };
 

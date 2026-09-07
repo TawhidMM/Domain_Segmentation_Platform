@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { Box, Typography, Paper, Chip } from '@mui/material';
 import { CloudUpload, Lock } from '@mui/icons-material';
+import { DatasetUploadStatus } from '@/types';
 
 interface FileUploadCardProps {
   title: string;
@@ -14,7 +15,7 @@ interface FileUploadCardProps {
     id: string;
     name: string;
     uploadProgress: number;
-    status: 'PENDING' | 'UPLOADING' | 'SUCCESS' | 'ERROR';
+    status: DatasetUploadStatus;
     error?: string;
   }[];
   onFileSelect: (files: File[]) => void;

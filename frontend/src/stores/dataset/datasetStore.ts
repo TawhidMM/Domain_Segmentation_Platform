@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createDatasetActions, processUploadQueue } from './datasetActions';
 import type { DatasetStore, DatasetStoreState } from './datasetTypes';
+import { DatasetUploadStatus } from '@/types';
 
 const STORAGE_KEY = 'dataset-store-v1';
 
@@ -53,7 +54,7 @@ export const useDatasetStore = create<DatasetStore>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         uploadId: state.uploadId,
-        datasets: state.datasets.filter((d) => d.status === 'SUCCESS'),
+        datasets: state.datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS),
       }),
     }
   )

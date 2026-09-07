@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-
-export type WorkspaceView = 'upload' | 'builder' | 'focus' | 'comparison';
-export type WorkspaceTab = 'pipeline' | 'import';
+import { WorkspaceView, WorkspaceTab } from '@/types';
 
 interface UIState {
   currentView: WorkspaceView;
@@ -15,8 +13,8 @@ interface UIState {
 const STORAGE_KEY = 'workspace-ui-state-v1';
 
 const initialState = {
-  currentView: 'upload' as WorkspaceView,
-  activeTab: 'pipeline' as WorkspaceTab,
+  currentView: WorkspaceView.UPLOAD,
+  activeTab: WorkspaceTab.PIPELINE,
 };
 
 export const useUIStore = create<UIState>()(

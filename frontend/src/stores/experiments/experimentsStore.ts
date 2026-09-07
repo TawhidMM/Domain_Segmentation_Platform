@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as UUID } from 'uuid';
-import type { Experiment, ExperimentStatus, Run, DatasetRunMapping } from '@/types';
+import { ExperimentStatus } from '@/types';
+import type { Experiment, Run, DatasetRunMapping } from '@/types';
 import { validateExperimentsWithBackend } from './experimentsActions';
 
 export interface ExperimentsState {
@@ -55,7 +56,7 @@ function buildInitialRuns(experiment: Experiment): Run[] {
         runId: '',
         datasetId,
         seed,
-        status: 'not-submitted' as const,
+        status: ExperimentStatus.NOT_SUBMITTED,
         result: null,
       };
     })
@@ -111,7 +112,7 @@ export const useExperimentsStore = create<ExperimentsStore>()(
               if (!runIds) return run;
               const seedIndex = experiment.seedList.indexOf(run.seed);
               const runId = runIds[seedIndex] ?? '';
-              return { ...run, runId, status: 'queued' as const };
+              return { ...run, runId, status: ExperimentStatus.QUEUED };
             });
             return { experiments: prev.experiments.map((e) => e.id === experimentId ? { ...e, runs: updatedRuns } : e) };
           });
@@ -132,7 +133,7 @@ export const useExperimentsStore = create<ExperimentsStore>()(
                       runId: '',
                       datasetId,
                       seed,
-                      status: 'not-submitted' as const,
+                      status: ExperimentStatus.NOT_SUBMITTED,
                       result: null,
                     };
                   })

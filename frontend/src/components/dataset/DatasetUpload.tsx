@@ -6,6 +6,7 @@ import { useDatasetStore } from '@/stores/dataset';
 import FileUploadCard from './FileUploadCard';
 import DatasetUploadTable from './DatasetUploadTable';
 import { DatasetTechnology } from '@/types/upload';
+import { DatasetUploadStatus } from '@/types';
 
 const DatasetUpload: React.FC = () => {
   const datasets = useDatasetStore((state) => state.datasets);
@@ -16,8 +17,8 @@ const DatasetUpload: React.FC = () => {
   const downloadSampleDatasets = useDatasetStore((state) => state.downloadSampleDatasets);
   const [isDownloadingSamples, setIsDownloadingSamples] = useState(false);
 
-  const isUploadInProgress = datasets.some((item) => item.status === 'UPLOADING');
-  const isSampleDownloadInProgress = datasets.some((item) => item.status === 'DOWNLOADING');
+  const isUploadInProgress = datasets.some((item) => item.status === DatasetUploadStatus.UPLOADING);
+  const isSampleDownloadInProgress = datasets.some((item) => item.status === DatasetUploadStatus.DOWNLOADING);
 
   useEffect(() => {
     if (isUploadInProgress) {

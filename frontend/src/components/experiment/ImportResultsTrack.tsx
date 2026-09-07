@@ -19,6 +19,7 @@ import {
 import { CheckCircle, CloudUpload, Error as ErrorIcon, HourglassTop } from '@mui/icons-material';
 import { useDatasetStore } from '@/stores/dataset';
 import type { Experiment } from '@/types';
+import { DatasetUploadStatus, ValidationStatus, ValidationErrorType, ExperimentStatus, WorkspaceView } from '@/types';
 import { useImportResultsStore, type StagedResultItem } from '@/stores/import-results';
 import { useExperimentsStore } from '@/stores/experiments';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
@@ -42,7 +43,7 @@ interface UploadFilePreview {
   id: string;
   name: string;
   uploadProgress: number;
-  status: 'PENDING' | 'UPLOADING' | 'SUCCESS' | 'ERROR';
+  status: DatasetUploadStatus;
   error?: string;
 }
 
@@ -191,13 +192,13 @@ const ValidationStatusPanel: React.FC<{
 
   const severity = !status
     ? 'info'
-    : status.status === 'success'
+    : status.status === ValidationStatus.SUCCESS
     ? 'success'
-    : status.status === 'failed'
+    : status.status === ValidationStatus.FAILED
     ? 'error'
     : 'info';
 
-  const icon = !status ? <HourglassTop /> : status.status === 'success' ? <CheckCircle /> : <ErrorIcon />;
+  const icon = !status ? <HourglassTop /> : status.status === ValidationStatus.SUCCESS ? <CheckCircle /> : <ErrorIcon />;
 
   return (
     <Alert icon={icon} severity={severity as 'info' | 'success' | 'error'} sx={{ alignItems: 'center' }}>
@@ -254,7 +255,7 @@ const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, is
 
 const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatasets }) => {
   const successfulDatasets = useDatasetStore(
-    useShallow((state) => state.datasets.filter((d) => d.status === 'SUCCESS'))
+    useShallow((state) => state.datasets.filter((d) => d.status === DatasetUploadStatus.SUCCESS))
   );
   const setWorkspaceView = useUIStore((state) => state.setWorkspaceView);
 
@@ -309,11 +310,11 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   const handleUploadProgress = useCallback((progress: number) => {
     setUploadedFiles((previous) =>
       previous.map((filePreview) =>
-        filePreview.status === 'ERROR'
+        filePreview.status === DatasetUploadStatus.ERROR
           ? filePreview
           : {
               ...filePreview,
-              status: 'UPLOADING',
+              status: DatasetUploadStatus.UPLOADING,
               uploadProgress: progress,
             }
       )
@@ -338,7 +339,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
             id: uuid4(),
             name: file.name,
             uploadProgress: 0,
-            status: 'ERROR',
+            status: DatasetUploadStatus.ERROR,
             error: 'Only .zip files are supported.',
           },
         ]);
@@ -352,7 +353,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
           id: uuid4(),
           name: file.name,
           uploadProgress: 0,
-          status: 'PENDING',
+          status: DatasetUploadStatus.PENDING,
         },
       ]);
       setValidationStatus(null);
@@ -364,7 +365,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
           onProgress: handleUploadProgress,
           onUploadComplete: () => {
             setValidationStatus({
-              status: 'processing',
+              status: ValidationStatus.PROCESSING,
               message: 'Upload finished. Validating the result bundle...',
             });
           },
@@ -375,14 +376,14 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         setUploadedFiles((previous) =>
           previous.map((filePreview) => ({
             ...filePreview,
-            status: validation.status === 'failed' ? 'ERROR' : 'SUCCESS',
+            status: validation.status === ValidationStatus.FAILED ? DatasetUploadStatus.ERROR : DatasetUploadStatus.SUCCESS,
             uploadProgress: 100,
-            error: validation.status === 'failed' ? validation.message : undefined,
+            error: validation.status === ValidationStatus.FAILED ? validation.message : undefined,
           }))
         );
         setValidationStatus(validation);
 
-        if (validation.status === 'success') {
+        if (validation.status === ValidationStatus.SUCCESS) {
           const datasetName = datasetOptions.find((dataset) => dataset.id === selectedDatasetId)?.name ?? selectedDatasetId;
           addStagedItem({
             stageId,
@@ -398,14 +399,14 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to upload result bundle.';
         setValidationStatus({
-          status: 'failed',
-          error_type: 'INTERNAL_SYSTEM_ERROR',
+          status: ValidationStatus.FAILED,
+          error_type: ValidationErrorType.INTERNAL_SYSTEM_ERROR,
           message,
         });
         setUploadedFiles((previous) =>
           previous.map((filePreview) => ({
             ...filePreview,
-            status: 'ERROR',
+            status: DatasetUploadStatus.ERROR,
             error: message,
           }))
         );
@@ -449,7 +450,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
         parameters: {},
         numberOfRuns: stagedItems.length,
         seedList: [],
-        status: 'queued',
+        status: ExperimentStatus.QUEUED,
         createdAt: new Date(),
         completedAt: null,
         result: null,
@@ -457,7 +458,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
       };
       addExperiment(experiment);
       setActiveExperiment(experiment.id);
-      setWorkspaceView('focus');
+      setWorkspaceView(WorkspaceView.FOCUS);
 
       setSubmitFeedback({
         severity: 'success',
@@ -480,7 +481,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   }, [isSubmitting, stagedItems, experimentName, submittedDatasetIds, addSubmittedDatasetId, addExperiment, setActiveExperiment, setWorkspaceView]);
 
   const handleBack = useCallback(() => {
-    setWorkspaceView('upload');
+    setWorkspaceView(WorkspaceView.UPLOAD);
   }, [setWorkspaceView]);
 
   return (

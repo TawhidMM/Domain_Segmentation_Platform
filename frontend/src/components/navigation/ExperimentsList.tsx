@@ -4,6 +4,7 @@ import { DeleteOutline, GridView } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { useComparisonStore } from '@/stores/comparison';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
+import { ExperimentStatus, WorkspaceView } from '@/types';
 import StatusIndicator from './StatusIndicator';
 
 interface CompareIconButtonProps {
@@ -12,7 +13,7 @@ interface CompareIconButtonProps {
     experimentId?: string;
     accessToken?: string;
     experimentName?: string;
-    status: string;
+    status: ExperimentStatus;
   };
   selected: boolean;
 }
@@ -35,7 +36,7 @@ const CompareIconButton: React.FC<CompareIconButtonProps> = ({ exp, selected }) 
   };
 
   // Only show for completed experiments with experimentId
-  if (exp.status !== 'completed' || !exp.experimentId) {
+  if (exp.status !== ExperimentStatus.COMPLETED || !exp.experimentId) {
     return null;
   }
 
@@ -86,7 +87,7 @@ const ExperimentsList: React.FC = () => {
             selected={isSelected}
             onClick={() => {
               setActiveExperiment(experiment.id);
-              useUIStore.getState().setWorkspaceView('focus');
+              useUIStore.getState().setWorkspaceView(WorkspaceView.FOCUS);
             }}
             sx={{
               py: 1,

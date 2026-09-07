@@ -2,6 +2,7 @@ import React from 'react';
 import { Typography, Chip, Button } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 import EntityList from '@/components/shared/EntityList';
+import { ExperimentStatus } from '@/types';
 import type { Run } from '@/types';
 
 interface DatasetRunsTableProps {
@@ -12,28 +13,18 @@ interface DatasetRunsTableProps {
   experimentId: string;
 }
 
-const getStatusColor = (status: string): string => {
+const getStatusColor = (status: ExperimentStatus): string => {
   switch (status) {
-    case 'queued':
+    case ExperimentStatus.QUEUED:
       return '#EAB308';
-    case 'running':
+    case ExperimentStatus.RUNNING:
       return '#2563EB';
-    case 'finished':
-    case 'completed':
+    case ExperimentStatus.COMPLETED:
       return '#16A34A';
-    case 'failed':
+    case ExperimentStatus.FAILED:
       return '#DC2626';
     default:
       return '#94A3B8';
-  }
-};
-
-const getStatusLabel = (status: string): string => {
-  switch (status) {
-    case 'finished':
-      return 'completed';
-    default:
-      return status;
   }
 };
 
@@ -48,7 +39,7 @@ const DatasetRunsTable: React.FC<DatasetRunsTableProps> = ({
     return null;
   }
 
-  const completedCount = runs.filter((r) => r.status === 'finished' || r.status === 'completed').length;
+  const completedCount = runs.filter((r) => r.status === ExperimentStatus.COMPLETED).length;
 
   const handleOpenResult = (runId: string) => {
     window.open(
@@ -84,7 +75,7 @@ const DatasetRunsTable: React.FC<DatasetRunsTableProps> = ({
               Seed: {run.seed}
             </Typography>
             <Chip
-              label={getStatusLabel(run.status)}
+              label={run.status}
               size="small"
               sx={{
                 bgcolor: `${getStatusColor(run.status)}20`,

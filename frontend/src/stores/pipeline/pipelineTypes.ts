@@ -1,4 +1,4 @@
-import { ToolSchema, ToolRequirements, Experiment, ExperimentStatus } from '@/types';
+import { ToolSchema, ToolRequirements, Experiment } from '@/types';
 
 export interface PipelineConfiguration {
   selectedTool: string | null;
