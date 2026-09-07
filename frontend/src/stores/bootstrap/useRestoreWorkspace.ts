@@ -31,8 +31,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
 
   const setPhase = useBootstrapStore((s) => s.setPhase);
 
-  // IMPORTANT: Do NOT capture store selectors in the closure for runValidation().
-  // The store values change after hydration. Always use getState() inside runValidation.
+
   const validateDatasetsWithBackend = useDatasetStore((s) => s.validateDatasetsWithBackend);
   const validateExperimentsWithBackend = useExperimentsStore((s) => s.validateExperimentsWithBackend);
   const resetDatasetState = useDatasetStore((s) => s.resetDatasetState);
@@ -52,13 +51,15 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
     const unsub2 = usePipelineStore.persist.onFinishHydration(run);
     const unsub3 = useImportResultsStore.persist.onFinishHydration(run);
     const unsub4 = useExperimentsStore.persist.onFinishHydration(run);
+    const unsub5 = useComparisonStore.persist.onFinishHydration(run);
 
     // If already hydrated synchronously, run immediately
     if (
       useDatasetStore.persist.hasHydrated() &&
       usePipelineStore.persist.hasHydrated() &&
       useImportResultsStore.persist.hasHydrated() &&
-      useExperimentsStore.persist.hasHydrated()
+      useExperimentsStore.persist.hasHydrated() &&
+      useComparisonStore.persist.hasHydrated()
     ) {
       run();
     } else {
@@ -70,6 +71,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
           usePipelineStore.persist.hasHydrated() &&
           useImportResultsStore.persist.hasHydrated() &&
           useExperimentsStore.persist.hasHydrated() &&
+          useComparisonStore.persist.hasHydrated() &&
           !ran.current
         ) {
           run();
@@ -82,6 +84,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       unsub2();
       unsub3();
       unsub4();
+      unsub5();
     };
   }, []);
 
@@ -94,6 +97,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       if (!datasetsAfterHydration || datasetsAfterHydration.length === 0) {
         resetPipeline();
         useExperimentsStore.getState().resetExperiments();
+        useComparisonStore.getState().clear();
         setPhase(BootstrapPhase.COMPLETED);
         onRestored?.(WorkspaceView.UPLOAD);
         return;
@@ -105,6 +109,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
         resetDatasetState();
         resetPipeline();
         useExperimentsStore.getState().resetExperiments();
+        useComparisonStore.getState().clear();
         useImportResultsStore.getState().resetImportResults();
         useUIStore.getState().resetUIState();
         setPhase(BootstrapPhase.COMPLETED);
@@ -117,6 +122,7 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
       if (!remaining || remaining.length === 0) {
         resetPipeline();
         useExperimentsStore.getState().resetExperiments();
+        useComparisonStore.getState().clear();
         useImportResultsStore.getState().resetImportResults();
         useUIStore.getState().resetUIState();
         setPhase(BootstrapPhase.COMPLETED);
@@ -141,12 +147,12 @@ export function useRestoreWorkspace(onRestored?: (mode: RestoredWorkspaceMode) =
         }
 
         // Cascade: clean up comparison basket entries pointing to removed experiments
-        const currentExperiments = useExperimentsStore.getState().experiments;
-        useComparisonStore.getState().removeExperiments(currentExperiments.map((e) => e.id));
+        const survivingExperiments = useExperimentsStore.getState().experiments;
+        useComparisonStore.getState().pruneNotIn(survivingExperiments.map((e) => e.id));
 
         // Cascade: clear pipeline editingExperimentId if it references a removed experiment
         const pipeline = usePipelineStore.getState();
-        if (pipeline.editingExperimentId && !currentExperiments.some((e) => e.id === pipeline.editingExperimentId)) {
+        if (pipeline.editingExperimentId && !survivingExperiments.some((e) => e.id === pipeline.editingExperimentId)) {
           usePipelineStore.setState((prev) => ({ ...prev, editingExperimentId: null }));
         }
 
