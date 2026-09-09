@@ -9,7 +9,6 @@ export interface ImportResultsState {
   experimentName: string;
   selectedDatasetId: string;
   stagedItems: StagedResultItem[];
-  submittedDatasetIds: string[];
 }
 
 export interface ImportResultsActions {
@@ -18,8 +17,7 @@ export interface ImportResultsActions {
   setStagedItems: (items: StagedResultItem[]) => void;
   addStagedItem: (item: StagedResultItem) => void;
   removeStagedItem: (stageId: string) => void;
-  setSubmittedDatasetIds: (ids: string[]) => void;
-  addSubmittedDatasetId: (datasetId: string) => void;
+  clearSubmittedItems: (stageIds: string[]) => void;
   resetImportResults: () => void;
   validateStagedItems: () => Promise<void>;
 }

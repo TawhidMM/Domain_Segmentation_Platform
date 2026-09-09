@@ -109,7 +109,6 @@ const ExperimentsList: React.FC = () => {
               },
             }}
           >
-            <StatusIndicator status={experiment.status} />
             <ListItemText
               primary={displayText}
               primaryTypographyProps={{

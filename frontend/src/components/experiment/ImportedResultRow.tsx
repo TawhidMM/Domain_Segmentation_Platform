@@ -1,14 +1,15 @@
 import React from 'react';
-import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material';
 import { DeleteOutline, FolderZip } from '@mui/icons-material';
-import type { StagedResultItem } from './ImportResultsTrack';
+import type { StagedResultItem } from '@/stores/import-results';
 
 interface ImportedResultRowProps {
   item: StagedResultItem;
+  isDeleting?: boolean;
   onRemove: (stageId: string) => void;
 }
 
-const ImportedResultRow: React.FC<ImportedResultRowProps> = ({ item, onRemove }) => {
+const ImportedResultRow: React.FC<ImportedResultRowProps> = ({ item, isDeleting = false, onRemove }) => {
   return (
     <Box
       sx={{
@@ -22,6 +23,8 @@ const ImportedResultRow: React.FC<ImportedResultRowProps> = ({ item, onRemove })
         backgroundColor: 'background.paper',
         border: '1px solid',
         borderColor: 'divider',
+        opacity: isDeleting ? 0.6 : 1,
+        transition: 'opacity 160ms ease',
       }}
     >
       <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -36,10 +39,18 @@ const ImportedResultRow: React.FC<ImportedResultRowProps> = ({ item, onRemove })
         </Box>
       </Box>
 
-      <Tooltip title="Remove configuration bundle">
-        <IconButton size="small" onClick={() => onRemove(item.stageId)} color="default">
-          <DeleteOutline fontSize="small" />
-        </IconButton>
+      <Tooltip title={isDeleting ? 'Removing…' : 'Remove result bundle'}>
+        <span>
+          <IconButton
+            size="small"
+            onClick={() => onRemove(item.stageId)}
+            disabled={isDeleting}
+            color="default"
+            aria-label="Remove staged result"
+          >
+            {isDeleting ? <CircularProgress size={16} /> : <DeleteOutline fontSize="small" />}
+          </IconButton>
+        </span>
       </Tooltip>
     </Box>
   );

@@ -70,6 +70,18 @@ export async function checkStagedResultsValidity(stageIds: string[]): Promise<Re
   return response.data;
 }
 
+
+export async function deleteStagedResult(stageId: string): Promise<void> {
+  try {
+    await axiosInstance.delete(`/import/result/${stageId}`);
+  } catch (error) {
+    const statusCode = (error as { response?: { status?: number } } | undefined)?.response?.status;
+    if (statusCode !== 404) {
+      throw error;
+    }
+  }
+}
+
 export async function uploadResultBundleViaTus(
   file: File,
   datasetId: string,
