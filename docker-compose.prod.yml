@@ -43,6 +43,7 @@ services:
       - ${HOST_UPLOADS_ROOT}:/srv/tusd-data
     networks:
       - backend
+      - frontend
 
   api:
     container_name: st_project_api
@@ -116,6 +117,7 @@ services:
     depends_on:
       - frontend
       - api
+      - tusd
     networks:
       - frontend
 
