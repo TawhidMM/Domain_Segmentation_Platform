@@ -4,13 +4,12 @@ import type { ImportResultsStore, ImportResultsState, ImportResultsActions } fro
 import type { StagedResultItem } from './importResultsTypes';
 import { checkStagedResultsValidity } from '@/services/importResultService';
 
-const STORAGE_KEY = 'import-results-store-v1';
+const STORAGE_KEY = 'import-results-store-v2';
 
 const initialState: ImportResultsState = {
   experimentName: 'my tool',
   selectedDatasetId: '',
   stagedItems: [],
-  submittedDatasetIds: [],
 };
 
 export const useImportResultsStore = create<ImportResultsStore>()(
@@ -30,19 +29,16 @@ export const useImportResultsStore = create<ImportResultsStore>()(
             ...prev,
             stagedItems: prev.stagedItems.filter((item) => item.stageId !== stageId),
           })),
-        setSubmittedDatasetIds: (ids: string[]) =>
-          set((prev) => ({ ...prev, submittedDatasetIds: ids })),
-        addSubmittedDatasetId: (datasetId: string) =>
+        clearSubmittedItems: (stageIds: string[]) =>
           set((prev) => ({
             ...prev,
-            submittedDatasetIds: [...prev.submittedDatasetIds, datasetId],
+            stagedItems: prev.stagedItems.filter((item) => !stageIds.includes(item.stageId)),
           })),
         resetImportResults: () =>
           set({
             experimentName: 'my tool',
             selectedDatasetId: '',
             stagedItems: [],
-            submittedDatasetIds: [],
           }),
 
         validateStagedItems: async () => {
@@ -79,7 +75,6 @@ export const useImportResultsStore = create<ImportResultsStore>()(
         experimentName: state.experimentName,
         selectedDatasetId: state.selectedDatasetId,
         stagedItems: state.stagedItems,
-        submittedDatasetIds: state.submittedDatasetIds,
       }),
     }
   )

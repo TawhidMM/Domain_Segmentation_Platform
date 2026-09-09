@@ -29,6 +29,7 @@ import ImportedResultRow from './ImportedResultRow';
 import {
   ImportValidationPayload,
   uploadResultBundleViaTus,
+  deleteStagedResult,
 } from '@/services/importResultService';
 import {
   ImportResultRequestPayload,
@@ -163,8 +164,10 @@ const ResultConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
 
 const StagedResultsPanel: React.FC<{
   items: StagedResultItem[];
+  deletingStageIds?: string[];
+  error?: string;
   onRemove: (stageId: string) => void;
-}> = ({ items, onRemove }) => {
+}> = ({ items, deletingStageIds = [], error, onRemove }) => {
   return (
     <EntityList
       title={`Staged Results (${items?.length ?? 0})`}
@@ -178,7 +181,21 @@ const StagedResultsPanel: React.FC<{
           Successful uploads will appear here.
         </Typography>
       )}
-      {items?.map((item) => <ImportedResultRow key={item.stageId} item={item} onRemove={onRemove} />)}
+      {error && (
+        <Alert severity="error" sx={{ mt: 1, alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {error}
+          </Typography>
+        </Alert>
+      )}
+      {items?.map((item) => (
+        <ImportedResultRow
+          key={item.stageId}
+          item={item}
+          isDeleting={deletingStageIds.includes(item.stageId)}
+          onRemove={onRemove}
+        />
+      ))}
     </EntityList>
   );
 };
@@ -263,12 +280,11 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   const experimentName = useImportResultsStore((state) => state.experimentName);
   const selectedDatasetId = useImportResultsStore((state) => state.selectedDatasetId);
   const stagedItems = useImportResultsStore((state) => state.stagedItems);
-  const submittedDatasetIds = useImportResultsStore((state) => state.submittedDatasetIds);
   const setToolName = useImportResultsStore((state) => state.setToolName);
   const setSelectedDatasetId = useImportResultsStore((state) => state.setSelectedDatasetId);
   const addStagedItem = useImportResultsStore((state) => state.addStagedItem);
   const removeStagedItem = useImportResultsStore((state) => state.removeStagedItem);
-  const addSubmittedDatasetId = useImportResultsStore((state) => state.addSubmittedDatasetId);
+  const clearSubmittedItems = useImportResultsStore((state) => state.clearSubmittedItems);
   const addExperiment = useExperimentsStore((state) => state.addExperiment);
   const setActiveExperiment = useExperimentsStore((state) => state.setActiveExperiment);
 
@@ -288,24 +304,13 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   const [validationStatus, setValidationStatus] = useState<ImportValidationPayload | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitFeedback, setSubmitFeedback] = useState<SubmitFeedback | null>(null);
+  const [deletingStageIds, setDeletingStageIds] = useState<string[]>([]);
+  const [removalError, setRemovalError] = useState<string | null>(null);
 
   const visibleDatasetOptions = useMemo(
-    () =>
-      datasetOptions.filter(
-        (dataset) =>
-          !stagedItems.some((item) => item.datasetId === dataset.id) &&
-          !submittedDatasetIds.includes(dataset.id)
-      ),
-    [datasetOptions, stagedItems, submittedDatasetIds]
+    () => datasetOptions.filter((dataset) => !stagedItems.some((item) => item.datasetId === dataset.id)),
+    [datasetOptions, stagedItems]
   );
-
-  const handleDatasetChange = useCallback((datasetId: string) => {
-    setSelectedDatasetId(datasetId);
-    setSelectedFile(null);
-    setUploadedFiles([]);
-    setValidationStatus(null);
-    setSubmitFeedback(null);
-  }, [setSelectedDatasetId]);
 
   const handleUploadProgress = useCallback((progress: number) => {
     setUploadedFiles((previous) =>
@@ -321,9 +326,30 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     );
   }, []);
 
-  const handleRemoveStagedItem = useCallback((stageId: string) => {
-    removeStagedItem(stageId);
-  }, [removeStagedItem]);
+  const handleRemoveStagedItem = useCallback(
+    async (stageId: string) => {
+      if (deletingStageIds.includes(stageId) || !stagedItems.some((item) => item.stageId === stageId)) {
+        return;
+      }
+
+      setDeletingStageIds((previous) => [...previous, stageId]);
+      setRemovalError(null);
+
+      try {
+        // Free the server-side staging directory before dropping the row so a
+        // failed removal can't leave the UI in an inconsistent state.
+        await deleteStagedResult(stageId);
+        removeStagedItem(stageId);
+      } catch {
+        setRemovalError(
+          'Could not delete this staged bundle. You can try again, or it will be cleaned up automatically later.'
+        );
+      } finally {
+        setDeletingStageIds((previous) => previous.filter((id) => id !== stageId));
+      }
+    },
+    [deletingStageIds, stagedItems, removeStagedItem]
+  );
 
   const handleFileSelect = useCallback(
     async (files: File[]) => {
@@ -434,11 +460,9 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     setSubmitFeedback(null);
 
     try {
-      console.log('Submitting imported experiment with payload:', payload);
       const response = await submitImportedResult(payload);
 
       const jobUrl = `${window.location.origin}/experiment/${response.experiment_id}?t=${response.access_token}`;
-      window.open(jobUrl, '_blank');
 
       const experiment: Experiment = {
         id: uuid4(),
@@ -458,18 +482,24 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
       };
       addExperiment(experiment);
       setActiveExperiment(experiment.id);
+
+      // Submission consumed the staged bundles — clear them and the dataset
+      // mapping so the next import starts from a clean slate.
+      clearSubmittedItems(stagedItems.map((item) => item.stageId));
+      setSelectedFile(null);
+      setUploadedFiles([]);
+      setValidationStatus(null);
+      setRemovalError(null);
+
+      try {
+        window.open(jobUrl, '_blank');
+      } catch {
+        // Popup blocked — ignore; the experiment view shows the job.
+      }
+
       setWorkspaceView(WorkspaceView.FOCUS);
-
-      setSubmitFeedback({
-        severity: 'success',
-        message: `Imported experiment queued: ${response.experiment_id}`,
-      });
-
-      const newlySubmitted = stagedItems.map((item) => item.datasetId).filter(
-        (datasetId) => !submittedDatasetIds.includes(datasetId)
-      );
-      newlySubmitted.forEach((datasetId) => addSubmittedDatasetId(datasetId));
     } catch (error) {
+
       const message = error instanceof Error ? error.message : 'Failed to submit imported experiment.';
       setSubmitFeedback({
         severity: 'error',
@@ -478,7 +508,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, stagedItems, experimentName, submittedDatasetIds, addSubmittedDatasetId, addExperiment, setActiveExperiment, setWorkspaceView]);
+  }, [isSubmitting, stagedItems, experimentName, clearSubmittedItems, addExperiment, setActiveExperiment, setWorkspaceView]);
 
   const handleBack = useCallback(() => {
     setWorkspaceView(WorkspaceView.UPLOAD);
@@ -552,7 +582,12 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
             top: { md: 24 },
           }}
         >
-          <StagedResultsPanel items={stagedItems} onRemove={handleRemoveStagedItem} />
+          <StagedResultsPanel
+            items={stagedItems}
+            deletingStageIds={deletingStageIds}
+            error={removalError}
+            onRemove={handleRemoveStagedItem}
+          />
         </Box>
       </Box>
 
