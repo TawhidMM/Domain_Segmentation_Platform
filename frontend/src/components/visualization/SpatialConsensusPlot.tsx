@@ -4,6 +4,7 @@ import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationG
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { Data, Layout, Config } from 'plotly.js';
 import { getDomainColor } from '@/lib/colorMaps';
+import { useZoomScaledMarkerSize } from '@/hooks/useZoomScaledMarkerSize';
 
 interface Spot {
   x: number;
@@ -43,6 +44,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
   isLoading = false,
   domainColors,
 }) => {
+  const { getSize, plotEventHandlers } = useZoomScaledMarkerSize();
   const plotData: Data[] = useMemo(() => {
     if (!spots || spots.length === 0) {
       return [];
@@ -70,7 +72,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
           type: 'scattergl' as const,
           name: `Domain ${domain}`,
           marker: {
-            size: 6,
+            size: getSize(6),
             color: getDomainColor(domain, domainColors),
             opacity: 0.9,
           },
@@ -88,7 +90,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
             type: 'scattergl' as const,
             name: 'Confidence Score',
             marker: {
-              size: 6,
+              size: getSize(6),
               color: spots.map((s) => s.confidence),
               colorscale: 'Viridis',
               cmin: 0,
@@ -122,7 +124,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
           type: 'scattergl' as const,
           name: `Domain ${domain}`,
           marker: {
-            size: 6,
+            size: getSize(6),
             color: getDomainColor(domain, domainColors),
             opacity: domainSpots.map((s) => Math.max(0.25, s.confidence)), // Min 25% opacity
           },
@@ -134,7 +136,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
       default:
         return [];
     }
-  }, [spots, mode, domainColors]);
+  }, [spots, mode, domainColors, getSize]);
 
   const layout: Partial<Layout> = useMemo(
     () => ({
@@ -204,6 +206,7 @@ const SpatialConsensusPlot: React.FC<SpatialConsensusPlotProps> = ({
           data={plotData}
           layout={layout}
           config={config}
+          {...plotEventHandlers}
           useResizeHandler
           style={{ width: '100%', height: '100%' }}
         />
