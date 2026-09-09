@@ -4,6 +4,7 @@ import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationG
 import type { Data, Layout, Config } from 'plotly.js';
 import { Box } from '@mui/material';
 import { DomainComparisonResponse } from './types';
+import { useZoomScaledMarkerSize } from '@/hooks/useZoomScaledMarkerSize';
 
 interface DomainComparisonPlotProps {
   data: DomainComparisonResponse;
@@ -20,6 +21,7 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
   selectedDomain,
   onDomainSelect,
 }) => {
+  const { getSize, plotEventHandlers } = useZoomScaledMarkerSize();
   const selectedDomainValue = selectedDomain;
 
   const { both, aOnly, bOnly } = useMemo(() => {
@@ -43,7 +45,7 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
         type: 'scattergl',
         name,
         marker: {
-          size: 6,
+          size: getSize(6),
           color,
           opacity: 0.85,
         },
@@ -51,7 +53,7 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
         hovertemplate:
           `Barcode: %{customdata[0]}<br>${data.experiments.A.tool_name}: %{customdata[1]}<br>${data.experiments.B.tool_name}: %{customdata[2]}<extra></extra>`,
       }),
-    [data.experiments.A.tool_name, data.experiments.B.tool_name],
+    [data.experiments.A.tool_name, data.experiments.B.tool_name, getSize],
   );
 
   const plotData: Data[] = useMemo(
@@ -175,6 +177,7 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
             data={plotData}
             layout={layout}
             config={config}
+            {...plotEventHandlers}
             useResizeHandler
             style={{ width: '100%', height: '100%' }}
           />

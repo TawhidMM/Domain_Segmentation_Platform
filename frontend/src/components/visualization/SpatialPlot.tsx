@@ -4,6 +4,7 @@ import HardwareAccelerationGuard from '@/components/shared/HardwareAccelerationG
 import { Box, Typography, CircularProgress, Slider, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { ExperimentMetrics, ExperimentResult } from '@/types';
 import { Data, Layout, Config } from 'plotly.js';
+import { useZoomScaledMarkerSize } from '@/hooks/useZoomScaledMarkerSize';
 
 interface SpatialPlotProps {
   result: ExperimentResult | null;
@@ -36,6 +37,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
   accessToken,
   hasHistology = false,
 }) => {
+  const { scale, getSize, plotEventHandlers } = useZoomScaledMarkerSize();
   const [histologyMode, setHistologyMode] = useState<HistologyMode>(hasHistology ? 'overlay' : 'spots');
   const [overlayOpacity, setOverlayOpacity] = useState(0.7);
   const [loadedHistologyUrl, setLoadedHistologyUrl] = useState<string | null>(null);
@@ -267,7 +269,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
         name: `Domain ${domain.domain_id + 1}`,
         marker: {
           color: domain.color,
-          size: compact ? 4 : 6,
+            size: getSize(compact ? 4 : 6),
           opacity: opacityValue,
         },
         hovertemplate: `Domain ${domain.domain_id + 1}<br>X: %{x:.1f}<br>Y: %{y:.1f}<extra></extra>`,
@@ -275,7 +277,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
     });
 
     return data;
-  }, [result, compact, rotation, mirrorX, mirrorY, effectiveMode, overlayOpacity]);
+  }, [result, compact, rotation, mirrorX, mirrorY, effectiveMode, overlayOpacity, getSize, scale]);
 
   const layout: Partial<Layout> = useMemo(() => {
     const hasImage = showImage && histologySize && transformedHistologyUrl;
@@ -500,6 +502,7 @@ const SpatialPlot: React.FC<SpatialPlotProps> = ({
             data={plotData}
             layout={layout}
             config={config}
+            {...plotEventHandlers}
             style={{ width: '100%', height: '100%', minHeight: 0, position: 'absolute', top: 0, left: 0 }}
             useResizeHandler
           />
