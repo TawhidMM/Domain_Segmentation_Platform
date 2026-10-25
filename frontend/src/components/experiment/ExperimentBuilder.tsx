@@ -49,6 +49,7 @@ const ExperimentBuilder: React.FC = () => {
     <Box
       sx={{
         p: 4,
+        width: '75%',
         maxWidth: 1880,
         mx: 'auto',
         minHeight: '100vh',
