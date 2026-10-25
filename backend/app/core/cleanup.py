@@ -1,14 +1,13 @@
-import json
 import logging
 import shutil
-from datetime import datetime, timedelta, timezone
 import time
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.storage_space import DatasetSpace, StagingSpace
 from app.core.workspace import ExperimentWorkspace
-from app.core.config import settings
 from app.models import Dataset, Experiment
 
 logger = logging.getLogger(__name__)
@@ -146,13 +145,12 @@ def reconcile_orphan_tusd_uploads(db: Session, max_age_hours: int = 1) -> int:
     return reconciled_count
 
 
-def run_cleanup(db: Session) -> None:
-    EXPIRE_AFTER_DAYS = 4
-    limit_time = datetime.now(timezone.utc) - timedelta(days=EXPIRE_AFTER_DAYS)
+def run_cleanup(db: Session, expire_after_days: int = 15) -> None:
+    limit_time = datetime.now(timezone.utc) - timedelta(days=expire_after_days)
     logger.info(" Triggering system-wide storage purge...")
 
     try:
-        purged_staging_folders = purge_old_staging_files(EXPIRE_AFTER_DAYS)
+        purged_staging_folders = purge_old_staging_files(expire_after_days)
         purged_exps = purge_old_experiments(db, limit_time)
         purged_data = purge_old_datasets(db, limit_time)
         orphan_count = reconcile_orphan_tusd_uploads(db)

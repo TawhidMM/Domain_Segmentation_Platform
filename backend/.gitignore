@@ -12,3 +12,4 @@ uploads/
 use_cases.txt
 promts.txt
 docker-compose.yml
+celerybeat-schedule*

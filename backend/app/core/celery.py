@@ -38,7 +38,7 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     'nightly-storage-sweep': {
         'task': 'app.tasks.cleanup_tasks.run_system_cleanup_task',
-        'schedule': crontab(hour=2, minute=0),
+        'schedule': crontab(hour=7, minute=0),
     },
 }
 
