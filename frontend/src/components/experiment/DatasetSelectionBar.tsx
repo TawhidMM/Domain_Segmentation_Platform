@@ -70,7 +70,7 @@ const DatasetSelectionBar: React.FC<DatasetSelectionBarProps> = React.memo(
     }
 
     return (
-      <Stack spacing={2}>
+      <Stack spacing={1}>
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
           Select Datasets
         </Typography>

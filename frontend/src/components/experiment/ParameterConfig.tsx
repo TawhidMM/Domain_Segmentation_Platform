@@ -119,7 +119,7 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({
       }}
     >
       {isMultiDatasetMode && focusDatasetId && (
-        <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+        <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'text.secondary' }}>
           Configuring {selectedDatasetIds.length} slice{selectedDatasetIds.length !== 1 ? 's' : ''} (Viewing:{' '}
           <Box component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>
             {focusDatasetName ?? focusDatasetId}
@@ -128,7 +128,7 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({
         </Typography>
       )}
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.25 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Configure Parameters
           {isMultiDatasetMode && (
@@ -150,14 +150,14 @@ const ParameterConfigComponent: React.FC<ParameterConfigProps> = ({
           </Button>
         )}
       </Box>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
         {isMultiDatasetMode
           ? `Adjust parameters for ${selectedDatasetIds.length} selected dataset${selectedDatasetIds.length !== 1 ? 's' : ''}. Changes will apply to all.`
           : 'Adjust the analysis parameters to optimize results for your data'}
       </Typography>
 
       {/* Side-by-side layout for basic and advanced parameters */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
         {/* Basic Parameters Section */}
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>

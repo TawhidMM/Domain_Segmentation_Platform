@@ -129,7 +129,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
   const allSeedsValid = seedList.length > 0 && seedList.every((s) => Number.isInteger(s) && s > 0);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Stepper activeStep={activeStep}>
         {steps.map((label) => (
           <Step key={label}>
@@ -138,30 +138,12 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
         ))}
       </Stepper>
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <Typography
-          component="a"
-          href="/how-to-use#creating-analysis"
-          target="_blank"
-          rel="noopener"
-          variant="caption"
-          sx={{
-            color: 'primary.main',
-            textDecoration: 'none',
-            cursor: 'pointer',
-            '&:hover': { textDecoration: 'underline' },
-          }}
-        >
-          How to Create Analysis ?
-        </Typography>
-      </Box>
-
       {activeStep === 0 && (
         <ToolSelector selectedToolId={selectedToolSchema?.tool_id ?? null} onSelectTool={handleToolSelect} />
       )}
 
       {activeStep === 1 && selectedToolSchema && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <DatasetSelectionBar
             availableDatasets={availableDatasets}
             selectedDatasetIds={selectedDatasetIds}
@@ -179,7 +161,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
           <Paper
             elevation={0}
             sx={{
-              p: 2.5,
+              p: 2,
               backgroundColor: 'rgba(25, 103, 210, 0.02)',
               border: '1px solid',
               borderColor: seedList.length === 0 ? 'error.main' : 'primary.light',

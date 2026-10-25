@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Box, Paper, Tab, Tabs } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useDatasetStore } from '@/stores/dataset';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
@@ -48,19 +48,19 @@ const ExperimentBuilder: React.FC = () => {
   return (
     <Box
       sx={{
-        p: 4,
+        p: 2,
         width: '75%',
         maxWidth: 1880,
         mx: 'auto',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        gap: 3,
+        gap: 2,
       }}
     >
-      <Box sx={{ flex: 1, overflowY: 'auto', pb: 10 }}>
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ mb: 3 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', pb: 4 }}>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Tabs
               value={activeTab}
               onChange={handleTabChange}
@@ -76,6 +76,39 @@ const ExperimentBuilder: React.FC = () => {
               <Tab label="Run Analysis Pipeline" value="pipeline" />
               <Tab label="Import Pre-computed Results" value="import" />
             </Tabs>
+            {activeTab === WorkspaceTab.PIPELINE ? (
+              <Typography
+                component="a"
+                href="/how-to-use#creating-analysis"
+                target="_blank"
+                rel="noopener"
+                variant="caption"
+                sx={{
+                  color: 'primary.main',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                How to Create Analysis ?
+              </Typography>
+            ) : (
+              <Typography
+                component="a"
+                href="/how-to-use#uploading-precomputed-results"
+                target="_blank"
+                rel="noopener"
+                variant="caption"
+                sx={{
+                  color: 'primary.main',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                How to Import Pre-computed Results ?
+              </Typography>
+            )}
           </Box>
 
           {activeTab === WorkspaceTab.PIPELINE && <PipelineExecutionTrack availableDatasets={availableDatasets} />}
