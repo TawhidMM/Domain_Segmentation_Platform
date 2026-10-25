@@ -129,7 +129,7 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
   const allSeedsValid = seedList.length > 0 && seedList.every((s) => Number.isInteger(s) && s > 0);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
       <Stepper activeStep={activeStep}>
         {steps.map((label) => (
           <Step key={label}>
@@ -230,11 +230,13 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
         sx={{
           position: 'sticky',
           bottom: 0,
+          marginTop: 'auto',
           zIndex: 5,
           backgroundColor: 'background.paper',
           borderTop: '1px solid',
           borderColor: 'divider',
           py: 2,
+          px: 2,
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

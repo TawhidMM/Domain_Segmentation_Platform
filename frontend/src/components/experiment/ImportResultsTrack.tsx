@@ -243,12 +243,12 @@ const StickyActionsFooter: React.FC<StickyActionsFooterProps> = ({ canSubmit, is
       sx={{
         position: 'sticky',
         bottom: 0,
+        marginTop: 'auto',
         borderTop: '1px solid',
         borderColor: 'divider',
-        py: 2.5,
+        py: 2,
         backgroundColor: 'background.paper',
         zIndex: 10,
-        mt: 4,
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
@@ -515,7 +515,7 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
   }, [setWorkspaceView]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1, flex: 1 }}>
       <TextField
         label="Tool Name"
         value={experimentName}
