@@ -58,8 +58,8 @@ const ExperimentBuilder: React.FC = () => {
         gap: 2,
       }}
     >
-      <Box sx={{ flex: 1, overflowY: 'auto', pb: 4 }}>
-        <Paper sx={{ p: 2, mb: 2 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', pb: 10, display: 'flex', flexDirection: 'column' }}>
+        <Paper sx={{ p: 2, mb: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Tabs
               value={activeTab}

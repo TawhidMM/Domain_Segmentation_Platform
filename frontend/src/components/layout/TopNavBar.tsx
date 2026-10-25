@@ -1,11 +1,9 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Box, IconButton, Chip } from '@mui/material';
-import { Settings, HelpOutline, AccountCircle } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { AppBar, Toolbar, Typography, Box, Chip, Link, Tooltip } from '@mui/material';
+import { HelpOutline } from '@mui/icons-material';
+import { Link as RouterLink } from 'react-router-dom';
 
 const TopNavBar: React.FC = () => {
-  const navigate = useNavigate();
-
   return (
     <AppBar
       position="static"
@@ -59,16 +57,26 @@ const TopNavBar: React.FC = () => {
 
         <Box sx={{ flexGrow: 1 }} />
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton size="small" sx={{ color: 'text.secondary' }} onClick={() => navigate('/how-to-use')}>
-            <HelpOutline fontSize="small" />
-          </IconButton>
-          <IconButton size="small" sx={{ color: 'text.secondary' }}>
-            <Settings fontSize="small" />
-          </IconButton>
-          <IconButton size="small" sx={{ color: 'text.secondary' }}>
-            <AccountCircle fontSize="small" />
-          </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Open user guide">
+            <Link
+              component={RouterLink}
+              to="/how-to-use"
+              sx={{
+                color: 'text.primary',
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                '&:hover': { color: 'primary.main' },
+              }}
+            >
+              <HelpOutline fontSize="small" />
+              <Typography variant="body2">User Guide</Typography>
+            </Link>
+          </Tooltip>
         </Box>
       </Toolbar>
     </AppBar>
