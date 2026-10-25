@@ -516,24 +516,6 @@ const ImportResultsTrack: React.FC<ImportResultsTrackProps> = ({ availableDatase
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Typography
-          component="a"
-          href="/how-to-use#uploading-precomputed-results"
-          target="_blank"
-          rel="noopener"
-          variant="caption"
-          sx={{
-            color: 'primary.main',
-            textDecoration: 'none',
-            cursor: 'pointer',
-            '&:hover': { textDecoration: 'underline' },
-          }}
-        >
-          How to Import Pre-computed Results ?
-        </Typography>
-      </Box>
-
       <TextField
         label="Tool Name"
         value={experimentName}
