@@ -131,8 +131,8 @@ const DomainComparisonTab: React.FC<DomainComparisonTabProps> = ({ tools }) => {
 
   const selectedToolNames = useMemo(
     () => ({
-      a: comparisonData?.experiments.A.tool_name ?? selectedToolA?.tool_name ?? 'Tool A',
-      b: comparisonData?.experiments.B.tool_name ?? selectedToolB?.tool_name ?? 'Tool B',
+      a: comparisonData?.experiments.A.experiment_name ?? selectedToolA?.tool_name ?? 'Tool A',
+      b: comparisonData?.experiments.B.experiment_name ?? selectedToolB?.tool_name ?? 'Tool B',
     }),
     [comparisonData, selectedToolA?.tool_name, selectedToolB?.tool_name],
   );

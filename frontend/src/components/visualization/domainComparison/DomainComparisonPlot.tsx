@@ -51,9 +51,9 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
         },
         customdata: spots.map((spot) => [spot.barcode, spot.A, spot.B]),
         hovertemplate:
-          `Barcode: %{customdata[0]}<br>${data.experiments.A.tool_name}: %{customdata[1]}<br>${data.experiments.B.tool_name}: %{customdata[2]}<extra></extra>`,
+          `Barcode: %{customdata[0]}<br>${data.experiments.A.experiment_name}: %{customdata[1]}<br>${data.experiments.B.experiment_name}: %{customdata[2]}<extra></extra>`,
       }),
-    [data.experiments.A.tool_name, data.experiments.B.tool_name, getSize],
+    [data.experiments.A.experiment_name, data.experiments.B.experiment_name, getSize],
   );
 
   const plotData: Data[] = useMemo(
@@ -74,10 +74,10 @@ const DomainComparisonPlot: React.FC<DomainComparisonPlotProps> = ({
         },
       },
       buildTrace('Both', both, BOTH_COLOR),
-      buildTrace(`${data.experiments.A.tool_name} only`, aOnly, A_ONLY_COLOR),
-      buildTrace(`${data.experiments.B.tool_name} only`, bOnly, B_ONLY_COLOR),
+      buildTrace(`${data.experiments.A.experiment_name} only`, aOnly, A_ONLY_COLOR),
+      buildTrace(`${data.experiments.B.experiment_name} only`, bOnly, B_ONLY_COLOR),
     ],
-    [buildTrace, both, aOnly, bOnly, data.spots, data.experiments.A.tool_name, data.experiments.B.tool_name],
+    [buildTrace, both, aOnly, bOnly, data.spots, data.experiments.A.experiment_name, data.experiments.B.experiment_name],
   );
 
   const axisRanges = useMemo(() => {

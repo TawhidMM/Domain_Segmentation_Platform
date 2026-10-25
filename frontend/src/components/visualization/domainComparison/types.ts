@@ -5,7 +5,7 @@ export interface DomainComparisonRequestItem {
 
 export interface DomainComparisonExperimentMeta {
   experiment_id: string;
-  tool_name: string;
+  experiment_name: string;
 }
 
 export interface DomainComparisonSpot {
