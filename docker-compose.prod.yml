@@ -97,6 +97,18 @@ services:
       networks:
         - backend      
 
+  beat:
+    container_name: st_project_beat
+    image: tawhidmm/st_project:worker-latest
+    command: celery -A app.core.celery.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
+    restart: unless-stopped
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    networks:
+      - backend
+
   frontend:
     image: tawhidmm/st_project:frontend-latest
     container_name: st_project_frontend
