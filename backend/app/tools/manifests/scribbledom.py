@@ -12,7 +12,7 @@ SCRIBBLEDOM_MANIFEST = {
         "technology": {
             "type": "enum",
             "label": "Technology",
-            "options": ["visium", "st"],
+            "options": ["10x visium"],
             "default": "visium",
             "ui_group": "basic",
         },

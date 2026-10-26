@@ -7,8 +7,8 @@ STAIG_MANIFEST = {
             "options": [
                 "DLPFC",
                 "Human_Breast_Cancer",
-                "Mouse_Olfactory",
-                "human_placental_bed",
+                # "Mouse_Olfactory",
+                # "human_placental_bed",
             ],
             "default": "DLPFC",
             "ui_group": "basic",
@@ -48,14 +48,6 @@ STAIG_MANIFEST = {
             "type": "float",
             "label": "Contrastive temperature (tau)",
             "ui_group": "advanced",
-        },
-        "tau_decay": {
-            "type": "float",
-            "label": "Tau decay",
-            "ui_group": "advanced",
-            "depends_on": {
-                "profile": ["Human_Breast_Cancer", "human_placental_bed"],
-            },
         },
         "num_im_neigh": {
             "type": "int",
@@ -138,7 +130,6 @@ STAIG_MANIFEST = {
                 "num_clusters": 20,
                 "num_epochs": 580,
                 "tau": 3.0,
-                "tau_decay": 0.0,
                 "num_layers": 2,
                 "num_im_neigh": 2,
                 "activation": "prelu",
@@ -163,7 +154,6 @@ STAIG_MANIFEST = {
                 "num_clusters": 10,
                 "num_epochs": 10,
                 "tau": 17.0,
-                "tau_decay": 0.0,
                 "num_layers": 1,
                 "num_im_neigh": 2,
                 "activation": "prelu",
