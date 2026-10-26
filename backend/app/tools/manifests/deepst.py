@@ -8,13 +8,13 @@ DEEPST_MANIFEST = {
             "type": "enum",
             "label": "Technology platform",
             "options": [
-                "Visium",
-                "ST",
-                "MERFISH",
-                "slideSeq",
-                "stereoSeq",
+                "10x Visium",
+                # "ST",
+                # "MERFISH",
+                # "slideSeq",
+                # "stereoSeq",
             ],
-            "default": "Visium",
+            "default": "10x Visium",
             "ui_group": "basic",
         },
 
@@ -45,13 +45,6 @@ DEEPST_MANIFEST = {
             "options": ["Yes", "No"],
             "default": "Yes",
             "ui_group": "basic",
-        },
-
-        "dec_cluster_n": {
-            "type": "int",
-            "label": "Internal cluster prototypes",
-            "default": 20,
-            "ui_group": "advanced",
         },
 
         "spatial_k": {
@@ -149,20 +142,27 @@ DEEPST_MANIFEST = {
             "type": "int",
             "label": "Pretraining epochs",
             "default": 1000,
-            "ui_group": "advanced",
+            "ui_group": "basic",
         },
 
         "epochs": {
             "type": "int",
             "label": "Training epochs",
             "default": 500,
-            "ui_group": "advanced",
+            "ui_group": "basic",
         },
 
         "p_drop": {
             "type": "float",
             "label": "Dropout probability",
             "default": 0.01,
+            "ui_group": "advanced",
+        },
+
+        "dec_cluster_n": {
+            "type": "int",
+            "label": "Internal cluster prototypes",
+            "default": 20,
             "ui_group": "advanced",
         },
 
