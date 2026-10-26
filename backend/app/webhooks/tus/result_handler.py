@@ -29,8 +29,6 @@ class ResultUploadHandler(TusUploadHandler):
         }
 
     async def post_finish(self, event: Dict[str, Any]) -> dict:
-        print(event)
-
 
         upload_info = event.get("Upload", {})
         metadata = upload_info.get("MetaData", {})

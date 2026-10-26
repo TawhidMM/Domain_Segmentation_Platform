@@ -11,6 +11,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10  
 
   redis:
     image: redis:7-alpine
@@ -50,9 +55,14 @@ services:
     image: tawhidmm/st_project:api-latest
     restart: unless-stopped
     depends_on:
-      - db
-      - redis
-      - tusd
+      chown-fix:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      tusd:
+        condition: service_started
     env_file:
       - .env
     volumes:
@@ -68,8 +78,10 @@ services:
     command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=1
     restart: unless-stopped
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     env_file:
       - .env
     group_add:
@@ -87,8 +99,10 @@ services:
       command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=4 -Q io
       restart: unless-stopped
       depends_on:
-        - db
-        - redis
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_started
       env_file:
         - .env
       volumes:
