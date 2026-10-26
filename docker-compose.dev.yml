@@ -46,7 +46,9 @@ services:
     restart: "no"        
 
   api:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: st_project_api
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     restart: unless-stopped
@@ -64,7 +66,9 @@ services:
       - frontend
 
   worker:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: st_project_worker
     command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=1
     restart: unless-stopped
@@ -83,7 +87,9 @@ services:
       - backend
 
   worker-io:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: st_project_worker_io
     command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=4 -Q io
     restart: unless-stopped

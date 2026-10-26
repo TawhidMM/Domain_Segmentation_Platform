@@ -7,11 +7,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y docker.io
 
 # Install Python deps
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
-COPY . .
+COPY backend/ .
+COPY tools/ /app/tools/
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app

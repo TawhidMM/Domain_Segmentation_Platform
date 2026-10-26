@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter
 
-from app.tools.tool_registry import TOOL_REGISTRY, get_tool_manifest
+from app.tools.tool_registry import get_registry
 from app.services.tools_service import generate_frontend_schema
 
 router = APIRouter()
@@ -14,17 +14,17 @@ async def get_all_tool_schemas():
     """
     tools_schemas = {}
 
-    for tool_key, config in TOOL_REGISTRY.items():
-        manifest = get_tool_manifest(tool_key)
+    for tool in get_registry().list():
+        manifest = tool.manifest
 
         if manifest:
             ui_schema = generate_frontend_schema(manifest)
 
-            ui_schema["tool_id"] = tool_key.value
-            ui_schema["label"] = tool_key.value
-            ui_schema["registry_key"] = tool_key.value
+            ui_schema["tool_id"] = tool.spec.id
+            ui_schema["label"] = tool.spec.id
+            ui_schema["registry_key"] = tool.spec.id
             
-            tools_schemas[tool_key.value] = ui_schema
+            tools_schemas[tool.spec.id] = ui_schema
 
     return list(tools_schemas.values())
 
