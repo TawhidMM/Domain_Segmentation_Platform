@@ -61,7 +61,7 @@ chmod +x deploy.sh
 ```
 
 ### What `deploy.sh` does:
-1. **Tool Warm-up:** Reads `get_tool_images.py` and pulls `STAIG`, `DeepST`, etc., one by one.
+1. **Tool Warm-up:** Reads the declarative packages under `tools/` from the deployed API image and pulls each research-tool image.
 2. **Infrastructure Pull:** Pulls the latest Frontend, API, Worker, and DB images.
 3. **Service Restart:** Runs `docker compose up -d` to refresh all services.
 4. **Database Sync:** Automatically runs `alembic upgrade head` inside the API container to sync your schema.
@@ -101,7 +101,7 @@ The platform uses standard HTTP (**Port 80**). Ensure your server's firewall (e.
 
 ## Project Structure
 - `deploy.sh`: Main deployment orchestrator.
-- `get_tool_images.py`: Bridges your Python `TOOLS` configuration with the shell script.
+- `tools/<tool-id>/`: Declarative tool packages containing `tool.yaml` and `manifest.yaml`.
 - `docker-compose.prod.yml`: Production-ready service definitions.
 - `.env.example`: Template for all required environment variables.
 

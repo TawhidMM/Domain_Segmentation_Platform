@@ -8,6 +8,7 @@ uploads/
 .vscode/
 .DS_Store
 *.txt
+tests/
 !requirements.txt
 use_cases.txt
 promts.txt

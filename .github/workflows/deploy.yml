@@ -22,8 +22,11 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'tools/**'
+              - '.github/workflows/**'
             frontend:
               - 'frontend/**'
+              - '.github/workflows/**'
             compose:
               - 'docker-compose.prod.yml'
 
@@ -39,7 +42,7 @@ jobs:
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build backend (shared layer)
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/st_project:backend-latest ./backend
+        run: docker build -f backend/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/st_project:backend-latest .
 
       - name: Tag & Push API
         run: |

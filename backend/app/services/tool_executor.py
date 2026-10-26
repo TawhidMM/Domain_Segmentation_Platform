@@ -6,8 +6,8 @@ import yaml
 from app.core.config import settings
 from app.core.workspace import RunContext
 from app.services.tools_service import resolve_config
-from app.tools.tool_registry import TOOL_REGISTRY, get_tool_manifest
-from app.schemas.tool import ToolRegistryKey, Tool
+from app.tools.tool_registry import get_registry
+from app.schemas.tool import Tool
 from app.utils.metrics import get_segmentation_metrics
 from app.dataset.visium import VisiumDataset
 
@@ -19,27 +19,22 @@ class ToolExecutor:
 
     def _resolve_tool(self):
         try:
-            tool_key = ToolRegistryKey(self.run_context.tool_id)
-
-            tool_config = TOOL_REGISTRY[tool_key]
-            manifest = get_tool_manifest(tool_key)
-
-            self.tool: Tool = {**tool_config, "manifest": manifest}
-
-        except (ValueError, KeyError):
-            valid_keys = [key.value for key in ToolRegistryKey]
-            raise ValueError(
-                f"Tool '{self.run_context.tool_id}' is not registered. "
-                f"Valid options: {valid_keys}"
+            loaded_tool = get_registry().get(self.run_context.tool_id)
+            self.tool: Tool = Tool(
+                image=loaded_tool.spec.image,
+                config_file=loaded_tool.spec.config_file,
+                manifest=loaded_tool.manifest,
             )
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
 
     def _prepare_config(self):
-        resolved_params = resolve_config(self.tool["manifest"], user_input=self.run_context.params)
+        resolved_params = resolve_config(self.tool.manifest, user_input=self.run_context.params)
         resolved_params["seed"] = self.run_context.seed
 
         self.run_context.config_dir.mkdir(parents=True, exist_ok=True)
 
-        config_path = self.run_context.config_dir / self.tool["config_file"]
+        config_path = self.run_context.config_dir / self.tool.config_file
 
         if config_path.suffix == ".yml" or config_path.suffix == ".yaml":
             with open(config_path, "w") as f:
@@ -60,7 +55,7 @@ class ToolExecutor:
         cmd = [
             "docker", "run", "--rm", "--gpus", "all",
             *[flag for v in volumes for flag in ("-v", v)],
-            self.tool["image"]
+            self.tool.image
         ]
 
         subprocess.run(cmd, check=True)
