@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
 COPY backend/ .
-COPY tools/ /app/tools/
+COPY tools/ /tools/
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app
