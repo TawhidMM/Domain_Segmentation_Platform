@@ -29,11 +29,14 @@ jobs:
               - '.github/workflows/**'
             compose:
               - 'docker-compose.prod.yml'
+              - 'docker-compose.ci.yml'
 
   build-backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.compose == 'true'
     runs-on: ubuntu-latest
+    env:
+      BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/st_project:backend-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +46,37 @@ jobs:
 
       - name: Build backend (shared layer)
         run: docker build -f backend/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/st_project:backend-latest .
+
+      - name: Smoke test backend
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then
+              echo
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "Backend health check timed out"
+              docker compose -f docker-compose.ci.yml logs
+              exit 1
+            fi
+            sleep 2
+          done
+
+          if [ -z "$(docker compose -f docker-compose.ci.yml ps --status running -q worker)" ]; then
+            echo "Worker container is not running"
+            docker compose -f docker-compose.ci.yml logs worker
+            exit 1
+          fi
+
+      - name: Dump CI logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.ci.yml logs
+
+      - name: Tear down CI services
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v
 
       - name: Tag & Push API
         run: |
@@ -64,10 +98,36 @@ jobs:
       - name: Login to Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Build and Push Frontend
+      - name: Build Frontend
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/st_project:frontend-latest ./frontend
+
+      - name: Smoke test frontend
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/st_project:frontend-latest ./frontend
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/st_project:frontend-latest
+          docker run -d --name smoke-frontend -p 3000:80 ${{ secrets.DOCKERHUB_USERNAME }}/st_project:frontend-latest
+
+          for attempt in $(seq 1 15); do
+            if curl -fsS http://localhost:3000/; then
+              echo
+              break
+            fi
+            if [ "$attempt" -eq 15 ]; then
+              echo "Frontend health check timed out"
+              docker logs smoke-frontend
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Dump frontend logs on failure
+        if: failure()
+        run: docker logs smoke-frontend
+
+      - name: Clean up frontend smoke test
+        if: always()
+        run: docker rm -f smoke-frontend 2>/dev/null || true
+
+      - name: Push Frontend
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/st_project:frontend-latest
 
   # deploy:
   #   needs: [build-backend, build-frontend]

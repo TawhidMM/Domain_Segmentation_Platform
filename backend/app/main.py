@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.annotations import router as annotations_router
 from app.api.datasets import router as datasets_router
 from app.api.experiments import router as experiments_router
+from app.api.health import router as health_router
 from app.api.result_imports import router as result_import_router
 from app.api.runs import router as runs_router
 from app.api.tools import router as tools_router
@@ -41,6 +42,7 @@ app.add_middleware(
 
 app.mount("/static/datasets", StaticFiles(directory=str(DatasetSpace.base_directory())), name="datasets")
 
+app.include_router(health_router)
 
 app.include_router(
     experiments_router,
