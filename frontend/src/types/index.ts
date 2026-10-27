@@ -161,6 +161,7 @@ export interface RunDetail {
   status: ExperimentStatus;
   started_at: string | null;
   finished_at: string | null;
+  error_message: string | null;
 }
 
 export interface DatasetGroup {
@@ -183,6 +184,7 @@ export interface RunStatus {
   status: ExperimentStatus;
   started_at: string | null;
   finished_at: string | null;
+  error_message: string | null;
 }
 
 export interface Run {
@@ -191,6 +193,7 @@ export interface Run {
   datasetId: string;
   seed: number;
   status: ExperimentStatus;
+  error_message: string | null;
   result?: ExperimentResult | null;
 }
 

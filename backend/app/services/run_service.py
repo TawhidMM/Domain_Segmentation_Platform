@@ -157,13 +157,15 @@ def mark_finished(
 
 def mark_failed(
     db: Session,
-    run: Run
+    run: Run,
+    message: Optional[str] = None
 ) -> Run:
     return _update_run_status(
         db,
         run,
         ExperimentStatus.FAILED,
-        finished_at=datetime.now(timezone.utc)
+        finished_at=datetime.now(timezone.utc),
+        error_message=message,
     )
 
 
@@ -172,7 +174,8 @@ def _update_run_status(
     run: Run,
     status: ExperimentStatus,
     started_at: Optional[datetime] = None,
-    finished_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None,
+    error_message: Optional[str] = None
 ) -> Run:
     if run.status != status:
         if status not in VALID_EXPERIMENT_TRANSITIONS[run.status]:
@@ -183,7 +186,8 @@ def _update_run_status(
         run,
         status,
         started_at=started_at,
-        finished_at=finished_at
+        finished_at=finished_at,
+        error_message=error_message
     )
 
 

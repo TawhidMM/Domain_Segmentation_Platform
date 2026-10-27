@@ -57,6 +57,7 @@ function buildInitialRuns(experiment: Experiment): Run[] {
         datasetId,
         seed,
         status: ExperimentStatus.NOT_SUBMITTED,
+        error_message: null,
         result: null,
       };
     })
@@ -134,6 +135,7 @@ export const useExperimentsStore = create<ExperimentsStore>()(
                       datasetId,
                       seed,
                       status: ExperimentStatus.NOT_SUBMITTED,
+                      error_message: null,
                       result: null,
                     };
                   })

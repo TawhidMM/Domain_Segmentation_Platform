@@ -248,7 +248,8 @@ def build_experiment_details(
                 "seed": run.seed,
                 "status": run.status.value,
                 "started_at": run.started_at,
-                "finished_at": run.finished_at
+                "finished_at": run.finished_at,
+                "error_message": run.error_message,
             })
 
     dataset_ids = list(runs_by_dataset.keys())

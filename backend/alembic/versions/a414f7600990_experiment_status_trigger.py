@@ -1,8 +1,8 @@
-"""experiment status trigger
+"""experiment_status_trigger
 
-Revision ID: 2036314efcc7
-Revises: bb9ed45c60ad
-Create Date: 2026-09-07 12:58:21.507293
+Revision ID: a414f7600990
+Revises: 4a3de82642aa
+Create Date: 2026-10-27 11:20:32.109625
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '2036314efcc7'
-down_revision: Union[str, Sequence[str], None] = 'bb9ed45c60ad'
+revision: str = 'a414f7600990'
+down_revision: Union[str, Sequence[str], None] = '4a3de82642aa'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -85,5 +85,4 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.execute("DROP TRIGGER IF EXISTS trg_recompute_experiment_status ON runs;")
     op.execute("DROP FUNCTION IF EXISTS recompute_experiment_status();")
-
 

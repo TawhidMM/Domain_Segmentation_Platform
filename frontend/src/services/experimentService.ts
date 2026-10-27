@@ -190,6 +190,7 @@ export function patchRunsWithDetails(existingRuns: Run[], details: ExperimentDet
       ...run,
       runId: incoming.run_id || run.runId,
       status: incoming.status,
+      error_message: incoming.error_message,
     };
   });
 }

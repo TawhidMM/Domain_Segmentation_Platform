@@ -46,6 +46,7 @@ class RunStatusResponse(BaseModel):
     seed: int
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True

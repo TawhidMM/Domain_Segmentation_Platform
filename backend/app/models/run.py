@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Integer, JSON, DateTime, Enum as SAEnum
+from sqlalchemy import Column, String, ForeignKey, Integer, JSON, DateTime, Text, Enum as SAEnum
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -24,6 +24,7 @@ class Run(Base):
 
     output_path = Column(String, nullable=False)
     metrics_json = Column(JSON, nullable=True)
+    error_message = Column(Text, nullable=True)
 
     started_at = Column(DateTime(timezone=True), nullable=True)
     finished_at = Column(DateTime(timezone=True), nullable=True)

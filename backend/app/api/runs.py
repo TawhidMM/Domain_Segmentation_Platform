@@ -24,8 +24,10 @@ def get_run_status(
     return RunStatusResponse(
         run_id=run.id,
         status=run.status.value,
+        seed=run.seed,
         started_at=run.started_at,
-        finished_at=run.finished_at
+        finished_at=run.finished_at,
+        error_message=run.error_message,
     )
 
 

@@ -90,7 +90,8 @@ def update_status(
     run: Run,
     status: ExperimentStatus,
     started_at=None,
-    finished_at=None
+    finished_at=None,
+    error_message=None
 ) -> Run:
 
     run.status = status
@@ -98,6 +99,8 @@ def update_status(
         run.started_at = started_at
     if finished_at is not None:
         run.finished_at = finished_at
+    if error_message is not None:
+        run.error_message = error_message
 
     db.commit()
     db.refresh(run)

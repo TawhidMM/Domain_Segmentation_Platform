@@ -701,10 +701,15 @@ const FocusPage: React.FC = () => {
 
         {/* Content area with scroll */}
         <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
-          {status === ExperimentStatus.FAILED && (
+          {(status === ExperimentStatus.FAILED ||
+            experimentData?.experiment_status === ExperimentStatus.FAILED) && (
             <Alert severity="error" sx={{ mb: 2 }}>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Job failed to complete. Please try again or contact support if the problem persists.
+                {findRunDetail(experimentData, selectedRunId)?.error_message ||
+                  experimentData?.datasets
+                    .flatMap((dataset) => dataset.runs)
+                    .find((run) => run.status === ExperimentStatus.FAILED)?.error_message ||
+                  'Run failed. No details available.'}
               </Typography>
             </Alert>
           )}
@@ -777,8 +782,8 @@ const FocusPage: React.FC = () => {
                 Job Failed
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-                The job encountered an error during processing. Please try again or contact support if the problem
-                persists.
+                {findRunDetail(experimentData, selectedRunId)?.error_message ||
+                  'Run failed. No details available.'}
               </Typography>
               <Button variant="contained" href="/">
                 Create New Job
