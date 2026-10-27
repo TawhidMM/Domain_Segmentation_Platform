@@ -164,6 +164,13 @@ export interface RunDetail {
   error_message: string | null;
 }
 
+export interface RunLogsResponse {
+  run_id: string;
+  status: ExperimentStatus;
+  stream: 'stdout' | 'stderr';
+  lines: string[];
+}
+
 export interface DatasetGroup {
   dataset_id: string;
   dataset_name: string;

@@ -55,7 +55,7 @@ class RunStatusResponse(BaseModel):
 class RunLogsRequest(BaseModel):
     token: str = Field(..., min_length=1)
     stream: Literal["stdout", "stderr"] = "stderr"
-    lines: int = Field(default=100, ge=1, le=1000)
+    lines: int = Field(default=1500, ge=1, le=2000)
 
 
 class RunLogsResponse(BaseModel):

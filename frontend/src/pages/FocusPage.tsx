@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -19,7 +19,7 @@ import { useComparisonStore } from '@/stores/comparison';
 import FloatingCompareBar from '@/components/visualization/FloatingCompareBar';
 import SpatialPlot from '@/components/visualization/SpatialPlot';
 import { DatasetExplorer } from '@/components/experiment';
-import { exportExperiment, exportExperimentUmap, fetchExperimentDetails, fetchExperimentResult, fetchExperimentMetrics } from '@/services/experimentService';
+import { exportExperiment, exportExperimentUmap, fetchExperimentDetails, fetchExperimentResult, fetchExperimentMetrics, fetchRunLogs } from '@/services/experimentService';
 import { toast } from 'sonner';
 import { ExperimentDetails, ExperimentResult, ExperimentMetrics, RunDetail, ExperimentStatus } from '@/types';
 
@@ -63,6 +63,10 @@ const FocusPage: React.FC = () => {
   const [status, setStatus] = useState<ExperimentStatus | null>(null);
   const [result, setResult] = useState<ExperimentResult | null>(null);
   const [metrics, setMetrics] = useState<ExperimentMetrics | null>(null);
+  const [runLogs, setRunLogs] = useState<string[]>([]);
+  const [isLoadingRunLogs, setIsLoadingRunLogs] = useState(false);
+  const [runLogsError, setRunLogsError] = useState<string | null>(null);
+  const logConsoleRef = useRef<HTMLDivElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
@@ -122,6 +126,47 @@ const FocusPage: React.FC = () => {
 
     loadExperiment();
   }, [experimentId, accessToken, runParam]);
+
+  useEffect(() => {
+    if (!selectedRunId || !accessToken || status !== ExperimentStatus.FAILED) {
+      setRunLogs([]);
+      setRunLogsError(null);
+      setIsLoadingRunLogs(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingRunLogs(true);
+    setRunLogsError(null);
+
+    fetchRunLogs(selectedRunId, accessToken)
+      .then((response) => {
+        if (!cancelled) setRunLogs(response.lines);
+      })
+      .catch((err) => {
+        console.error('Failed to load run logs:', err);
+        if (!cancelled) setRunLogsError('Failed to load run logs.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingRunLogs(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRunId, accessToken, status]);
+
+  useEffect(() => {
+    if (status !== ExperimentStatus.FAILED || isLoadingRunLogs) return;
+
+    const frameId = requestAnimationFrame(() => {
+      if (logConsoleRef.current) {
+        logConsoleRef.current.scrollTop = logConsoleRef.current.scrollHeight;
+      }
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [runLogs, isLoadingRunLogs, status]);
 
   // Consolidated single poller: keeps ALL run statuses in the sidebar fresh while any run is
   // queued/running, and loads the selected run's result/metrics once it finishes.
@@ -212,6 +257,8 @@ const FocusPage: React.FC = () => {
     setSelectedRunId(runId);
     setResult(null);
     setMetrics(null);
+    setRunLogs([]);
+    setRunLogsError(null);
     setStatus(null);
     setError(null);
     setErrorCode(undefined);
@@ -703,15 +750,79 @@ const FocusPage: React.FC = () => {
         <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
           {(status === ExperimentStatus.FAILED ||
             experimentData?.experiment_status === ExperimentStatus.FAILED) && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {findRunDetail(experimentData, selectedRunId)?.error_message ||
-                  experimentData?.datasets
-                    .flatMap((dataset) => dataset.runs)
-                    .find((run) => run.status === ExperimentStatus.FAILED)?.error_message ||
-                  'Run failed. No details available.'}
-              </Typography>
-            </Alert>
+            <Paper
+              variant="outlined"
+              sx={{
+                mb: 3,
+                overflow: 'hidden',
+                borderColor: 'error.main',
+              }}
+            >
+              <Alert
+                severity="error"
+                sx={{
+                  borderRadius: 0,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {findRunDetail(experimentData, selectedRunId)?.error_message ||
+                    experimentData?.datasets
+                      .flatMap((dataset) => dataset.runs)
+                      .find((run) => run.status === ExperimentStatus.FAILED)?.error_message ||
+                    'Run failed. No details available.'}
+                </Typography>
+              </Alert>
+
+              {status === ExperimentStatus.FAILED && (
+                <Box sx={{ p: 2, backgroundColor: '#111827', color: '#E5E7EB' }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: '#FCA5A5' }}>
+                    Run logs
+                  </Typography>
+                  <Box
+                    ref={logConsoleRef}
+                    sx={{
+                      minHeight: 300,
+                      maxHeight: 650,
+                      overflow: 'auto',
+                      border: '1px solid',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      borderRadius: 1,
+                      p: 2,
+                    }}
+                  >
+                    {isLoadingRunLogs ? (
+                      <CircularProgress size={20} sx={{ color: '#E5E7EB' }} />
+                    ) : runLogsError ? (
+                      <Typography variant="body2" sx={{ color: '#FCA5A5' }}>
+                        {runLogsError}
+                      </Typography>
+                    ) : (
+                      <Typography
+                        component="pre"
+                        variant="body2"
+                        sx={{
+                          m: 0,
+                          whiteSpace: 'pre-wrap',
+                          overflowWrap: 'anywhere',
+                          fontFamily: 'monospace',
+                        }}
+                      >
+                        {runLogs.length > 0 ? runLogs.join('\n') : 'No logs available.'}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    href="/"
+                    sx={{ mt: 2 }}
+                  >
+                    Create New Job
+                  </Button>
+                </Box>
+              )}
+            </Paper>
           )}
 
           {status === ExperimentStatus.COMPLETED && result ? (
@@ -774,20 +885,6 @@ const FocusPage: React.FC = () => {
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 Checking for updates every 5 seconds...
               </Typography>
-            </Box>
-          ) : status === ExperimentStatus.FAILED ? (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <AlertCircle size={56} style={{ color: '#EF4444', marginBottom: 24 }} />
-              <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-                Job Failed
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-                {findRunDetail(experimentData, selectedRunId)?.error_message ||
-                  'Run failed. No details available.'}
-              </Typography>
-              <Button variant="contained" href="/">
-                Create New Job
-              </Button>
             </Box>
           ) : null}
         </Box>

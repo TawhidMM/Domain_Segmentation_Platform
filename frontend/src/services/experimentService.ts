@@ -8,6 +8,7 @@ import {
   Run,
   ExperimentRequest,
   ComparisonDatasetsResponse,
+  RunLogsResponse,
 } from '@/types';
 import { DomainComparisonResponse } from '@/components/visualization/domainComparison/types';
 import { JobSubmissionResponse, ExperimentSubmitResponse } from '@/types';
@@ -60,6 +61,19 @@ export async function fetchExperimentDetails(experimentId: string, token: string
 export async function fetchRunStatus(runId: string, token: string): Promise<RunStatus> {
   const res = await axios.get(`/runs/${runId}`, { params: { token } });
   return res.data as RunStatus;
+}
+
+export async function fetchRunLogs(
+  runId: string,
+  token: string,
+  lines = 1500,
+): Promise<RunLogsResponse> {
+  const res = await axios.post(`/runs/${runId}/logs`, {
+    token,
+    stream: 'stderr',
+    lines,
+  });
+  return res.data as RunLogsResponse;
 }
 
 export async function exportExperiment(runId: string, format: 'svg', token: string): Promise<Blob> {
