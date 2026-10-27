@@ -53,9 +53,13 @@ while IFS= read -r IMG; do
     docker pull "$IMG"
 done <"$TOOL_IMAGES_FILE"
 
-CURRENT_STEP="3: Starting Services (waits for healthchecks)"
+CURRENT_STEP="3a: Starting Services (waits for healthchecks)"
 echo "--- $CURRENT_STEP ---"
 compose up -d --wait --wait-timeout 120
+
+CURRENT_STEP="3b: Refreshing nginx"
+echo "--- $CURRENT_STEP ---"
+compose restart nginx
 
 CURRENT_STEP="4: Database Migrations"
 echo "--- $CURRENT_STEP ---"
