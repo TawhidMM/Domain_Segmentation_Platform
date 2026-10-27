@@ -5,8 +5,8 @@ parameters:
     type: enum
     label: Technology platform
     options:
-    - 10x Visium
-    default: 10x Visium
+    - Visium
+    default: Visium
     ui_group: basic
   n_domains:
     type: int

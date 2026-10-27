@@ -10,8 +10,8 @@ parameters:
     type: enum
     label: Technology
     options:
-    - 10x visium
-    default: 10x visium
+    - visium
+    default: visium
     ui_group: basic
   schema:
     type: enum
