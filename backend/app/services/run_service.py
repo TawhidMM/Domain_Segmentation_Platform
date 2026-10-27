@@ -1,4 +1,6 @@
 import json
+import re
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -11,6 +13,15 @@ from app.models.experiment import ExperimentStatus, VALID_EXPERIMENT_TRANSITIONS
 from app.services.experiment_service import require_experiment_with_access
 from app.models.run import Run
 from app.repositories import run_config_repository, run_repository
+
+MAX_LOG_BYTES = 1024 * 1024
+LOG_READ_CHUNK_SIZE = 64 * 1024
+ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+SECRET_RE = re.compile(
+    r"(?i)\b(password|passwd|secret|token|api[_-]?key|authorization)"
+    r"(\s*[:=]\s*)([^\s,;]+)"
+)
+BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
 
 
 def require_run_with_access(
@@ -129,6 +140,71 @@ def get_metrics_json(
     metrics = load_metrics_file(run_context)
 
     return metrics
+
+
+def get_run_logs(
+    db: Session,
+    run_id: str,
+    token: str,
+    stream: str,
+    lines: int,
+) -> dict:
+    try:
+        uuid.UUID(run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid run ID") from exc
+
+    run = require_run_with_access(db, run_id, token)
+    run_context = build_run_context(db, run)
+    log_path = run_context.logs_dir / f"docker_{stream}.log"
+    log_root = run_context.logs_dir.resolve()
+
+    try:
+        if log_path.resolve().parent != log_root:
+            raise HTTPException(status_code=400, detail="Invalid log path")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    if not log_path.exists():
+        if run.status in (ExperimentStatus.QUEUED, ExperimentStatus.RUNNING):
+            log_lines = []
+        else:
+            raise HTTPException(status_code=404, detail="Log file not found")
+    else:
+        log_lines = _read_last_log_lines(log_path, lines)
+
+    return {
+        "run_id": run.id,
+        "status": run.status.value,
+        "stream": stream,
+        "lines": log_lines,
+    }
+
+
+def _read_last_log_lines(log_path, line_count: int) -> list[str]:
+    buffer = bytearray()
+
+    with log_path.open("rb") as log_file:
+        log_file.seek(0, 2)
+        position = log_file.tell()
+
+        while position > 0 and buffer.count(b"\n") < line_count:
+            read_size = min(LOG_READ_CHUNK_SIZE, position)
+            position -= read_size
+            log_file.seek(position)
+            buffer[:0] = log_file.read(read_size)
+
+            if len(buffer) > MAX_LOG_BYTES:
+                del buffer[:-MAX_LOG_BYTES]
+                break
+
+    lines = bytes(buffer).splitlines()[-line_count:]
+    return [_redact_log_line(ANSI_ESCAPE_RE.sub("", line.decode("utf-8", errors="replace"))) for line in lines]
+
+
+def _redact_log_line(line: str) -> str:
+    line = BEARER_RE.sub("Bearer [REDACTED]", line)
+    return SECRET_RE.sub(r"\1\2[REDACTED]", line)
 
 
 def mark_running(

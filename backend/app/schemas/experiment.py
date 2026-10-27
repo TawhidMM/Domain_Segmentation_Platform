@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime
 
 from app.schemas.dataset import DatasetConfigRequest
@@ -50,6 +50,19 @@ class RunStatusResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RunLogsRequest(BaseModel):
+    token: str = Field(..., min_length=1)
+    stream: Literal["stdout", "stderr"] = "stderr"
+    lines: int = Field(default=100, ge=1, le=1000)
+
+
+class RunLogsResponse(BaseModel):
+    run_id: str
+    status: str
+    stream: Literal["stdout", "stderr"]
+    lines: List[str]
 
 
 class DatasetWithRunsResponse(BaseModel):

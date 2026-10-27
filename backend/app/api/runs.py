@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.experiment import RunStatusResponse
+from app.schemas.experiment import RunLogsRequest, RunLogsResponse, RunStatusResponse
 from app.services import run_service
 from app.services import export_service
 from app.services.run_service import require_run_with_access
@@ -47,6 +47,21 @@ def get_metrics(
     db: Session = Depends(get_db)
 ):
     return run_service.get_metrics_json(db, run_id, token)
+
+
+@router.post("/{run_id}/logs", response_model=RunLogsResponse)
+def get_logs(
+    run_id: str,
+    request: RunLogsRequest,
+    db: Session = Depends(get_db)
+):
+    return run_service.get_run_logs(
+        db=db,
+        run_id=run_id,
+        token=request.token,
+        stream=request.stream,
+        lines=request.lines,
+    )
 
 
 @router.get("/{run_id}/export")
