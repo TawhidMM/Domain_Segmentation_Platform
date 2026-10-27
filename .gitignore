@@ -5,3 +5,5 @@ ss/
 tast.txt
 .vscode
 dev.sh
+.deploy.lock
+.last_deployed_state
