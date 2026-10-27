@@ -155,8 +155,9 @@ const ComparePageContent: React.FC = () => {
     }))
     .filter((exp) => exp.result);
 
-  // Calculate grid columns based on number of experiments
-  const gridCols = experimentsWithResults.length <= 2 ? experimentsWithResults.length : 2;
+  // Keep the plot width stable while results load so Plotly does not capture
+  // a full-width baseline before the grid becomes two columns.
+  const gridCols = 2;
 
   // Prepare metrics data for MetricsTable and MetricsBarCharts
   const experimentMetricsData = experimentIds.map((expId) => ({
@@ -300,7 +301,7 @@ const ComparePageContent: React.FC = () => {
                 <Box
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+                    gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
                     gap: 3,
                   }}
                 >
@@ -318,6 +319,7 @@ const ComparePageContent: React.FC = () => {
                         onDrop={(e) => handleDrop(e, exp.id, handleReorderExperiment)}
                         onDragEnd={handleDragEnd}
                         sx={{
+                          minWidth: 0,
                           cursor: 'grab',
                           opacity: dragging ? 0.5 : 1,
                           transform: dragOver && !dragging ? 'scale(0.98)' : 'scale(1)',

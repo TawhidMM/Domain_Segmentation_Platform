@@ -47,6 +47,7 @@ export function useZoomScaledMarkerSize({
 }: ZoomScaledMarkerSizeOptions = {}): ZoomScaledMarkerSizeResult {
   const [scale, setScale] = useState(1);
   const baselineSpanRef = useRef<number | null>(null);
+  const baselineWidthRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
 
   const scheduleScale = useCallback(
@@ -63,26 +64,34 @@ export function useZoomScaledMarkerSize({
     [],
   );
 
-  const captureBaseline = useCallback((figure: any) => {
-    if (baselineSpanRef.current !== null) return;
-
+  const captureBaseline = useCallback((figure: any, graphDiv?: HTMLElement) => {
     const range = getRangeFromFigure(figure);
     const span = range ? getSpan(range) : 0;
-    if (span > 0) {
+    const width = graphDiv?.clientWidth ?? null;
+    const widthChanged =
+      width !== null && width > 0 && baselineWidthRef.current !== null && baselineWidthRef.current !== width;
+
+    if (span > 0 && (baselineSpanRef.current === null || widthChanged)) {
       baselineSpanRef.current = span;
+      if (width !== null && width > 0) {
+        baselineWidthRef.current = width;
+      }
+      if (widthChanged) {
+        scheduleScale(1);
+      }
     }
-  }, []);
+  }, [scheduleScale]);
 
   const onInitialized = useCallback(
-    (figure: any, _graphDiv: HTMLElement) => {
-      captureBaseline(figure);
+    (figure: any, graphDiv: HTMLElement) => {
+      captureBaseline(figure, graphDiv);
     },
     [captureBaseline],
   );
 
   const onUpdate = useCallback(
-    (figure: any, _graphDiv: HTMLElement) => {
-      captureBaseline(figure);
+    (figure: any, graphDiv: HTMLElement) => {
+      captureBaseline(figure, graphDiv);
 
       const baselineSpan = baselineSpanRef.current;
       if (baselineSpan === null) return;
