@@ -41,7 +41,7 @@ services:
 
   worker:
     image: ${BACKEND_IMAGE}
-    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-1}
     env_file:
       - .env.ci
     depends_on:

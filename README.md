@@ -9,7 +9,7 @@ A web server for spatial transcriptomics domain identification. Upload a dataset
 - [Deployment](#deployment)
 - [Browser requirements](#browser-requirements)
 - [Configuration](#configuration)
-- [Updating](#updating) 
+- [Updating](#updating)
 - [Sample data and tutorials](#sample-data-and-tutorials)
 
 
@@ -27,34 +27,21 @@ A web server for spatial transcriptomics domain identification. Upload a dataset
 | Port | TCP 80 by default, configurable with `HTTP_PORT` |
 | Permissions | The deploying user is in the `docker` group, or uses `sudo` |
 
+### Hardware
 
-<!-- ### Hardware
+The minimum CPU, RAM, and GPU figures assume that only one analysis execution runs at a time. To run multiple analyses concurrently, increase the CPU, RAM, and GPU resources proportionately for the desired concurrency.
 
-| Resource | Minimum | Recommended |
-|---|---|---|
-| CPU | 4 cores | 8+ cores |
-| RAM | 16 GB | 32 GB |
-| GPU | NVIDIA, 8 GB VRAM | NVIDIA, 12-24 GB VRAM |
-| Free disk | 50 GB | 100 GB+ |
-
-> **Important: a CUDA-capable NVIDIA GPU is mandatory.** The analysis tools are deep-learning models and are not practical on CPU.
-
-**RAM and VRAM.** These figures are estimates for typical datasets (10x Visium, a few thousand spots). Memory use grows with the number of spots/cells and genes, so large datasets (tens of thousands of spots, e.g. Stereo-seq or Slide-seq) need considerably more RAM and VRAM. Analysis jobs run **one at a time** (the analysis worker has concurrency 1), so the requirement applies to a single run, not to several runs added together. The platform services themselves (database, Redis, API, workers, nginx) use roughly 2-3 GB.
-
-**Disk.** Docker images are large because each tool ships its own deep-learning environment:
-
-| Image | Size on disk |
+| Resource | Minimum |
 |---|---|
-| `tawhidmm/st_tools:staig-latest` | ~6.6 GB |
-| `tawhidmm/st_tools:scribbledom-latest` | ~5.5 GB |
-| `tawhidmm/st_tools:deepst-latest` | ~5.3 GB |
-| API / worker image (shared by `api`, `worker`, `worker-io`, `beat`) | ~1.5 GB |
-| PostgreSQL, nginx, tusd, Redis, frontend, alpine | ~0.5 GB |
-| **Total images** | **~20 GB** |
+| CPU | 4 cores |
+| RAM | 12 GB |
+| GPU | NVIDIA, 4 GB VRAM |
+| Free disk | 50 GB |
 
-On top of that you need space for uploaded datasets, experiment results, the PostgreSQL volume, and temporary space while images are being downloaded and extracted. Docker stores images under `/var/lib/docker` by default. **Make sure that partition has enough free space**, since `/var` is often a small partition on servers. Check with `df -h /var/lib/docker`.
 
---- -->
+> The 4 GB minimum VRAM covers all stages except STAIG image feature extraction. That stage needs a 24 GB GPU; without one, a user can upload precomputed image features instead.
+
+Memory needs grow with dataset size. The figures above are for typical datasets (~4,000 spots), and much larger datasets need more RAM and VRAM.  The **Minimum** figures were calculated by running **the DLPFC** dataset. See [Resource usage details](#resource-usage-details).
 
 ## GPU setup
  
@@ -102,7 +89,7 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
  
-The first run downloads about 20 GB. The script pulls the images one at a time, starts the services, applies database migrations and checks that every container is stable. It ends with `DEPLOYMENT SUCCESSFUL`. If a step fails, it prints the failing step, container status and recent logs.
+The first run downloads about 20 GB. The script pulls the images one at a time, runs database migrations in the one-shot `migrate` service, starts the application services only after migrations succeed, and checks that every container is stable. It ends with `DEPLOYMENT SUCCESSFUL`. If a step fails, it prints the failing step, container status and recent logs.
  
 Always use `./deploy.sh` rather than a plain `docker compose up`.
 
@@ -187,6 +174,8 @@ All settings are in `.env`.
 | `HOST_EXPERIMENTS_ROOT` | Absolute host path for experiment results, e.g. `/srv/st_project/experiments` |
 | `HOST_UPLOADS_ROOT` | Absolute host path for uploaded datasets, e.g. `/srv/st_project/uploads` |
 | `HTTP_PORT` | Host port to expose the platform on. Default `80`. |
+| `WORKER_CONCURRENCY` | Number of concurrent segmentation jobs handled by the heavy worker. Default `1`; increase only when the server has sufficient CPU, RAM, and GPU resources. |
+| `WORKER_IO_CONCURRENCY` | Number of concurrent lightweight I/O tasks handled by the I/O worker. Default `4`; tune independently from `WORKER_CONCURRENCY`. |
  
 
 ## Updating
@@ -262,7 +251,7 @@ entry after verification with `crontab -e`.
 ```bash
 crontab -e
 ```
-Add the follwing commands and save it. Replace `/absolute/path/to/project` with the absolute path to the project
+Add the following commands and save them. Replace `/absolute/path/to/project` with the absolute path to the project
 directory.
 
 ```cron
@@ -279,6 +268,29 @@ MAILTO=""
 
 **Video tutorials:** [Spatial Transcriptomics Webserver - YouTube playlist](https://www.youtube.com/playlist?list=PLA_NksohuCtNzN6l_ZiJuAr2sjdAbjhFE). They cover the interface, dataset upload, and how to interpret the domain identification results.
 
+## Resource usage details
+
+### Measured usage
+
+Peak usage of a single analysis job on **DLPFC** datasets of about 4,000 spots, without any safety margin:
+
+| Tool | Peak RAM | Peak GPU memory |
+|---|---|---|
+| DeepST | 8.5 GiB | 1.01 GiB |
+| ScribbleDom | 6.5 GiB | 1.69 GiB |
+| STAIG | 4.2 GiB | 2.41 GiB |
+
+These figures exclude STAIG's histology image feature extraction.
+
+### How the recommendations were derived
+
+**RAM.** Measured peak plus a 30% margin, rounded to standard sizes:
+
+| Tool | Tool RAM with margin | GPU with margin |
+|---|---|---|
+| DeepST | 12 GB | 4 GB |
+| ScribbleDom | 10 GB | 4 GB |
+| STAIG | 8 GB | 4 GB |
 
 
 ## Repository layout:

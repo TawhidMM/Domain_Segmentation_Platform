@@ -70,7 +70,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: st_project_worker
-    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-1}
     restart: unless-stopped
     depends_on:
       - db
@@ -91,7 +91,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: st_project_worker_io
-    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=4 -Q io
+    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=${WORKER_IO_CONCURRENCY:-4} -Q io
     restart: unless-stopped
     depends_on:
       - db

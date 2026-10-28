@@ -35,6 +35,19 @@ services:
       - ${HOST_UPLOADS_ROOT}:/app/uploads
     restart: "no"    
 
+  migrate:
+    image: tawhidmm/st_project:api-latest
+    container_name: st_project_migrate
+    command: alembic upgrade head
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - backend
+
   tusd:
     image: tusproject/tusd:v2.5.0
     container_name: st_project_tusd
@@ -58,6 +71,8 @@ services:
     depends_on:
       chown-fix:
         condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -76,9 +91,11 @@ services:
   worker:
     container_name: st_project_worker
     image: tawhidmm/st_project:worker-latest
-    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-1}
     restart: unless-stopped
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -97,9 +114,11 @@ services:
   worker-io:
       container_name: st_project_worker_io
       image: tawhidmm/st_project:worker-latest
-      command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=4 -Q io
+      command: celery -A app.core.celery.celery_app worker --loglevel=info --concurrency=${WORKER_IO_CONCURRENCY:-4} -Q io
       restart: unless-stopped
       depends_on:
+        migrate:
+          condition: service_completed_successfully
         db:
           condition: service_healthy
         redis:
@@ -118,7 +137,10 @@ services:
     command: celery -A app.core.celery.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
     restart: unless-stopped
     depends_on:
-      - redis
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     env_file:
       - .env
     networks:
