@@ -401,17 +401,6 @@ const HowToUsePage: React.FC = () => {
                             Full-resolution histology image. <strong>Required only when image-based feature extraction is enabled.</strong>
                           </TableCell>
                         </TableRow>
-
-                        <TableRow>
-                          <TableCell>
-                            <code style={{ fontSize: '0.875rem' }}>
-                              dataset_name.h5ad
-                            </code>
-                          </TableCell>
-                          <TableCell>
-                            Standalone AnnData file accepted as an alternative input format to the zipped Space Ranger dataset.
-                          </TableCell>
-                        </TableRow>
                       </TableBody>
                     </Table>
                   </TableContainer>
@@ -421,6 +410,15 @@ const HowToUsePage: React.FC = () => {
               <Alert severity="info" sx={{ mt: 3 }}>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
                   All uploaded datasets are automatically validated before analysis begins.
+                </Typography>
+              </Alert>
+
+              <Alert severity="warning" sx={{ mt: 3 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                  STAIG's histology image feature extraction is GPU memory-intensive (a high-VRAM GPU such as 24 GB is recommended). If execution fails due to insufficient GPU memory, you can extract the features yourself and upload the embedding file instead.
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0 }}>
+                  Prepare an <code>embeddings.npy</code> file using <a href="https://github.com/y-itao/STAIG/blob/main/example/Fig-3b.ipynb" target="_blank" rel="noopener noreferrer">this notebook</a>, then upload it along with your dataset zip file.
                 </Typography>
               </Alert>
             </Box>
