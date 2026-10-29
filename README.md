@@ -20,12 +20,12 @@ A web server for spatial transcriptomics domain identification. Upload a dataset
 | | |
 |---|---|
 | OS | Linux, x86_64 (amd64) |
-| Docker Engine | Rootful installation. Rootless Docker and Podman are not supported. |
+| Docker Engine | Rootful installation. Rootless Docker is not supported. |
 | Docker Compose | v2 (v2.1.1 or newer) |
 | NVIDIA driver and NVIDIA Container Toolkit | See [GPU setup](#gpu-setup) |
 | Network | Outbound access to Docker Hub (images are public) |
 | Port | TCP 80 by default, configurable with `HTTP_PORT` |
-| Permissions | The deploying user is in the `docker` group, or uses `sudo` |
+| Permissions | The deploying user is in the `docker` group |
 
 ### Hardware
 
@@ -45,7 +45,7 @@ Memory needs grow with dataset size. The figures above are for typical datasets 
 
 ## GPU setup
  
-The GPU is used by the analysis tool containers, so Docker must be able to pass it through. Do this once per server.
+The GPU is used by the analysis tool containers, so Docker must be able to pass it through.
  
 #### 1. Confirm the NVIDIA driver works on the host (it must print your GPU):
 ```bash
