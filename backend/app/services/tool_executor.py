@@ -12,7 +12,7 @@ from app.services.tools_service import resolve_config
 from app.tools.tool_registry import get_registry
 from app.schemas.tool import Tool
 from app.utils.metrics import get_segmentation_metrics
-from app.dataset.visium import VisiumDataset
+from app.dataset import get_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -155,15 +155,15 @@ class ToolExecutor:
             )
 
         spatial_dir = self.run_context.dataset_path / "spatial"
-        coords_file = spatial_dir / "tissue_positions_list.csv"
+        dataset = get_dataset(self.run_context.technology)
+        coords_file = dataset.resolve_coordinates_file(spatial_dir)
 
-        visium = VisiumDataset()
-        scale_factors = visium.read_scale_factors(spatial_dir)
+        scale_factors = dataset.read_scale_factors(spatial_dir)
 
-        spots = visium.merge_predictions_and_coords(prediction_file, coords_file, scale_factors)
-        domains = visium.get_color_mapped_domain(spots)
+        spots = dataset.merge_predictions_and_coords(prediction_file, coords_file, scale_factors)
+        domains = dataset.get_color_mapped_domain(spots)
 
-        histology_path, histology_type = visium.get_histology_image_path(spatial_dir)
+        histology_path, histology_type = dataset.get_histology_image_path(spatial_dir)
         has_histology = histology_path is not None
 
         result = {
@@ -179,7 +179,10 @@ class ToolExecutor:
 
     def _create_metrics_file(self) -> None:
         prediction_file = self.run_context.output_dir / "predictions.csv"
-        coords_file = self.run_context.dataset_path / "spatial" / "tissue_positions_list.csv"
+        spatial_dir = self.run_context.dataset_path / "spatial"
+
+        dataset = get_dataset(self.run_context.technology)
+        coords_file = dataset.resolve_coordinates_file(spatial_dir)
         embeddings_file = self.run_context.embeddings_file
 
         metrics = get_segmentation_metrics(prediction_file, coords_file, embeddings_file)

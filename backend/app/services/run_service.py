@@ -9,10 +9,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.workspace import RunContext
+from app.models.dataset import DatasetTechnology
 from app.models.experiment import ExperimentStatus, VALID_EXPERIMENT_TRANSITIONS
 from app.services.experiment_service import require_experiment_with_access
 from app.models.run import Run
-from app.repositories import run_config_repository, run_repository
+from app.repositories import run_config_repository, run_repository, dataset_repository
 
 MAX_LOG_BYTES = 1024 * 1024
 LOG_READ_CHUNK_SIZE = 64 * 1024
@@ -96,10 +97,14 @@ def build_run_context(
     run_config = run.run_config
     experiment = run_config.experiment
 
+    dataset = dataset_repository.get_dataset_by_id(db, run_config.dataset_id)
+    technology = dataset.technology if dataset else DatasetTechnology.VISIUM
+
     context = RunContext.create(
         experiment_id=experiment.id,
         run_id=run.id,
         dataset_id=run_config.dataset_id,
+        technology=technology,
         annotation_id=run_config.annotation_id,
         tool_id=experiment.tool_id,
         experiment_name=experiment.experiment_name,

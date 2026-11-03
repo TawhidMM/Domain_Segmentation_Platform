@@ -3,10 +3,13 @@ import shutil
 from pathlib import Path
 
 from app.core.celery import celery_app
+from app.core.database import SessionLocal
 from app.core.redis import redis_client, RESULT_VALIDATION_SESSION_TTL, get_result_validation_key
 
 from app.core.config import settings
 from app.core.workspace import DatasetSpace
+from app.dataset import get_dataset
+from app.repositories.dataset_repository import get_dataset_by_id
 from app.exceptions.result_validation_exception import ResultValidationException, MissingFilesException, \
     FileShapeMismatchException, BarcodeAlignmentException, SchemaViolationException, InvalidDataTypesException
 from app.schemas.result_validation import ValidationPayload, ValidationStatus, ValidationErrorType
@@ -220,9 +223,18 @@ def _dataset_cross_validation(
     prediction_barcodes: set[str],
     dataset_id: str
 ):
-    dataset_dir = DatasetSpace(dataset_id).dataset_path
+    with SessionLocal() as db:
+        dataset = get_dataset_by_id(db, dataset_id)
+        if dataset is None:
+            raise BarcodeAlignmentException(
+                f"Cross-validation aborted. Dataset '{dataset_id}' not found in the system."
+            )
+        technology = dataset.technology
 
-    dataset_coords_file = dataset_dir / "spatial" / "tissue_positions_list.csv"
+    dataset_dir = DatasetSpace(dataset_id).dataset_path
+    dataset_coords_file = get_dataset(technology).resolve_coordinates_file(
+        dataset_dir / "spatial"
+    )
 
     if not dataset_coords_file.exists():
         raise BarcodeAlignmentException(

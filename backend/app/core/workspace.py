@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 
 from app.core.config import settings
 from app.core.storage_space import DatasetSpace
+from app.models.dataset import DatasetTechnology
 
 
 class ExperimentWorkspace:
@@ -75,6 +76,7 @@ class RunContext:
     experiment_id: str
     run_id: str
     dataset_id: str
+    technology: DatasetTechnology
     annotation_id: Optional[str]
 
     experiment_workspace: ExperimentWorkspace
@@ -142,6 +144,7 @@ class RunContext:
         experiment_id: str,
         run_id: str,
         dataset_id: str,
+        technology: DatasetTechnology,
         tool_id: str,
         experiment_name: str,
         params: Dict[str, Any],
@@ -157,6 +160,7 @@ class RunContext:
             experiment_id=experiment_id,
             run_id=run_id,
             dataset_id=dataset_id,
+            technology=technology,
             annotation_id=annotation_id,
             experiment_workspace=experiment_workspace,
             run_workspace=run_workspace,
