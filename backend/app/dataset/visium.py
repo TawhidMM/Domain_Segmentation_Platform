@@ -55,8 +55,18 @@ class VisiumDataReader(SpatialDataReader):
                 f"Scale factors file not found at {scale_file}. "
                 f"Expected '{self.SCALE_FACTORS_FILE}' in spatial result_directory."
             )
-        with scale_file.open("r") as f:
-            return json.load(f)
+        try:
+            with scale_file.open("r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+            raise DatasetValidationError(
+                f"{self.SCALE_FACTORS_FILE} is not valid JSON: {exc}"
+            ) from exc
+        if not isinstance(data, dict):
+            raise DatasetValidationError(
+                f"{self.SCALE_FACTORS_FILE} must contain a JSON object."
+            )
+        return data
 
     def validate(self) -> None:
         self._validate_layout()
@@ -102,10 +112,17 @@ class VisiumDataReader(SpatialDataReader):
     def _validate_scalefactors(self, spatial_dir: Path) -> None:
         scale_file = spatial_dir / self.SCALE_FACTORS_FILE
         try:
-            with scale_file.open("r") as f:
+            with scale_file.open("r", encoding="utf-8-sig") as f:
                 data = json.load(f)
-        except (json.JSONDecodeError, OSError) as exc:
-            raise DatasetValidationError(f"{self.SCALE_FACTORS_FILE} is not valid JSON: {exc}")
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+            raise DatasetValidationError(
+                f"{self.SCALE_FACTORS_FILE} is not valid JSON: {exc}"
+            ) from exc
+
+        if not isinstance(data, dict):
+            raise DatasetValidationError(
+                f"{self.SCALE_FACTORS_FILE} must contain a JSON object."
+            )
 
         required_keys = {
             "tissue_hires_scalef",
@@ -131,7 +148,7 @@ class VisiumDataReader(SpatialDataReader):
         in_tissue_count = 0
 
         try:
-            with positions_file.open(newline="", encoding="utf-8") as f:
+            with positions_file.open(newline="", encoding="utf-8-sig") as f:
                 reader = csv.reader(f)
                 first_row = next(reader, None)
 
@@ -164,8 +181,10 @@ class VisiumDataReader(SpatialDataReader):
                     if len(error_samples) >= 5:
                         break
 
-        except (csv.Error, OSError) as exc:
-            raise DatasetValidationError(f"File '{positions_file.name}' is not readable CSV: {exc}")
+        except (csv.Error, UnicodeDecodeError, OSError) as exc:
+            raise DatasetValidationError(
+                f"File '{positions_file.name}' is not readable CSV: {exc}"
+            ) from exc
 
         # Batch reporting for malformed rows
         if error_samples:
@@ -257,10 +276,10 @@ class VisiumDataReader(SpatialDataReader):
             try:
                 with Image.open(image_file) as img:
                     img.verify()
-            except (OSError, ValueError) as exc:
+            except (Image.DecompressionBombError, OSError, ValueError) as exc:
                 raise DatasetValidationError(
                     f"Image {name} is corrupted or not a valid image: {exc}"
-                )
+                ) from exc
 
     def _validate_barcode_alignment(self, spatial_dir: Path) -> None:
         positions_file = self._find_positions_file(spatial_dir)
@@ -270,7 +289,7 @@ class VisiumDataReader(SpatialDataReader):
 
         position_barcodes: set[str] = set()
         try:
-            with positions_file.open(newline="", encoding="utf-8") as f:
+            with positions_file.open(newline="", encoding="utf-8-sig") as f:
                 reader = csv.reader(f)
                 first_row = next(reader, None)
                 if not has_header_row(first_row):
@@ -279,8 +298,10 @@ class VisiumDataReader(SpatialDataReader):
                 for row in reader:
                     if row and row[0].strip():
                         position_barcodes.add(row[0].strip().strip('"'))
-        except (csv.Error, OSError) as exc:
-            raise DatasetValidationError(f"Failed to read tissue_positions for alignment check: {exc}")
+        except (csv.Error, UnicodeDecodeError, OSError) as exc:
+            raise DatasetValidationError(
+                f"Failed to read tissue_positions for alignment check: {exc}"
+            ) from exc
 
         matrix_barcodes: list[str] = []
         try:

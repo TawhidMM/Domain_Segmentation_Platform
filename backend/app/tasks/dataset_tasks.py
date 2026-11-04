@@ -1,4 +1,5 @@
 import logging
+import zipfile
 from pathlib import Path
 
 import httpx
@@ -43,7 +44,7 @@ def process_dataset_task(self, dataset_id: str) -> None:
 
         dataset_repository.update_dataset_status(db, dataset_id, DatasetExtractionStatus.READY)
 
-    except DatasetValidationError as exc:
+    except (DatasetValidationError, zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
         dataset_repository.update_dataset_status(
             db, dataset_id, DatasetExtractionStatus.FAILED, str(exc)
         )
