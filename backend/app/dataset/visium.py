@@ -1,29 +1,68 @@
 import csv
 import json
+from functools import cached_property
 from pathlib import Path
-from typing import Set, List
+from typing import Set, List, Optional
+
 import h5py
 from PIL import Image
 
-from app.dataset.spatial_dataset import SpatialDataset
+from app.dataset.spatial_dataset import SpatialDataReader
 from app.exceptions.dataset_validation_exception import DatasetValidationError
 
 
-class VisiumDataset(SpatialDataset):
+class VisiumDataReader(SpatialDataReader):
     SPATIAL_DIR = "spatial"
     SCALE_FACTORS_FILE = "scalefactors_json.json"
     POSITIONS_FILES = ("tissue_positions.csv", "tissue_positions_list.csv")
     IMAGE_FILES = ("tissue_hires_image.png", "tissue_lowres_image.png")
     MATRIX_FILES = ("filtered_feature_bc_matrix.h5", "raw_feature_bc_matrix.h5")
 
+    display_spaces = ("fullres", "hires", "lowres")
+    default_display_space = "hires"
 
-    def validate_dataset(self, extracted_dir: Path) -> None:
-        self._validate_layout(extracted_dir)
-        self._validate_content(extracted_dir)
+    def __init__(self, dataset_dir: Path):
+        super().__init__(dataset_dir)
 
+    def _find_spatial_dir(self) -> Optional[Path]:
+        spatial_dir = self.dataset_dir / self.SPATIAL_DIR
+        if spatial_dir.exists():
+            return spatial_dir
+        possible_paths = list(self.dataset_dir.rglob(self.SPATIAL_DIR))
+        return possible_paths[0] if possible_paths else None
 
-    def _validate_layout(self, extracted_dir: Path) -> None:
-        spatial_dir = self._find_spatial_dir(extracted_dir)
+    @cached_property
+    def _spatial_dir(self) -> Path:
+        spatial_dir = self._find_spatial_dir()
+        if spatial_dir is None:
+            raise FileNotFoundError("No spatial result_directory found")
+        return spatial_dir
+
+    @cached_property
+    def _coordinates_file(self) -> Path:
+        for name in self.POSITIONS_FILES:
+            candidate = self._spatial_dir / name
+            if candidate.exists():
+                return candidate
+        raise FileNotFoundError("No tissue positions file found in spatial result_directory")
+
+    @cached_property
+    def _scale_factors(self) -> dict:
+        scale_file = self._spatial_dir / self.SCALE_FACTORS_FILE
+        if not scale_file.exists():
+            raise FileNotFoundError(
+                f"Scale factors file not found at {scale_file}. "
+                f"Expected '{self.SCALE_FACTORS_FILE}' in spatial result_directory."
+            )
+        with scale_file.open("r") as f:
+            return json.load(f)
+
+    def validate(self) -> None:
+        self._validate_layout()
+        self._validate_content()
+
+    def _validate_layout(self) -> None:
+        spatial_dir = self._find_spatial_dir()
         if spatial_dir is None:
             raise DatasetValidationError(f"Missing '{self.SPATIAL_DIR}' directory in extracted dataset.")
 
@@ -43,23 +82,21 @@ class VisiumDataset(SpatialDataset):
                     f"images are required."
                 )
 
-        if not any((extracted_dir / name).exists() for name in self.MATRIX_FILES):
+        if not any((self.dataset_dir / name).exists() for name in self.MATRIX_FILES):
             raise DatasetValidationError(
                 f"Missing feature matrix (expected {' or '.join(self.MATRIX_FILES)})."
             )
 
-
-    def _validate_content(self, extracted_dir: Path) -> None:
-        spatial_dir = self._find_spatial_dir(extracted_dir)
+    def _validate_content(self) -> None:
+        spatial_dir = self._find_spatial_dir()
         if spatial_dir is None:
             return
 
         self._validate_scalefactors(spatial_dir)
         self._validate_positions(spatial_dir)
-        self._validate_matrix_structure(extracted_dir)
+        self._validate_matrix_structure()
         self._validate_images(spatial_dir)
-        self._validate_barcode_alignment(spatial_dir, extracted_dir)
-
+        self._validate_barcode_alignment(spatial_dir)
 
     def _validate_scalefactors(self, spatial_dir: Path) -> None:
         scale_file = spatial_dir / self.SCALE_FACTORS_FILE
@@ -80,7 +117,6 @@ class VisiumDataset(SpatialDataset):
             raise DatasetValidationError(
                 f"{self.SCALE_FACTORS_FILE} missing keys: {', '.join(sorted(missing))}"
             )
-
 
     def _validate_positions(self, spatial_dir: Path):
 
@@ -144,7 +180,6 @@ class VisiumDataset(SpatialDataset):
                 "Dataset contains no biological tissue data."
             )
 
-
     def _validate_single_row(
             self,
             row: List[str],
@@ -162,89 +197,63 @@ class VisiumDataset(SpatialDataset):
             return False
 
         barcode = row[0].strip().strip('"')
-
         if not barcode:
             error_samples.append(f"Line {line_num}: empty barcode")
             return False
 
-        if barcode in valid_barcodes:
-            error_samples.append(f"Line {line_num}: duplicate barcode '{barcode}'")
-            return False
-
-        # Validate integer fields: in_tissue, array_row, array_col, pxl_row_in_fullres, pxl_col_in_fullres
         try:
             in_tissue = int(row[1].strip())
-            array_row = int(row[2].strip())
-            array_col = int(row[3].strip())
-            pxl_row = int(row[4].strip())
-            pxl_col = int(row[5].strip())
         except ValueError:
-            error_samples.append(
-                f"Line {line_num}: non-integer values in numeric columns ({row[1:]})"
-            )
+            error_samples.append(f"Line {line_num}: invalid in_tissue value '{row[1]}'")
             return False
 
-        # Value boundary checks
+        try:
+            float(row[2].strip())
+            float(row[3].strip())
+            float(row[4].strip())
+            float(row[5].strip())
+        except ValueError:
+            error_samples.append(f"Line {line_num}: non-numeric coordinate value")
+            return False
+
         if in_tissue not in (0, 1):
-            error_samples.append(f"Line {line_num}: 'in_tissue' must be 0 or 1, got {in_tissue}")
+            error_samples.append(f"Line {line_num}: in_tissue must be 0 or 1")
             return False
 
-        if min(array_row, array_col, pxl_row, pxl_col) < 0:
-            error_samples.append(f"Line {line_num}: coordinates cannot be negative")
-            return False
+        if in_tissue == 1:
+            valid_barcodes.add(barcode)
 
-        valid_barcodes.add(barcode)
+        return True
 
-        return in_tissue == 1
-
-
-    def _validate_matrix_structure(self, extracted_dir: Path) -> None:
-        matrix_file = self._find_matrix_file(extracted_dir)
+    def _validate_matrix_structure(self) -> None:
+        matrix_file = self._find_matrix_file()
         if matrix_file is None:
-            return
+            raise DatasetValidationError(
+                f"Missing feature matrix (expected {' or '.join(self.MATRIX_FILES)})."
+            )
 
         try:
             with h5py.File(matrix_file, "r") as h5f:
-                grp = h5f.get("matrix")
-                if grp is None:
-                    raise DatasetValidationError("H5 file is missing '/matrix' group.")
-
-                required_dsets = {"barcodes", "data", "indices", "indptr", "shape"}
-                present = set(grp.keys())
-                missing = required_dsets - present
-                if missing:
+                barcodes_dset = h5f.get("matrix/barcodes")
+                if barcodes_dset is None:
                     raise DatasetValidationError(
-                        f"H5 matrix group missing datasets: {', '.join(sorted(missing))}"
+                        "Matrix file does not contain 'matrix/barcodes' dataset."
                     )
-
-                barcodes_dset = grp["barcodes"]
-                n_barcodes = len(barcodes_dset)
-                if n_barcodes == 0:
-                    raise DatasetValidationError("Matrix has 0 barcodes.")
-
-                shape_dset = grp["shape"]
-                n_features, declared_n_barcodes = int(shape_dset[0]), int(shape_dset[1])
-
-                if n_features == 0:
-                    raise DatasetValidationError("Matrix has 0 features.")
-                if declared_n_barcodes == 0:
-                    raise DatasetValidationError("Matrix declares 0 barcodes in shape.")
-                if n_barcodes != declared_n_barcodes:
-                    raise DatasetValidationError(
-                        f"Barcode count mismatch: shape declares {declared_n_barcodes} barcodes, "
-                        f"but barcodes dataset has {n_barcodes} entries."
-                    )
-        except DatasetValidationError:
-            raise
+                matrix_barcodes = [
+                    (b.decode("utf-8") if isinstance(b, bytes) else str(b)).strip()
+                    for b in barcodes_dset[:]
+                ]
         except (OSError, ValueError, KeyError) as exc:
             raise DatasetValidationError(f"File is not a valid HDF5 matrix: {exc}")
-        except Exception as exc:
-            raise DatasetValidationError(f"Failed to read H5 matrix with h5py: {exc}")
 
+        if len(matrix_barcodes) == 0:
+            raise DatasetValidationError("Matrix file contains no barcodes.")
 
     def _validate_images(self, spatial_dir: Path) -> None:
         for name in self.IMAGE_FILES:
             image_file = spatial_dir / name
+            if not image_file.exists():
+                raise DatasetValidationError(f"Missing {name} in {self.SPATIAL_DIR}/.")
             try:
                 with Image.open(image_file) as img:
                     img.verify()
@@ -253,14 +262,9 @@ class VisiumDataset(SpatialDataset):
                     f"Image {name} is corrupted or not a valid image: {exc}"
                 )
 
-
-    def _validate_barcode_alignment(
-        self,
-        spatial_dir: Path,
-        extracted_dir: Path,
-    ) -> None:
+    def _validate_barcode_alignment(self, spatial_dir: Path) -> None:
         positions_file = self._find_positions_file(spatial_dir)
-        matrix_file = self._find_matrix_file(extracted_dir)
+        matrix_file = self._find_matrix_file()
         if positions_file is None or matrix_file is None:
             return
 
@@ -288,8 +292,6 @@ class VisiumDataset(SpatialDataset):
                     (b.decode("utf-8") if isinstance(b, bytes) else str(b)).strip().strip('"')
                     for b in barcodes_dset[:]
                 ]
-        except DatasetValidationError:
-            raise
         except (OSError, ValueError, KeyError) as exc:
             raise DatasetValidationError(f"File is not a valid HDF5 matrix: {exc}")
 
@@ -303,78 +305,23 @@ class VisiumDataset(SpatialDataset):
                 f"Missing count: {len(missing)}."
             )
 
-
-    def _find_spatial_dir(self, extracted_dir: Path) -> Path | None:
-        spatial_dir = extracted_dir / self.SPATIAL_DIR
-        if spatial_dir.exists():
-            return spatial_dir
-        possible_paths = list(extracted_dir.rglob(self.SPATIAL_DIR))
-        return possible_paths[0] if possible_paths else None
-
-
-    def _find_positions_file(self, spatial_dir: Path) -> Path | None:
-        for name in self.POSITIONS_FILES:
-            candidate = spatial_dir / name
-            if candidate.exists():
-                return candidate
-        return None
-
-
-    def _find_matrix_file(self, extracted_dir: Path) -> Path | None:
+    def _find_matrix_file(self) -> Optional[Path]:
         for name in self.MATRIX_FILES:
-            candidate = extracted_dir / name
+            candidate = self.dataset_dir / name
             if candidate.exists():
                 return candidate
         return None
 
-
-    def resolve_spatial_dir(self, dataset_dir: Path) -> Path:
-        spatial_dir = self._find_spatial_dir(dataset_dir)
-        if spatial_dir is None:
-            raise FileNotFoundError("No spatial result_directory found")
-        return spatial_dir
-
-
-    def resolve_coordinates_file(self, spatial_dir: Path) -> Path:
+    def _find_positions_file(self, spatial_dir: Path) -> Optional[Path]:
         for name in self.POSITIONS_FILES:
             candidate = spatial_dir / name
             if candidate.exists():
                 return candidate
-        raise FileNotFoundError("No tissue positions file found in spatial result_directory")
+        return None
 
-
-    def read_scale_factors(self, spatial_dir: Path) -> dict:
-        scale_file = spatial_dir / self.SCALE_FACTORS_FILE
-        if not scale_file.exists():
-            raise FileNotFoundError(
-                f"Scale factors file not found at {scale_file}. "
-                f"Expected '{self.SCALE_FACTORS_FILE}' in spatial result_directory."
-            )
-        with scale_file.open("r") as f:
-            return json.load(f)
-
-
-    def read_predictions(self, prediction_file: Path) -> dict:
-        pred_map = {}
-        with prediction_file.open(newline="") as f:
-            reader = csv.reader(f)
-            next(reader)
-            for row in reader:
-                if len(row) < 2:
-                    continue
-                barcode = row[0].strip()
-                domain = int(row[1])
-                pred_map[barcode] = domain
-        return pred_map
-
-
-    def read_coordinates(self, coord_file: Path, scale_factors: dict | None = None) -> dict:
+    def read_coordinates(self) -> dict[str, tuple[float, float]]:
         coord_map = {}
-        scale_factor = 1.0
-        if scale_factors and "tissue_hires_scalef" in scale_factors:
-            scale_factor = float(scale_factors["tissue_hires_scalef"])
-
-        with coord_file.open(newline="") as f:
+        with self._coordinates_file.open(newline="") as f:
             reader = csv.reader(f)
             for row in reader:
                 if len(row) < 6:
@@ -384,13 +331,44 @@ class VisiumDataset(SpatialDataset):
                 barcode = row[0].strip()
                 pxl_col = float(row[5])
                 pxl_row = float(row[4])
-                coord_map[barcode] = (pxl_col * scale_factor, pxl_row * scale_factor)
+                coord_map[barcode] = (pxl_col, pxl_row)
         return coord_map
 
+    def read_display_coordinates(
+        self, space: Optional[str] = None
+    ) -> dict[str, tuple[float, float]]:
 
-    def get_histology_image_path(self, spatial_dir: Path) -> tuple[Path | None, str | None]:
-        for name in self.IMAGE_FILES:
-            image_file = spatial_dir / name
-            if image_file.exists():
-                return image_file, name.replace("tissue_", "").replace("_image.png", "")
+        space = self._check_space(space)
+        raw = self.read_coordinates()
+
+        if space == "fullres":
+            return raw
+
+        scale_factor = float(self._scale_factors[f"tissue_{space}_scalef"])
+
+        return {
+            barcode: (x * scale_factor, y * scale_factor)
+            for barcode, (x, y) in raw.items()
+        }
+
+    def get_histology_image_path(
+        self, space: Optional[str] = None
+    ) -> tuple[Optional[Path], Optional[str]]:
+
+        space = self._check_space(space)
+
+        if space == "fullres":
+            # Full-resolution histology image (common Space Ranger v2 outputs)
+            for name in ("tissue_fullres_image.tif", "tissue_full_image.tif"):
+                image_file = self._spatial_dir / name
+                if image_file.exists():
+                    return image_file, "fullres"
+            return None, None
+
+        name = f"tissue_{space}_image.png"
+        image_file = self._spatial_dir / name
+
+        if image_file.exists():
+            return image_file, name.replace("tissue_", "").replace("_image.png", "")
+
         return None, None

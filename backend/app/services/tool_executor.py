@@ -12,7 +12,7 @@ from app.services.tools_service import resolve_config
 from app.tools.tool_registry import get_registry
 from app.schemas.tool import Tool
 from app.utils.metrics import get_segmentation_metrics
-from app.dataset import get_dataset
+from app.dataset import get_data_reader
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +145,7 @@ class ToolExecutor:
             )
 
 
-    def _format_tool_prediction(self) -> None:
+    def _format_tool_prediction(self, dataset, space) -> None:
         prediction_file = self.run_context.output_dir / "predictions.csv"
 
         if not prediction_file.is_file() or prediction_file.stat().st_size == 0:
@@ -154,16 +154,10 @@ class ToolExecutor:
                 "Tool finished but produced no predictions.csv",
             )
 
-        spatial_dir = self.run_context.dataset_path / "spatial"
-        dataset = get_dataset(self.run_context.technology)
-        coords_file = dataset.resolve_coordinates_file(spatial_dir)
-
-        scale_factors = dataset.read_scale_factors(spatial_dir)
-
-        spots = dataset.merge_predictions_and_coords(prediction_file, coords_file, scale_factors)
+        spots = dataset.get_spots(prediction_file, space=space)
         domains = dataset.get_color_mapped_domain(spots)
 
-        histology_path, histology_type = dataset.get_histology_image_path(spatial_dir)
+        histology_path, _ = dataset.get_histology_image_path(space)
         has_histology = histology_path is not None
 
         result = {
@@ -171,21 +165,22 @@ class ToolExecutor:
             "experimentName": self.run_context.experiment_name,
             "spots": spots,
             "domains": domains,
-            "has_histology": has_histology
+            "has_histology": has_histology,
+            "coordinate_space": space,
         }
 
         self.run_context.result_file.write_text(json.dumps(result, indent=4))
 
 
-    def _create_metrics_file(self) -> None:
+    def _create_metrics_file(self, dataset) -> None:
         prediction_file = self.run_context.output_dir / "predictions.csv"
-        spatial_dir = self.run_context.dataset_path / "spatial"
-
-        dataset = get_dataset(self.run_context.technology)
-        coords_file = dataset.resolve_coordinates_file(spatial_dir)
         embeddings_file = self.run_context.embeddings_file
 
-        metrics = get_segmentation_metrics(prediction_file, coords_file, embeddings_file)
+        metrics = get_segmentation_metrics(
+            prediction_file,
+            dataset.read_coordinates(),
+            embeddings_file,
+        )
         with open(self.run_context.metrics_file, "w") as f:
             json.dump(metrics, f)
 
@@ -197,14 +192,18 @@ class ToolExecutor:
         self._post_process()
 
 
-    def posst_process_result(self) -> None:
+    def post_process_result(self) -> None:
         self._post_process()
 
 
     def _post_process(self) -> None:
         try:
-            self._format_tool_prediction()
-            self._create_metrics_file()
+            dataset_reader = get_data_reader(
+                self.run_context.technology, self.run_context.dataset_path
+            )
+            space = dataset_reader.default_display_space
+            self._format_tool_prediction(dataset_reader, space)
+            self._create_metrics_file(dataset_reader)
         except Exception as exc:
             logger.exception("Failed to process output for run %s", self.run_context.run_id)
             raise RunExecutionError(

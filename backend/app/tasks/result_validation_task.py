@@ -8,7 +8,7 @@ from app.core.redis import redis_client, RESULT_VALIDATION_SESSION_TTL, get_resu
 
 from app.core.config import settings
 from app.core.workspace import DatasetSpace
-from app.dataset import get_dataset
+from app.dataset import get_data_reader
 from app.repositories.dataset_repository import get_dataset_by_id
 from app.exceptions.result_validation_exception import ResultValidationException, MissingFilesException, \
     FileShapeMismatchException, BarcodeAlignmentException, SchemaViolationException, InvalidDataTypesException
@@ -224,41 +224,23 @@ def _dataset_cross_validation(
     dataset_id: str
 ):
     with SessionLocal() as db:
-        dataset = get_dataset_by_id(db, dataset_id)
-        if dataset is None:
+        dataset_model = get_dataset_by_id(db, dataset_id)
+        if dataset_model is None:
             raise BarcodeAlignmentException(
                 f"Cross-validation aborted. Dataset '{dataset_id}' not found in the system."
             )
-        technology = dataset.technology
+        technology = dataset_model.technology
 
     dataset_dir = DatasetSpace(dataset_id).dataset_path
-    dataset_coords_file = get_dataset(technology).resolve_coordinates_file(
-        dataset_dir / "spatial"
-    )
+    dataset_reader = get_data_reader(technology, dataset_dir)
 
-    if not dataset_coords_file.exists():
+    try:
+        valid_dataset_barcodes = set(dataset_reader.read_coordinates().keys())
+    except FileNotFoundError as exc:
         raise BarcodeAlignmentException(
             f"Cross-validation aborted. Target dataset '{dataset_id}' "
             f"is missing its tissue reference coordinate files on the server."
-        )
-
-    # Parse valid reference biological barcodes from the system dataset
-    valid_dataset_barcodes = set()
-    with open(dataset_coords_file, mode="r", newline="", encoding="utf-8") as f:
-        reader = csv.reader(f)
-
-        for row_idx, row in enumerate(reader, start=1):
-            if not row:
-                continue
-
-            first_val = row[0].strip()
-
-            # If the first row contains structural column strings like "barcode",
-            # skip it dynamically regardless of the files sourcing variant
-            if row_idx == 1 and first_val.lower() in ("barcode", "id"):
-                continue
-
-            valid_dataset_barcodes.add(first_val)
+        ) from exc
 
     # Check if the user's uploaded barcodes exist in the real Visium dataset
     if not prediction_barcodes.issubset(valid_dataset_barcodes):

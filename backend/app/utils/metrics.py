@@ -14,17 +14,17 @@ from sklearn.metrics import calinski_harabasz_score
 
 def get_segmentation_metrics(
     predictions_path: Path,
-    coords_path: Path,
+    coords: dict[str, tuple[float, float]],
     embeddings_path: Path
 ) -> dict:
     """Compute segmentation metrics from predictions and spatial data."""
-    labels, embeddings, coords = load_and_align(
+    labels, embeddings, coord_array = load_and_align(
         predictions_path,
         embeddings_path,
-        coords_path
+        coords
     )
 
-    W = spatial_weights(coords, k=6)
+    W = spatial_weights(coord_array, k=6)
 
     metrics = {
         "silhouette": compute_silhouette(embeddings, labels),
@@ -53,22 +53,20 @@ def min_max_normalize(values: list[float]) -> list[float]:
 def load_and_align(
     pred_csv: Path,
     emb_csv: Path,
-    coord_csv: Path
+    coords: dict[str, tuple[float, float]]
 ):
     # Read with barcode as index
     pred = pd.read_csv(pred_csv, index_col=0)
     emb = pd.read_csv(emb_csv, index_col=0)
-    coord = pd.read_csv(coord_csv, index_col=0)
 
     # Intersection: keep only barcodes in all three files
-    common = pred.index.intersection(emb.index).intersection(coord.index)
+    common = pred.index.intersection(emb.index).intersection(coords.keys())
     if len(common) == 0:
         raise ValueError("No common barcodes found across the three files")
 
     # Align order
     pred = pred.loc[common]
     emb = emb.loc[common]
-    coord = coord.loc[common]
 
     # Labels
     if len(pred.columns) < 1:
@@ -81,13 +79,10 @@ def load_and_align(
         raise ValueError("No numeric columns found in embedding file")
     embeddings = emb_num.to_numpy()
 
-    # Coordinates: simply take the **last two columns** of coord
-    if len(coord.columns) < 2:
-        raise ValueError("coord file has fewer than 2 columns")
+    # Coordinates: build (x, y) array from the coords dict in aligned order
+    coord_array = np.array([[coords[barcode][0], coords[barcode][1]] for barcode in common])
 
-    coords = coord.iloc[:, [-1, -2]].to_numpy()  # last two columns
-
-    return labels, embeddings, coords
+    return labels, embeddings, coord_array
 
 
 def compute_silhouette(

@@ -5,7 +5,7 @@ import httpx
 from app.core.celery import celery_app
 from app.core.database import SessionLocal
 from app.core.storage_space import DatasetSpace
-from app.dataset import get_dataset
+from app.dataset import get_data_reader
 from app.exceptions.dataset_validation_exception import DatasetValidationError
 from app.models.dataset import DatasetExtractionStatus
 from app.repositories import dataset_repository
@@ -38,8 +38,8 @@ def process_dataset_task(self, dataset_id: str) -> None:
 
         extract_zip(zip_path=Path(zip_path), target_dir=extraction_path)
 
-        dataset_handler = get_dataset(dataset.technology)
-        dataset_handler.validate_dataset(extraction_path)
+        dataset_reader = get_data_reader(dataset.technology, extraction_path)
+        dataset_reader.validate()
 
         dataset_repository.update_dataset_status(db, dataset_id, DatasetExtractionStatus.READY)
 

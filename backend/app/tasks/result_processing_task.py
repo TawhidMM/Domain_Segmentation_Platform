@@ -48,7 +48,7 @@ def process_imported_results(
             _move_file(staging_dir, run_context.output_dir, "embeddings.csv")
 
             tool_executor = ToolExecutor(run_context)
-            tool_executor.posst_process_result()
+            tool_executor.post_process_result()
 
             mark_finished(db, run)
 

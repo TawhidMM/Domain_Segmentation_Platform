@@ -1,3 +1,5 @@
+import json
+from typing import Optional
 from uuid import uuid4
 
 from celery.result import AsyncResult
@@ -9,7 +11,8 @@ from app.core.celery import celery_app
 from app.core.database import get_db
 from app.core.sample_datasets import SAMPLE_DATASETS
 from app.core.storage_space import DatasetSpace
-from app.dataset.visium import VisiumDataset
+from app.core.workspace import RunContext
+from app.dataset import get_data_reader
 from app.repositories.dataset_repository import get_valid_dataset_ids, get_dataset_by_id
 from app.schemas.dataset import (
     DownloadPhase,
@@ -82,37 +85,45 @@ def update_name(
     return {"dataset_id": dataset.dataset_id, "dataset_name": dataset.dataset_name}
 
 
+def _stored_coordinate_space(run_context: RunContext) -> Optional[str]:
+    result_path = run_context.result_file
+    if not result_path.exists():
+        return None
+    try:
+        result = json.loads(result_path.read_text())
+        return result.get("coordinate_space")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 @router.get("/{run_id}/histology", responses={200: {"content": {"image/png": {}}}})
 def get_histology(
     run_id: str,
     token: str = Query(...),
+    space: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     run = require_run_with_access(db, run_id, token)
     run_context = build_run_context(db, run)
 
     dataset_dir = run_context.dataset_path
+    dataset_reader = get_data_reader(run_context.technology, dataset_dir)
 
-    spatial_dir = dataset_dir / "spatial"
-    if not spatial_dir.exists():
-        # For ScribbleDom structure
-        possible_paths = list(dataset_dir.rglob("spatial"))
-        if possible_paths:
-            spatial_dir = possible_paths[0]
-        else:
-            raise HTTPException(
-                status_code=404, 
-                detail="No spatial result_directory found")
-    
-    # Get histology image path
-    image_path, image_type = VisiumDataset().get_histology_image_path(spatial_dir)
-    
+    # Resolve the coordinate space: explicit query param > stored coordinate_space > default
+    if space is None:
+        space = _stored_coordinate_space(run_context) or dataset_reader.default_display_space
+
+    try:
+        image_path, _ = dataset_reader.get_histology_image_path(space)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     if image_path is None:
         raise HTTPException(
             status_code=404,
             detail="No histology image available"
         )
-    
+
     # Return image with caching headers
     return FileResponse(
         path=image_path,

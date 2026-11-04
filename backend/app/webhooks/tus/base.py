@@ -3,7 +3,7 @@ from typing import Any
 
 
 class TusUploadHandler(ABC):
-    """One handler per upload_type. Mirrors the SpatialDataset registry
+    """One handler per upload_type. Mirrors the SpatialDataReader registry
     pattern — each handler owns everything it needs to know about its
     upload type, instead of a shared dispatcher branching on strings."""
 

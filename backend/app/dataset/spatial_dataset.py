@@ -1,5 +1,7 @@
+import csv
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Optional
 
 import glasbey
 import numpy as np
@@ -7,43 +9,59 @@ import spaco
 from PIL import Image
 
 
-class SpatialDataset(ABC):
+class SpatialDataReader(ABC):
+    display_spaces: tuple[str, ...] = ("native",)
+    default_display_space: str = "native"
+
+    def __init__(self, dataset_dir: Path):
+        self.dataset_dir = dataset_dir
+
     @abstractmethod
-    def validate_dataset(self, extracted_dir: Path) -> None:
+    def validate(self) -> None:
         pass
 
     @abstractmethod
-    def resolve_spatial_dir(self, dataset_dir: Path) -> Path:
+    def read_coordinates(self) -> dict[str, tuple[float, float]]:
         pass
 
-    @abstractmethod
-    def resolve_coordinates_file(self, spatial_dir: Path) -> Path:
-        pass
+    def _check_space(self, space: Optional[str]) -> str:
+        space = space or self.default_display_space
+        if space not in self.display_spaces:
+            raise ValueError(
+                f"Unsupported space {space!r}; choose from {self.display_spaces}"
+            )
+        return space
 
-    @abstractmethod
-    def read_scale_factors(self, spatial_dir: Path) -> dict:
-        pass
+    def read_display_coordinates(
+        self, space: Optional[str] = None
+    ) -> dict[str, tuple[float, float]]:
+        self._check_space(space)
+        return self.read_coordinates()
 
-    @abstractmethod
+    def get_histology_image_path(
+        self, space: Optional[str] = None
+    ) -> tuple[Optional[Path], Optional[str]]:
+        self._check_space(space)
+        return None, None
+
     def read_predictions(self, prediction_file: Path) -> dict:
-        pass
+        pred_map = {}
+        with prediction_file.open(newline="") as f:
+            reader = csv.reader(f)
+            next(reader)
+            for row in reader:
+                if len(row) < 2:
+                    continue
+                barcode = row[0].strip()
+                domain = int(row[1])
+                pred_map[barcode] = domain
+        return pred_map
 
-    @abstractmethod
-    def read_coordinates(self, coord_file: Path, scale_factors: dict | None = None) -> dict:
-        pass
-
-    @abstractmethod
-    def get_histology_image_path(self, spatial_dir: Path) -> tuple[Path | None, str | None]:
-        pass
-
-    def merge_predictions_and_coords(
-        self,
-        predictions_file: Path,
-        coords_file: Path,
-        scale_factors: dict | None = None,
+    def get_spots(
+        self, predictions_file: Path, space: Optional[str] = None
     ) -> list:
         pred = self.read_predictions(predictions_file)
-        coords = self.read_coordinates(coords_file, scale_factors)
+        coords = self.read_display_coordinates(space)
 
         spots = []
         for barcode, domain in pred.items():
