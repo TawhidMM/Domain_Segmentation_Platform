@@ -9,6 +9,7 @@ from PIL import Image
 
 from app.dataset.spatial_dataset import SpatialDataReader
 from app.exceptions.dataset_validation_exception import DatasetValidationError
+from app.utils.csv_utils import has_header_row
 
 
 class VisiumDataReader(SpatialDataReader):
@@ -137,8 +138,7 @@ class VisiumDataReader(SpatialDataReader):
                 if first_row is None:
                     raise DatasetValidationError(f"File '{positions_file.name}' is empty.")
 
-                # Dynamic header check (Space Ranger v2+ has 'barcode' header; v1 has data)
-                has_header = first_row[0].strip().lower() == "barcode"
+                has_header = has_header_row(first_row)
 
                 if not has_header:
                     # Treat first row as data
@@ -273,7 +273,7 @@ class VisiumDataReader(SpatialDataReader):
             with positions_file.open(newline="", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 first_row = next(reader, None)
-                if first_row and first_row[0].strip().lower() != "barcode":
+                if not has_header_row(first_row):
                     position_barcodes.add(first_row[0].strip().strip('"'))
 
                 for row in reader:
@@ -323,16 +323,25 @@ class VisiumDataReader(SpatialDataReader):
         coord_map = {}
         with self._coordinates_file.open(newline="") as f:
             reader = csv.reader(f)
+            first_row = next(reader, None)
+            if first_row is None:
+                return coord_map
+            if not has_header_row(first_row):
+                self._process_coordinates_row(first_row, coord_map)
             for row in reader:
-                if len(row) < 6:
-                    continue
-                if str(row[1]).strip() == "0":
-                    continue
-                barcode = row[0].strip()
-                pxl_col = float(row[5])
-                pxl_row = float(row[4])
-                coord_map[barcode] = (pxl_col, pxl_row)
+                self._process_coordinates_row(row, coord_map)
         return coord_map
+
+    @staticmethod
+    def _process_coordinates_row(row: List[str], coord_map: dict) -> None:
+        if len(row) < 6:
+            return
+        if str(row[1]).strip() == "0":
+            return
+        barcode = row[0].strip()
+        pxl_col = float(row[5])
+        pxl_row = float(row[4])
+        coord_map[barcode] = (pxl_col, pxl_row)
 
     def read_display_coordinates(
         self, space: Optional[str] = None
@@ -358,7 +367,6 @@ class VisiumDataReader(SpatialDataReader):
         space = self._check_space(space)
 
         if space == "fullres":
-            # Full-resolution histology image (common Space Ranger v2 outputs)
             for name in ("tissue_fullres_image.tif", "tissue_full_image.tif"):
                 image_file = self._spatial_dir / name
                 if image_file.exists():
