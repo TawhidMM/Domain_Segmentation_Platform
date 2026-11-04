@@ -41,10 +41,12 @@ parameters:
   tau:
     type: float
     label: Contrastive temperature (tau)
+    min: 0
     ui_group: advanced
   num_im_neigh:
     type: int
     label: Image neighbors
+    min: 1
     ui_group: advanced
     depends_on:
       profile:
@@ -53,10 +55,12 @@ parameters:
   learning_rate:
     type: float
     label: Learning rate
+    min: 0
     ui_group: advanced
   num_layers:
     type: int
     label: GCN layers
+    min: 1
     ui_group: advanced
   activation:
     type: enum

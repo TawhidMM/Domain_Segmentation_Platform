@@ -1,13 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { v4 as uuid4 } from 'uuid';
-import { Box, Button, Stepper, Step, StepLabel, Divider, Tooltip, Paper, Typography, IconButton } from '@mui/material';
+import { Box, Button, Stepper, Step, StepLabel, Divider, Tooltip, Paper, Typography, IconButton, Alert } from '@mui/material';
 import { ArrowBack, ArrowForward, Add, Edit } from '@mui/icons-material';
 import { useApp } from '@/context/AppContext';
 import { usePipelineStore } from '@/stores/pipeline';
 import { useExperimentsStore } from '@/stores/experiments';
 import { useUIStore } from '@/stores/ui/uiStore.ts';
 import { ToolSchema, Experiment, ExperimentStatus, WorkspaceView } from '@/types';
-import { prepareParametersForSubmission } from '@/utils/parameterUtils';
+import { prepareParametersForSubmission, validateParameterValues } from '@/utils/parameterUtils';
 import ParameterConfig from './ParameterConfig';
 import DatasetSelectionBar from './DatasetSelectionBar';
 import ToolSelector from './ToolSelector';
@@ -49,16 +49,30 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
   const seedList = configuration.seedList;
 
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
+  const [paramErrors, setParamErrors] = useState<string[]>([]);
 
   const handleToolSelect = useCallback((schema: ToolSchema) => {
     setSelectedTool(schema);
     resetDatasetParamOverrides();
+    setParamErrors([]);
   }, [resetDatasetParamOverrides, setSelectedTool]);
+
+  const handleParametersChange = (nextValues: Record<string, any>) => {
+    setParamErrors([]);
+    setParameters(nextValues);
+  };
 
   const handleCreateExperiment = useCallback(() => {
     if (!selectedToolSchema) {
       return;
     }
+
+    const validation = validateParameterValues(selectedToolSchema, parameters);
+    if (!validation.valid) {
+      setParamErrors(validation.errors);
+      return;
+    }
+    setParamErrors([]);
 
     const preparedParams = prepareParametersForSubmission(selectedToolSchema, parameters);
 
@@ -198,11 +212,20 @@ const PipelineExecutionTrack: React.FC<PipelineExecutionTrackProps> = ({ availab
             onSeedChange={setSeedList}
           />
 
+          {paramErrors.length > 0 ? (
+            <Alert severity="error">
+              <ul>
+                {paramErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </Alert>
+          ) : null}
           {selectedDatasetIds.length > 0 ? (
             <ParameterConfig
               toolSchema={selectedToolSchema}
               values={parameters}
-              onChange={setParameters}
+              onChange={handleParametersChange}
               selectedDatasetIds={selectedDatasetIds}
               focusDatasetId={focusDatasetId}
               focusDatasetName={focusedDatasetName}

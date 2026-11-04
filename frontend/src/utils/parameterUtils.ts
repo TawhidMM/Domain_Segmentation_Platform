@@ -170,6 +170,10 @@ export const validateParameterValues = (
         errors.push(`Parameter "${param.label}" must be a valid number`);
         return;
       }
+      // int must be whole numbers
+      if (param.type === 'int' && !Number.isInteger(value)) {
+        errors.push(`Parameter "${param.label}" must be a whole number`);
+      }
       if (param.min !== undefined && value < param.min) {
         errors.push(`Parameter "${param.label}" must be at least ${param.min}`);
       }
@@ -198,6 +202,13 @@ export const validateParameterValues = (
         errors.push(`Parameter "${param.label}" must contain at least one value`);
       } else if (!value.every(v => Number.isInteger(v))) {
         errors.push(`Parameter "${param.label}" must contain only integers`);
+      } else {
+        if (param.min !== undefined && value.some((v: number) => v < param.min)) {
+          errors.push(`Parameter "${param.label}" must be at least ${param.min}`);
+        }
+        if (param.max !== undefined && value.some((v: number) => v > param.max)) {
+          errors.push(`Parameter "${param.label}" must be at most ${param.max}`);
+        }
       }
     }
 
@@ -207,13 +218,31 @@ export const validateParameterValues = (
         errors.push(`Parameter "${param.label}" must contain at least one value`);
       } else if (!value.every(v => typeof v === 'number' && !isNaN(v))) {
         errors.push(`Parameter "${param.label}" must contain only numbers`);
+      } else {
+        if (param.min !== undefined && value.some((v: number) => v < param.min)) {
+          errors.push(`Parameter "${param.label}" must be at least ${param.min}`);
+        }
+        if (param.max !== undefined && value.some((v: number) => v > param.max)) {
+          errors.push(`Parameter "${param.label}" must be at most ${param.max}`);
+        }
       }
     }
 
     // Validate float_range
     if (param.type === 'float_range') {
-      if (!value.min || !value.max || !value.step) {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        errors.push(`Parameter "${param.label}" must be a range with min, max, and step`);
+      } else if (value.min == null || value.max == null || value.step == null) {
         errors.push(`Parameter "${param.label}" must have min, max, and step values`);
+      } else if (
+        typeof value.min !== 'number' ||
+        typeof value.max !== 'number' ||
+        typeof value.step !== 'number' ||
+        !isFinite(value.min) ||
+        !isFinite(value.max) ||
+        !isFinite(value.step)
+      ) {
+        errors.push(`Parameter "${param.label}" min, max, and step must be finite numbers`);
       } else if (value.min >= value.max) {
         errors.push(`Parameter "${param.label}": min must be less than max`);
       } else if (value.step <= 0) {

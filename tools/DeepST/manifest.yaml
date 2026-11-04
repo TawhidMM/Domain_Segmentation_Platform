@@ -12,16 +12,19 @@ parameters:
     type: int
     label: Target spatial domains
     default: 7
+    min: 2
     ui_group: basic
   pca_n_comps:
     type: int
     label: Input PCA components
     default: 200
+    min: 1
     ui_group: basic
   k_graph:
     type: int
     label: GNN Graph Neighbors (k)
     default: 12
+    min: 1
     ui_group: basic
   use_morphological:
     type: enum
@@ -35,21 +38,25 @@ parameters:
     type: int
     label: Gene augmentation search pool
     default: 30
+    min: 1
     ui_group: advanced
   neighbour_k:
     type: int
     label: Gene Augmentation neighbors (top-k)
     default: 4
+    min: 1
     ui_group: advanced
   n_components:
     type: int
     label: Gene similarity PCA components
     default: 100
+    min: 1
     ui_group: advanced
   img_pca_n_comps:
     type: int
     label: Image feature PCA
     default: 50
+    min: 1
     ui_group: advanced
     depends_on:
       use_morphological:
@@ -81,6 +88,7 @@ parameters:
     type: float
     label: GNN radius cutoff
     default: 150.0
+    min: 0
     ui_group: advanced
     depends_on:
       distType:
@@ -110,21 +118,26 @@ parameters:
     type: int
     label: Pretraining epochs
     default: 1000
+    min: 1
     ui_group: basic
   epochs:
     type: int
     label: Training epochs
     default: 500
+    min: 1
     ui_group: basic
   p_drop:
     type: float
     label: Dropout probability
     default: 0.01
+    min: 0
+    max: 1
     ui_group: advanced
   dec_cluster_n:
     type: int
     label: Internal cluster prototypes
     default: 20
+    min: 1
     ui_group: advanced
 profiles:
   default:

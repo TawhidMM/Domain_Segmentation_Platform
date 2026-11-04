@@ -39,11 +39,13 @@ parameters:
     type: int
     label: Maximum iterations
     default: 300
+    min: 1
     ui_group: basic
   nConv:
     type: int
     label: Number of GCN layers
     default: 1
+    min: 1
     ui_group: advanced
   alpha_options:
     type: float_range

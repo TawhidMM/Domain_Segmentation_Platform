@@ -1,3 +1,4 @@
+import math
 from typing import Dict, Any
 from copy import deepcopy
 
@@ -30,6 +31,7 @@ def resolve_config(
     config = apply_global_defaults(manifest, config)
     config = apply_profile_overrides(manifest, user_input, config)
     config = apply_user_overrides(manifest, user_input, config)
+    validate_config(manifest, config)
     config = normalize_param_values(manifest, config)
 
     return config
@@ -85,6 +87,96 @@ def apply_user_overrides(
             config[key] = value
 
     return config
+
+
+def validate_config(
+    manifest: Dict[str, Any],
+    config: Dict[str, Any]
+) -> None:
+   
+    errors: list[str] = []
+    parameters = manifest.get("parameters", {})
+
+    for param_key, meta in parameters.items():
+        value = config.get(param_key)
+        label = meta.get("label", param_key)
+        param_type = meta.get("type")
+
+        if value is None:
+            if "default" not in meta:
+                errors.append(f'Parameter "{label}" is required')
+            continue
+
+        if param_type == "int":
+            if isinstance(value, bool) or not isinstance(value, int):
+                errors.append(f'Parameter "{label}" must be a whole number')
+            else:
+                if "min" in meta and value < meta["min"]:
+                    errors.append(f'Parameter "{label}" must be at least {meta["min"]}')
+                if "max" in meta and value > meta["max"]:
+                    errors.append(f'Parameter "{label}" must be at most {meta["max"]}')
+        elif param_type == "float":
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                errors.append(f'Parameter "{label}" must be a valid number')
+            else:
+                fval = float(value)
+                if not math.isfinite(fval):
+                    errors.append(f'Parameter "{label}" must be a finite number')
+                else:
+                    if "min" in meta and fval < meta["min"]:
+                        errors.append(f'Parameter "{label}" must be at least {meta["min"]}')
+                    if "max" in meta and fval > meta["max"]:
+                        errors.append(f'Parameter "{label}" must be at most {meta["max"]}')
+        elif param_type == "bool":
+            if not isinstance(value, bool):
+                errors.append(f'Parameter "{label}" must be a boolean')
+        elif param_type == "enum":
+            options = meta.get("options") or []
+            if value not in options:
+                errors.append(f'Parameter "{label}" must be one of: {", ".join(map(str, options))}')
+        elif param_type == "int_list":
+            if not isinstance(value, list) or len(value) == 0:
+                errors.append(f'Parameter "{label}" must contain at least one value')
+            elif not all(isinstance(v, int) and not isinstance(v, bool) for v in value):
+                errors.append(f'Parameter "{label}" must contain only integers')
+            else:
+                if "min" in meta and any(v < meta["min"] for v in value):
+                    errors.append(f'Parameter "{label}" must be at least {meta["min"]}')
+                if "max" in meta and any(v > meta["max"] for v in value):
+                    errors.append(f'Parameter "{label}" must be at most {meta["max"]}')
+        elif param_type == "float_list":
+            if not isinstance(value, list) or len(value) == 0:
+                errors.append(f'Parameter "{label}" must contain at least one value')
+            elif not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value):
+                errors.append(f'Parameter "{label}" must contain only numbers')
+            else:
+                if "min" in meta and any(float(v) < meta["min"] for v in value):
+                    errors.append(f'Parameter "{label}" must be at least {meta["min"]}')
+                if "max" in meta and any(float(v) > meta["max"] for v in value):
+                    errors.append(f'Parameter "{label}" must be at most {meta["max"]}')
+        elif param_type == "float_range":
+            if not isinstance(value, dict):
+                errors.append(f'Parameter "{label}" must be a range with min, max, and step')
+                continue
+            min_v = value.get("min")
+            max_v = value.get("max")
+            step_v = value.get("step")
+            if min_v is None or max_v is None or step_v is None:
+                errors.append(f'Parameter "{label}" must have min, max, and step values')
+                continue
+            if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (min_v, max_v, step_v)):
+                errors.append(f'Parameter "{label}" min, max, and step must be numbers')
+                continue
+            min_f, max_f, step_f = float(min_v), float(max_v), float(step_v)
+            if not (math.isfinite(min_f) and math.isfinite(max_f) and math.isfinite(step_f)):
+                errors.append(f'Parameter "{label}" min, max, and step must be finite numbers')
+            elif min_f >= max_f:
+                errors.append(f'Parameter "{label}": min must be less than max')
+            elif step_f <= 0:
+                errors.append(f'Parameter "{label}": step must be greater than 0')
+
+    if errors:
+        raise ValueError("; ".join(errors))
 
 
 def normalize_param_values(
