@@ -13,7 +13,7 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 print("TABLES:", Base.metadata.tables.keys())
-print("USING DB:", settings.DATABASE_URL)
+
 # 2. Force the URL to come from your Settings class 
 # This covers both ONLINE and OFFLINE modes
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

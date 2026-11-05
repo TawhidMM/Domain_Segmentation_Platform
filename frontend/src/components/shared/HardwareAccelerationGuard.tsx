@@ -12,6 +12,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
+import { Info } from '@mui/icons-material';
 import { useHardwareAcceleration } from '@/hooks/useHardwareAcceleration';
 
 interface HardwareAccelerationGuardProps {
@@ -61,11 +62,9 @@ function getEnableInstructions(browser: string): InstructionStep[] {
         title: 'Enable hardware acceleration',
         description: (
           <>
-            Open{' '}
-            <Link href={settingsLink} target="_blank" rel="noopener noreferrer">
-              {settingsLink}
-            </Link>
-            {' '}and turn on the <strong>Use hardware acceleration when available</strong> option. Then click Relaunch.
+            Copy and paste into your address bar:{' '}
+            <code style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{settingsLink}</code>{' '}
+            and turn on the <strong>Use hardware acceleration when available</strong> option. Then click Relaunch.
           </>
         ),
       },
@@ -73,11 +72,9 @@ function getEnableInstructions(browser: string): InstructionStep[] {
         title: 'Enable GPU flags',
         description: (
           <>
-            Open{' '}
-            <Link href={flagsLink} target="_blank" rel="noopener noreferrer">
-              {flagsLink}
-            </Link>
-            {' '}and enable:
+            Copy and paste into your address bar:{' '}
+            <code style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{flagsLink}</code>{' '}
+            and enable:
           </>
         ),
         subSteps: [
@@ -112,11 +109,9 @@ function getEnableInstructions(browser: string): InstructionStep[] {
         title: 'Enable hardware acceleration',
         description: (
           <>
-            Go to the{' '}
-            <Link href={prefsLink} target="_blank" rel="noopener noreferrer">
-              {prefsLink}
-            </Link>{' '}
-            and Go the <strong>Performance</strong> section, then:
+            Go to:{' '}
+            <code style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{prefsLink}</code>{' '}
+            then go to the <strong>Performance</strong> section:
           </>
         ),
         subSteps: ['Uncheck “Use recommended performance settings”', 'Check “Use hardware acceleration when available'],
@@ -125,10 +120,8 @@ function getEnableInstructions(browser: string): InstructionStep[] {
         title: 'WebGL preferences',
         description: (
           <>
-            Go to the{' '}
-            <Link href={'about:config'} target="_blank" rel="noopener noreferrer">
-              {'about:config'}
-            </Link>{' '}
+            Go to:{' '}
+            <code style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>about:config</code>{' '}
             and search and set values for these preferences:.
           </>
         ),
@@ -238,6 +231,15 @@ const HardwareAccelerationGuard: React.FC<HardwareAccelerationGuardProps> = ({
           <Typography variant="body2">
             This visualization uses WebGL (via deck.gl / plotly). Please verify support at get.webgl.org and enable hardware
             acceleration using the steps below, then reload this page.
+          </Typography>
+        </Alert>
+
+        <Alert severity="info" icon={<Info fontSize="small" />}>
+          <AlertTitle>Import and export still work without WebGL</AlertTitle>
+          <Typography variant="body2">
+            You can still <strong>import CSV results</strong> for annotation and{' '}
+            <strong>export SVG/PDF plots</strong> — these do not require WebGL. Only the
+            interactive visualization itself needs WebGL.
           </Typography>
         </Alert>
 
